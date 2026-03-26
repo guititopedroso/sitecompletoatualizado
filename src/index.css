@@ -24,7 +24,7 @@
     --muted: 200 20% 94%;
     --muted-foreground: 210 15% 45%;
 
-    --accent: 16 85% 55%;
+    --accent: 43 70% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -41,18 +41,18 @@
     --ocean-mid: 200 85% 30%;
     --turquoise: 175 60% 45%;
     --turquoise-light: 175 55% 55%;
-    --coral: 16 85% 55%;
-    --coral-light: 16 80% 65%;
+    --coral: 43 70% 45%;
+    --coral-light: 43 60% 55%;
     --sand: 40 30% 92%;
     --foam: 190 30% 96%;
 
     --gradient-ocean: linear-gradient(135deg, hsl(210 80% 22%), hsl(200 85% 30%));
     --gradient-turquoise: linear-gradient(135deg, hsl(200 85% 30%), hsl(175 60% 45%));
-    --gradient-sunset: linear-gradient(135deg, hsl(16 85% 55%), hsl(40 90% 55%));
+    --gradient-sunset: linear-gradient(135deg, hsl(43 70% 45%), hsl(35 80% 50%));
     --gradient-hero-overlay: linear-gradient(180deg, hsla(210 80% 12% / 0.6) 0%, hsla(210 80% 12% / 0.3) 50%, hsla(210 80% 12% / 0.7) 100%);
 
     --shadow-ocean: 0 10px 40px -12px hsla(200 85% 30% / 0.35);
-    --shadow-coral: 0 10px 40px -12px hsla(16 85% 55% / 0.35);
+    --shadow-coral: 0 10px 40px -12px hsla(43 70% 45% / 0.35);
     --shadow-card: 0 4px 24px -4px hsla(210 60% 10% / 0.08);
     --shadow-card-hover: 0 12px 40px -8px hsla(210 60% 10% / 0.15);
 

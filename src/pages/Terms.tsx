@@ -25,7 +25,7 @@ const Terms = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">1. Objeto</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Os presentes Termos e Condições regulam a utilização dos serviços de aluguer de motas de água (jet skis) prestados pela ValeJet, com operações na área de jurisdição da Capitania do Porto de Setúbal, abrangendo as zonas de Setúbal e Tróia, em conformidade com o Edital n.º 97/2022, de 28 de janeiro, publicado no Diário da República.
+            Os presentes Termos e Condições regulam a utilização dos serviços de aluguer de motas de água (jet skis) prestados pela RoyalCoast, com operações na área de jurisdição da Capitania do Porto de Setúbal, abrangendo as zonas de Setúbal e Tróia, em conformidade com o Edital n.º 97/2022, de 28 de janeiro, publicado no Diário da República.
           </p>
         </section>
 
@@ -71,7 +71,7 @@ const Terms = () => (
             <li>Idade mínima de 18 anos para condução da mota de água.</li>
             <li>É obrigatório o uso de <strong>colete salva-vidas</strong> por todos os ocupantes durante toda a atividade.</li>
             <li>O utilizador deve apresentar documento de identificação válido no momento da reserva.</li>
-            <li>O utilizador compromete-se a seguir todas as instruções de segurança fornecidas pela equipa ValeJet e pelo briefing pré-atividade.</li>
+            <li>O utilizador compromete-se a seguir todas as instruções de segurança fornecidas pela equipa RoyalCoast e pelo briefing pré-atividade.</li>
             <li>É proibida a condução sob efeito de álcool ou substâncias psicotrópicas.</li>
             <li>É obrigatório respeitar os limites de velocidade e as zonas de navegação autorizadas.</li>
           </ul>
@@ -94,7 +94,7 @@ const Terms = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">6. Proteção Ambiental</h2>
           <p className="text-muted-foreground leading-relaxed">
-            A área de operação da ValeJet inclui zonas de elevado valor ambiental, nomeadamente a Reserva Natural do Estuário do Sado (RNES), o Parque Natural da Arrábida e zonas classificadas como Rede Natura 2000. Os utilizadores comprometem-se a:
+            A área de operação da RoyalCoast inclui zonas de elevado valor ambiental, nomeadamente a Reserva Natural do Estuário do Sado (RNES), o Parque Natural da Arrábida e zonas classificadas como Rede Natura 2000. Os utilizadores comprometem-se a:
           </p>
           <ul className="text-muted-foreground space-y-2 list-disc pl-6">
             <li>Não lançar detritos, plásticos ou qualquer substância poluente nas águas.</li>
@@ -113,7 +113,7 @@ const Terms = () => (
           <ul className="text-muted-foreground space-y-2 list-disc pl-6">
             <li>A fiscalização compete à Polícia Marítima e às autoridades policiais ou administrativas competentes.</li>
             <li>O utilizador é responsável por quaisquer danos causados ao equipamento por uso negligente ou indevido.</li>
-            <li>A ValeJet reserva-se o direito de interromper a atividade a qualquer momento por razões de segurança.</li>
+            <li>A RoyalCoast reserva-se o direito de interromper a atividade a qualquer momento por razões de segurança.</li>
             <li>O utilizador assume a responsabilidade pelo cumprimento de todas as normas de navegação aplicáveis.</li>
           </ul>
         </section>
@@ -121,9 +121,9 @@ const Terms = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">8. Reservas e Cancelamentos</h2>
           <ul className="text-muted-foreground space-y-2 list-disc pl-6">
-            <li>As reservas estão sujeitas a confirmação pela equipa ValeJet.</li>
-            <li>A ValeJet reserva-se o direito de cancelar ou reagendar atividades por razões de segurança, condições meteorológicas adversas ou situação de barra fechada/condicionada.</li>
-            <li>Em caso de cancelamento por parte da ValeJet, será oferecido reagendamento ou reembolso integral.</li>
+            <li>As reservas estão sujeitas a confirmação pela equipa RoyalCoast.</li>
+            <li>A RoyalCoast reserva-se o direito de cancelar ou reagendar atividades por razões de segurança, condições meteorológicas adversas ou situação de barra fechada/condicionada.</li>
+            <li>Em caso de cancelamento por parte da RoyalCoast, será oferecido reagendamento ou reembolso integral.</li>
             <li>Cancelamentos pelo utilizador com menos de 24 horas de antecedência podem não ser reembolsados.</li>
           </ul>
         </section>
@@ -141,7 +141,7 @@ const Terms = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">10. Disposições Finais</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Ao efetuar uma reserva e utilizar os serviços da ValeJet, o utilizador declara ter lido, compreendido e aceite os presentes Termos e Condições na sua integralidade. A ValeJet reserva-se o direito de alterar os presentes termos, sendo as alterações comunicadas aos utilizadores através do website.
+            Ao efetuar uma reserva e utilizar os serviços da RoyalCoast, o utilizador declara ter lido, compreendido e aceite os presentes Termos e Condições na sua integralidade. A RoyalCoast reserva-se o direito de alterar os presentes termos, sendo as alterações comunicadas aos utilizadores através do website.
           </p>
           <p className="text-muted-foreground leading-relaxed mt-4">
             Os presentes Termos e Condições são regidos pela legislação portuguesa. Para resolução de litígios é competente o foro da comarca de Setúbal.

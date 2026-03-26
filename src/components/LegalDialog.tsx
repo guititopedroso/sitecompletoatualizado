@@ -12,7 +12,7 @@ const TermsContent = () => (
     <section>
       <h3 className="font-display text-lg font-700 text-foreground mb-2">1. Objeto</h3>
       <p className="text-muted-foreground leading-relaxed">
-        Os presentes Termos e Condições regulam a utilização dos serviços de aluguer de motas de água (jet skis) prestados pela ValeJet, com operações na área de jurisdição da Capitania do Porto de Setúbal, abrangendo as zonas de Setúbal e Tróia, em conformidade com o Edital n.º 97/2022.
+        Os presentes Termos e Condições regulam a utilização dos serviços de aluguer de motas de água (jet skis) prestados pela RoyalCoast, com operações na área de jurisdição da Capitania do Porto de Setúbal, abrangendo as zonas de Setúbal e Tróia, em conformidade com o Edital n.º 97/2022.
       </p>
     </section>
     <section>
@@ -91,7 +91,7 @@ const PrivacyContent = () => (
     <section>
       <h3 className="font-display text-lg font-700 text-foreground mb-2">1. Responsável pelo Tratamento</h3>
       <p className="text-muted-foreground leading-relaxed">
-        A ValeJet, com sede em Setúbal, Portugal, é a entidade responsável pelo tratamento dos dados pessoais recolhidos.
+        A RoyalCoast, com sede em Setúbal, Portugal, é a entidade responsável pelo tratamento dos dados pessoais recolhidos.
       </p>
     </section>
     <section>
@@ -141,7 +141,7 @@ const PrivacyContent = () => (
     <section>
       <h3 className="font-display text-lg font-700 text-foreground mb-2">8. Segurança</h3>
       <p className="text-muted-foreground leading-relaxed">
-        A ValeJet adota medidas técnicas e organizativas adequadas conforme o artigo 32.º do RGPD.
+        A RoyalCoast adota medidas técnicas e organizativas adequadas conforme o artigo 32.º do RGPD.
       </p>
     </section>
   </div>

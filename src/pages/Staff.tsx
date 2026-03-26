@@ -182,7 +182,7 @@ const Staff = () => {
               <Lock className="text-primary-foreground" size={28} />
             </div>
             <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2">
-              Vale<span className="text-coral">Jet</span> Staff
+              Royal<span className="text-coral">Coast</span> Staff
             </h1>
             <p className="text-primary-foreground/60 text-sm mb-6">Área de empregados</p>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -217,7 +217,7 @@ const Staff = () => {
             <CalendarDays className="text-primary-foreground" size={24} />
             <div>
               <h1 className="font-display text-xl font-bold text-primary-foreground">
-                Vale<span className="text-coral">Jet</span> — Reservas
+                Royal<span className="text-coral">Coast</span> — Reservas
               </h1>
               <p className="text-primary-foreground/60 text-xs flex items-center gap-1">
                 <UserCircle size={12} />

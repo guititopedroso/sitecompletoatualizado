@@ -180,7 +180,7 @@ const Admin = () => {
               <Lock className="text-primary-foreground" size={28} />
             </div>
             <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2">
-              Vale<span className="text-coral">Jet</span> Admin
+              Royal<span className="text-coral">Coast</span> Admin
             </h1>
             <p className="text-primary-foreground/60 text-sm mb-6">Área reservada</p>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -214,7 +214,7 @@ const Admin = () => {
           <div className="flex items-center gap-3">
             <CalendarDays className="text-primary-foreground" size={24} />
             <h1 className="font-display text-xl font-bold text-primary-foreground">
-              Vale<span className="text-coral">Jet</span> — Reservas
+              Royal<span className="text-coral">Coast</span> — Reservas
             </h1>
           </div>
           <div className="flex items-center gap-2">

@@ -25,14 +25,14 @@ const Privacy = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">1. Responsável pelo Tratamento</h2>
           <p className="text-muted-foreground leading-relaxed">
-            A ValeJet, com sede em Setúbal, Portugal, é a entidade responsável pelo tratamento dos dados pessoais recolhidos através deste website e no âmbito da prestação dos seus serviços de aluguer de motas de água nas zonas de Setúbal e Tróia.
+            A RoyalCoast, com sede em Setúbal, Portugal, é a entidade responsável pelo tratamento dos dados pessoais recolhidos através deste website e no âmbito da prestação dos seus serviços de aluguer de motas de água nas zonas de Setúbal e Tróia.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">2. Dados Pessoais Recolhidos</h2>
           <p className="text-muted-foreground leading-relaxed">
-            No âmbito da utilização do website e da realização de reservas, a ValeJet pode recolher os seguintes dados pessoais:
+            No âmbito da utilização do website e da realização de reservas, a RoyalCoast pode recolher os seguintes dados pessoais:
           </p>
           <ul className="text-muted-foreground space-y-2 list-disc pl-6">
             <li><strong>Dados de identificação:</strong> nome completo, documento de identificação.</li>
@@ -102,7 +102,7 @@ const Privacy = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">7. Cookies</h2>
           <p className="text-muted-foreground leading-relaxed">
-            O website da ValeJet utiliza cookies para melhorar a experiência de navegação. Os cookies utilizados incluem:
+            O website da RoyalCoast utiliza cookies para melhorar a experiência de navegação. Os cookies utilizados incluem:
           </p>
           <ul className="text-muted-foreground space-y-2 list-disc pl-6">
             <li><strong>Cookies essenciais:</strong> necessários para o funcionamento do website.</li>
@@ -149,21 +149,21 @@ const Privacy = () => (
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">10. Segurança dos Dados</h2>
           <p className="text-muted-foreground leading-relaxed">
-            A ValeJet adota medidas técnicas e organizativas adequadas para proteger os dados pessoais contra o acesso não autorizado, perda, destruição ou alteração, em conformidade com o artigo 32.º do RGPD.
+            A RoyalCoast adota medidas técnicas e organizativas adequadas para proteger os dados pessoais contra o acesso não autorizado, perda, destruição ou alteração, em conformidade com o artigo 32.º do RGPD.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">11. Alterações à Política de Privacidade</h2>
           <p className="text-muted-foreground leading-relaxed">
-            A ValeJet reserva-se o direito de alterar a presente Política de Privacidade a qualquer momento. As alterações serão publicadas nesta página com indicação da data de atualização. Recomendamos a consulta periódica desta página.
+            A RoyalCoast reserva-se o direito de alterar a presente Política de Privacidade a qualquer momento. As alterações serão publicadas nesta página com indicação da data de atualização. Recomendamos a consulta periódica desta página.
           </p>
         </section>
 
         <section>
           <h2 className="font-display text-2xl font-700 text-foreground">12. Contactos</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Para questões relacionadas com a proteção de dados pessoais, o utilizador pode contactar a ValeJet através dos meios disponibilizados na secção de contactos do website.
+            Para questões relacionadas com a proteção de dados pessoais, o utilizador pode contactar a RoyalCoast através dos meios disponibilizados na secção de contactos do website.
           </p>
         </section>
       </div>

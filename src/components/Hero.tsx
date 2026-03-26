@@ -1,20 +1,12 @@
 import { ChevronDown } from "lucide-react";
-import WaveDivider from "./WaveDivider";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRef } from "react";
+import SectionWrapper from "./ui/section-wrapper";
 
 const Hero = () => {
   const { t } = useLanguage();
   const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-
-  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const textY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   const scrollTo = (id: string) => {
     document.querySelector(id)?.scrollIntoView({ behavior: "smooth" });
@@ -22,7 +14,7 @@ const Hero = () => {
 
   return (
     <section id="hero" ref={ref} className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
-      <motion.div style={{ y: videoY }} className="absolute inset-0">
+      <motion.div className="absolute inset-0">
         <video autoPlay loop muted playsInline className="w-full h-[120%] object-cover">
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
@@ -45,11 +37,7 @@ const Hero = () => {
         ))}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 z-[5]">
-        <WaveDivider bgColor="hsl(200 20% 98%)" />
-      </div>
-
-      <motion.div style={{ y: textY, opacity }} className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <SectionWrapper className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -100,7 +88,7 @@ const Hero = () => {
             {t("hero_cta_book")}
           </motion.button>
         </motion.div>
-      </motion.div>
+      </SectionWrapper>
 
       <motion.button
         onClick={() => scrollTo("#sobre")}

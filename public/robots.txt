@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://www.valejet.pt/sitemap.xml
+Sitemap: https://www.royalcoast.pt/sitemap.xml

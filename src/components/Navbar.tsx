@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Menu, X, Globe } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Language, languageFlags, languageLabels } from "@/i18n/translations";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,11 +13,12 @@ const Navbar = () => {
 
   const navLinks = [
     { label: t("nav_home"), href: "#hero" },
-    { label: t("nav_about"), href: "#sobre" },
     { label: t("nav_experiences"), href: "#experiencias" },
     { label: t("nav_safety"), href: "#seguranca" },
+    { label: t("nav_about"), href: "#sobre" },
     { label: t("nav_gallery"), href: "#galeria" },
     { label: t("nav_contacts"), href: "#contactos" },
+    { label: "🎁 Afiliados", href: "/afiliado" },
   ];
 
   const languages: Language[] = ["pt", "en", "de", "es", "fr", "zh"];
@@ -57,24 +59,44 @@ const Navbar = () => {
           whileHover={{ scale: 1.05 }}
           className="font-display text-2xl font-900 tracking-tight text-primary-foreground"
         >
-          Vale<span className="text-coral">Jet</span>
+          Royal<span className="text-coral">Coast</span>
         </motion.button>
 
         {/* Desktop */}
         <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((l, i) => (
-            <motion.button
-              key={l.href}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.05 * i }}
-              onClick={() => scrollTo(l.href)}
-              whileHover={{ y: -2 }}
-              className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors"
-            >
-              {l.label}
-            </motion.button>
-          ))}
+          {navLinks.map((l, i) => {
+            const isPageLink = l.href.startsWith('/');
+            const commonClasses = "text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors";
+
+            if (isPageLink) {
+              return (
+                <motion.div
+                  key={l.href}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.05 * i }}
+                >
+                  <Link to={l.href} className={commonClasses}>
+                    {l.label}
+                  </Link>
+                </motion.div>
+              );
+            }
+
+            return (
+              <motion.button
+                key={l.href}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 * i }}
+                onClick={() => scrollTo(l.href)}
+                whileHover={{ y: -2 }}
+                className={commonClasses}
+              >
+                {l.label}
+              </motion.button>
+            )
+          })}
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -196,18 +218,37 @@ const Navbar = () => {
             className="md:hidden ocean-gradient border-t border-primary-foreground/10 overflow-hidden"
           >
             <div className="px-4 pb-6 pt-4 space-y-3">
-              {navLinks.map((l, i) => (
-                <motion.button
-                  key={l.href}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 * i }}
-                  onClick={() => scrollTo(l.href)}
-                  className="block w-full text-left text-primary-foreground/80 hover:text-primary-foreground py-2 text-sm font-medium"
-                >
-                  {l.label}
-                </motion.button>
-              ))}
+              {navLinks.map((l, i) => {
+                  const isPageLink = l.href.startsWith('/');
+                  const commonClasses = "block w-full text-left text-primary-foreground/80 hover:text-primary-foreground py-2 text-sm font-medium";
+
+                  if (isPageLink) {
+                    return (
+                      <motion.div
+                        key={l.href}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: 0.05 * i }}
+                      >
+                        <Link to={l.href} onClick={() => setMobileOpen(false)} className={commonClasses}>
+                          {l.label}
+                        </Link>
+                      </motion.div>
+                    )
+                  }
+                  return (
+                    <motion.button
+                      key={l.href}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.05 * i }}
+                      onClick={() => scrollTo(l.href)}
+                      className={commonClasses}
+                    >
+                      {l.label}
+                    </motion.button>
+                  )
+              })}
               <motion.button
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

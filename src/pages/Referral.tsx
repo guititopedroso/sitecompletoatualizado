@@ -46,7 +46,7 @@ const Referral = () => {
   };
 
   const referralLink = referralCode
-    ? `https://www.valejet.pt?ref=${referralCode}`
+    ? `https://www.royalcoast.pt?ref=${referralCode}`
     : "";
 
   const copyLink = () => {
@@ -90,7 +90,7 @@ const Referral = () => {
                 {[
                   { step: "1", text: "Cria o teu link único de afiliado" },
                   { step: "2", text: "Partilha com amigos e conhecidos" },
-                  { step: "3", text: "Quando 10 pessoas reservarem pelo teu link, ganhas uma viagem grátis! 🎉" },
+                  { step: "3", text: "Quando 4 pessoas reservarem pelo teu link, ganhas uma viagem de 30 minutos de mota de água grátis! 🎉" },
                 ].map((item) => (
                   <div key={item.step} className="flex items-start gap-3">
                     <div className="w-7 h-7 rounded-full ocean-gradient text-primary-foreground flex items-center justify-center font-display font-700 text-xs shrink-0">
@@ -161,7 +161,7 @@ const Referral = () => {
               <div className="w-full bg-muted rounded-full h-3 mb-2">
                 <div className="h-3 rounded-full ocean-gradient" style={{ width: "0%" }} />
               </div>
-              <p className="text-xs text-muted-foreground">0 de 10 reservas — faltam 10 para a viagem grátis!</p>
+              <p className="text-xs text-muted-foreground">0 de 4 reservas — faltam 4 para a viagem grátis!</p>
             </div>
           </motion.div>
         )}

@@ -20,8 +20,8 @@ const Contact = () => {
   const contactInfo = [
     { icon: Phone, title: t("contact_phone"), lines: ["+351 927 314 506"] },
     { icon: MessageCircle, title: t("contact_whatsapp"), lines: [t("contact_whatsapp_desc")] },
-    { icon: Mail, title: t("contact_email"), lines: ["info@valejet.pt"] },
-    { icon: Instagram, title: t("contact_instagram"), lines: ["@valejet.setubal"] },
+    { icon: Mail, title: t("contact_email"), lines: ["info@royalcoast.pt"] },
+    { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.setubal"] },
     { icon: Clock, title: t("contact_hours"), lines: [t("contact_hours_1"), t("contact_hours_2")] },
     { icon: MapPin, title: t("contact_location"), lines: [t("contact_loc_1"), t("contact_loc_2")] },
   ];
@@ -140,7 +140,7 @@ const Contact = () => {
             className="mt-16 rounded-2xl overflow-hidden shadow-card h-[300px] md:h-[400px]"
           >
             <iframe
-              title="Localização Vale Jet"
+              title="Localização Royal Coast"
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3118.5!2d-8.8882!3d38.5244!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd194f4a2e7b1b1d%3A0x1c5e3a5e7b1b1b1d!2sClube%20Naval%20Setubalense!5e0!3m2!1spt-PT!2spt!4v1700000000000!5m2!1spt-PT!2spt"
               width="100%"
               height="100%"
