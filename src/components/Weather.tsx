@@ -49,7 +49,7 @@ const Weather = () => {
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const response = await fetch("/api/open-data/forecast/meteorology/cities/daily/1151200.json");
+        const response = await fetch("https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/1151200.json");
         if (!response.ok) {
           throw new Error("Failed to fetch weather data");
         }
