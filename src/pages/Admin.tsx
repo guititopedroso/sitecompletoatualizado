@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 const ADMIN_PASSWORD = "Guitacrapazes.101010";
+const REFERRAL_GOAL = 4;
 
 type Booking = {
   id: string;
@@ -22,6 +23,16 @@ type Booking = {
   created_by: string | null;
   payment_method: string | null;
   confirmed: boolean | null;
+  referral_code?: string;
+};
+
+type ReferralStat = {
+  id: string;
+  name: string;
+  email: string;
+  code: string;
+  confirmed_count: number;
+  pending_count: number;
 };
 
 const months = [
@@ -52,14 +63,20 @@ const Admin = () => {
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
   const [newBooking, setNewBooking] = useState({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2 });
   const [showReferrals, setShowReferrals] = useState(false);
-  const [referralStats, setReferralStats] = useState<{ id: string; name: string; email: string; code: string; count: number }[]>([]);
+  const [referralStats, setReferralStats] = useState<ReferralStat[]>([]);
   const [selectedReferral, setSelectedReferral] = useState<string | null>(null);
   const [referralBookings, setReferralBookings] = useState<Booking[]>([]);
   const [loadingReferralBookings, setLoadingReferralBookings] = useState(false);
+  const [expandedReferralBooking, setExpandedReferralBooking] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void } | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  const fetchAllData = () => {
+    fetchBookings();
+    fetchReferralStats();
+  };
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -77,23 +94,40 @@ const Admin = () => {
 
   useEffect(() => {
     if (authenticated) {
-      fetchBookings();
-      fetchReferralStats();
+      fetchAllData();
+      const channel = supabase.channel('realtime bookings')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+          fetchAllData();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [authenticated, year, month]);
 
   const fetchReferralStats = async () => {
     const { data: referrals } = await supabase.from("referrals").select("*");
-    const { data: allBookings } = await supabase.from("bookings").select("referral_code").not("referral_code", "is", null);
-    if (!referrals) return;
-    const stats = referrals.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      code: r.code,
-      count: (allBookings || []).filter((b: any) => b.referral_code === r.code).length,
-    }));
-    stats.sort((a: any, b: any) => b.count - a.count);
+    const { data: allBookings } = await supabase.from("bookings").select("referral_code, confirmed").not("referral_code", "is", null);
+
+    if (!referrals || !allBookings) return;
+
+    const stats: ReferralStat[] = referrals.map((r: any) => {
+      const affiliateBookings = allBookings.filter((b: any) => b.referral_code === r.code);
+      const confirmed_count = affiliateBookings.filter(b => b.confirmed === true).length;
+      const pending_count = affiliateBookings.length - confirmed_count;
+      return {
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        code: r.code,
+        confirmed_count,
+        pending_count,
+      };
+    });
+
+    stats.sort((a, b) => b.confirmed_count - a.confirmed_count || b.pending_count - a.pending_count);
     setReferralStats(stats);
   };
 
@@ -110,6 +144,7 @@ const Admin = () => {
     if (selectedReferral === id) {
       setSelectedReferral(null);
       setReferralBookings([]);
+      setExpandedReferralBooking(null);
       return;
     }
     setSelectedReferral(id);
@@ -145,15 +180,14 @@ const Admin = () => {
       booking_date: selectedDate,
       booking_time: newBooking.booking_time,
       num_people: newBooking.num_people,
+      created_by: "Admin",
     });
     setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2 });
     setShowAddForm(false);
-    fetchBookings();
   };
 
   const removeBooking = async (id: string) => {
     await supabase.from("bookings").delete().eq("id", id);
-    fetchBookings();
   };
 
   const getBookingsForDate = (dateStr: string) => bookings.filter((b) => b.booking_date === dateStr);
@@ -214,14 +248,17 @@ const Admin = () => {
           <div className="flex items-center gap-3">
             <CalendarDays className="text-primary-foreground" size={24} />
             <h1 className="font-display text-xl font-bold text-primary-foreground">
-              Royal<span className="text-coral">Coast</span> — Reservas
+              Royal<span className="text-coral">Coast</span> — Admin
             </h1>
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowReferrals(!showReferrals)}
+              onClick={() => {
+                setShowReferrals(!showReferrals);
+                if (!showReferrals) fetchReferralStats();
+              }}
               className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
             >
               <Link2 size={16} />
@@ -258,35 +295,42 @@ const Admin = () => {
                 <p className="text-sm text-muted-foreground">Nenhum afiliado registado.</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {referralStats.map((r) => (
-                    <div key={r.code} className="relative group">
-                      <button
-                        onClick={() => fetchReferralBookings(r.code, r.id)}
-                        className={`w-full text-left bg-card rounded-xl border-2 p-4 shadow-sm transition-all hover:shadow-md ${
-                          selectedReferral === r.id ? "border-primary" : "border-border hover:border-muted-foreground/30"
-                        }`}
-                      >
+                  {referralStats.map((r) => {
+                    const totalCount = r.confirmed_count + r.pending_count;
+                    const confirmedPercentage = Math.min(100, (r.confirmed_count / REFERRAL_GOAL) * 100);
+                    const totalPercentage = Math.min(100, (totalCount / REFERRAL_GOAL) * 100);
+
+                    return (
+                      <div key={r.code} className="relative group">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setConfirmAction({ title: "Eliminar afiliado", description: `Tens a certeza que queres eliminar ${r.name}?`, action: () => removeReferral(r.id) }); }}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-destructive/10 text-destructive flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20"
-                          title="Eliminar afiliado"
+                          onClick={() => fetchReferralBookings(r.code, r.id)}
+                          className={`w-full text-left bg-card rounded-xl border-2 p-4 shadow-sm transition-all hover:shadow-md ${
+                            selectedReferral === r.id ? "border-primary" : "border-border hover:border-muted-foreground/30"
+                          }`}
                         >
-                          <Trash2 size={14} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmAction({ title: "Eliminar afiliado", description: `Tens a certeza que queres eliminar ${r.name}?`, action: () => removeReferral(r.id) }); }}
+                            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-destructive/10 text-destructive flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20"
+                            title="Eliminar afiliado"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <div className="flex items-center justify-between mb-2 pr-6">
+                            <p className="font-display font-bold text-sm text-foreground">{r.name}</p>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.confirmed_count >= REFERRAL_GOAL ? "bg-secondary/20 text-secondary" : "bg-muted text-muted-foreground"}`}>
+                              {r.confirmed_count >= REFERRAL_GOAL ? "🎉 Viagem grátis!" : `${r.confirmed_count}/${REFERRAL_GOAL}`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">{r.email}</p>
+                          <div className="w-full bg-muted rounded-full h-2 mb-1 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 h-full bg-muted-foreground/20 transition-all" style={{ width: `${totalPercentage}%` }} />
+                            <div className="absolute top-0 left-0 h-full ocean-gradient transition-all" style={{ width: `${confirmedPercentage}%` }} />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-mono">Código: {r.code}</p>
                         </button>
-                        <div className="flex items-center justify-between mb-2 pr-6">
-                          <p className="font-display font-bold text-sm text-foreground">{r.name}</p>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.count >= 10 ? "bg-secondary/20 text-secondary" : "bg-muted text-muted-foreground"}`}>
-                            {r.count >= 10 ? "🎉 Viagem grátis!" : `${r.count}/10`}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">{r.email}</p>
-                        <div className="w-full bg-muted rounded-full h-2 mb-1">
-                          <div className="h-2 rounded-full ocean-gradient transition-all" style={{ width: `${Math.min(100, (r.count / 10) * 100)}%` }} />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">Código: {r.code}</p>
-                      </button>
-                    </div>
-                  ))}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
@@ -300,11 +344,14 @@ const Admin = () => {
                     className="overflow-hidden mt-4"
                   >
                     <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Gift size={16} className="text-primary" />
-                        <h3 className="font-display font-bold text-sm text-foreground">
-                          Reservas de {referralStats.find(r => r.id === selectedReferral)?.name}
-                        </h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Gift size={16} className="text-primary" />
+                          <h3 className="font-display font-bold text-sm text-foreground">
+                            Reservas de {referralStats.find(r => r.id === selectedReferral)?.name}
+                          </h3>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedReferral(null)} className="text-muted-foreground">Fechar</Button>
                       </div>
 
                       {loadingReferralBookings ? (
@@ -314,37 +361,85 @@ const Admin = () => {
                       ) : referralBookings.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-3">Nenhuma reserva feita com este link.</p>
                       ) : (
-                        <div className="space-y-2 max-h-80 overflow-y-auto">
-                          {referralBookings.map((b) => (
-                            <div key={b.id} className="bg-muted/50 rounded-lg p-3 space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <p className="font-semibold text-sm text-foreground">{b.client_name}</p>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(b.booking_date + "T00:00:00").toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
-                              </div>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1"><Package size={12} /> {b.pack_name}</span>
-                                <span className="flex items-center gap-1"><Clock size={12} /> {b.booking_time || "—"}</span>
-                                <span className="flex items-center gap-1"><Users size={12} /> {b.num_people} pessoa{b.num_people !== 1 ? "s" : ""}</span>
-                                {b.location && <span className="flex items-center gap-1"><MapPin size={12} /> {b.location}</span>}
-                              </div>
-                              {(b.client_email || b.client_phone) && (
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                                  {b.client_email && (
-                                    <a href={`mailto:${b.client_email}`} className="flex items-center gap-1 text-primary hover:underline">
-                                      <Mail size={12} /> {b.client_email}
-                                    </a>
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                          {referralBookings.map((b) => {
+                            const isExpanded = expandedReferralBooking === b.id;
+                            return (
+                              <motion.div
+                                key={b.id}
+                                layout
+                                className="rounded-lg bg-muted/50 overflow-hidden"
+                              >
+                                <button
+                                  onClick={() => setExpandedReferralBooking(isExpanded ? null : b.id)}
+                                  className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/80 transition-colors"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold text-sm text-foreground truncate">{b.client_name}</p>
+                                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${b.confirmed ? 'bg-secondary/20 text-secondary' : 'bg-amber-500/20 text-amber-600'}`}>
+                                        {b.confirmed ? 'Confirmada' : 'Pendente'}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground pt-0.5">
+                                      {new Date(b.booking_date + "T00:00:00").toLocaleDateString("pt-PT", { day: "numeric", month: "short" })} · {b.pack_name}
+                                    </p>
+                                  </div>
+                                  <ChevronDown size={16} className={`text-muted-foreground transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+
+                                <AnimatePresence>
+                                  {isExpanded && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="px-4 pb-4 pt-1 space-y-2.5 border-t border-border/50 ml-4 mr-3">
+                                        <div className="flex items-center gap-2 pt-2.5">
+                                          <Package size={14} className="text-secondary shrink-0" />
+                                          <span className="text-xs text-muted-foreground">Pack:</span>
+                                          <span className="text-xs font-medium text-foreground">{b.pack_name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Users size={14} className="text-secondary shrink-0" />
+                                          <span className="text-xs text-muted-foreground">Pessoas:</span>
+                                          <span className="text-xs font-medium text-foreground">{b.num_people}</span>
+                                        </div>
+                                        {b.client_email && (
+                                          <div className="flex items-center gap-2">
+                                            <Mail size={14} className="text-secondary shrink-0" />
+                                            <span className="text-xs text-muted-foreground">Email:</span>
+                                            <a href={`mailto:${b.client_email}`} className="text-xs font-medium text-primary hover:underline">{b.client_email}</a>
+                                          </div>
+                                        )}
+                                        {b.client_phone && (
+                                          <div className="flex items-center gap-2">
+                                            <Phone size={14} className="text-secondary shrink-0" />
+                                            <span className="text-xs text-muted-foreground">Telefone:</span>
+                                            <a href={`tel:${b.client_phone}`} className="text-xs font-medium text-primary hover:underline">{b.client_phone}</a>
+                                          </div>
+                                        )}
+                                        <div className="pt-2 flex justify-end">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setConfirmAction({ title: "Remover reserva", description: `Tens a certeza que queres remover a reserva de ${b.client_name}?`, action: () => removeBooking(b.id) })}
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"
+                                          >
+                                            <Trash2 size={12} />
+                                            Remover
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
                                   )}
-                                  {b.client_phone && (
-                                    <a href={`tel:${b.client_phone}`} className="flex items-center gap-1 text-primary hover:underline">
-                                      <Phone size={12} /> {b.client_phone}
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                </AnimatePresence>
+                              </motion.div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -545,11 +640,13 @@ const Admin = () => {
                           >
                             <div className="w-1 h-10 rounded-full shrink-0" style={{ background: b.confirmed ? 'hsl(var(--secondary))' : 'hsl(var(--muted-foreground) / 0.3)' }} />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center justify-between">
                                 <p className="font-semibold text-sm text-foreground truncate">{b.client_name}</p>
-                                {b.confirmed && <CheckCircle2 size={14} className="text-secondary shrink-0" />}
+                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${b.confirmed ? 'bg-secondary/20 text-secondary' : 'bg-amber-500/20 text-amber-600'}`}>
+                                  {b.confirmed ? 'Confirmada' : 'Pendente'}
+                                </span>
                               </div>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5">
                                 {b.pack_name.replace(" + Pack Fotos", "")} · {b.booking_time || "—"} · {b.num_people} {b.num_people === 1 ? "pessoa" : "pessoas"}
                                 {b.pack_name.includes("Pack Fotos") && <Camera size={12} className="text-coral ml-1" />}
                               </p>
@@ -576,12 +673,6 @@ const Admin = () => {
                                     <span className="text-xs text-muted-foreground">Pack:</span>
                                     <span className="text-xs font-medium text-foreground">{b.pack_name}</span>
                                   </div>
-                                  {b.pack_name.includes("Pack Fotos") && (
-                                    <div className="flex items-center gap-2">
-                                      <Camera size={14} className="text-coral shrink-0" />
-                                      <span className="text-xs font-medium text-coral">Pack Fotos incluído</span>
-                                    </div>
-                                  )}
                                   <div className="flex items-center gap-2">
                                     <Clock size={14} className="text-secondary shrink-0" />
                                     <span className="text-xs text-muted-foreground">Horário:</span>
@@ -628,25 +719,21 @@ const Admin = () => {
                                       <span className="text-xs font-medium text-foreground">{b.created_by}</span>
                                     </div>
                                   )}
-                                  {b.payment_method && (
-                                    <div className="flex items-center gap-2">
-                                      <CreditCard size={14} className="text-secondary shrink-0" />
-                                      <span className="text-xs text-muted-foreground">Pagamento:</span>
-                                      <span className="text-xs font-medium text-foreground">{b.payment_method}</span>
-                                    </div>
-                                  )}
-                                  {b.confirmed ? (
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle2 size={14} className="text-secondary shrink-0" />
-                                      <span className="text-xs font-medium text-secondary">Reserva finalizada</span>
-                                      {b.created_by && <span className="text-xs text-muted-foreground">por {b.created_by}</span>}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2">
-                                      <Clock size={14} className="text-muted-foreground/50 shrink-0" />
-                                      <span className="text-xs text-muted-foreground">Pendente de confirmação</span>
-                                    </div>
-                                  )}
+
+                                  <div className="pt-2 border-t border-border/50 space-y-2">
+                                    {b.confirmed ? (
+                                      <div className="flex items-center gap-2">
+                                        <CreditCard size={14} className="text-secondary shrink-0" />
+                                        <span className="text-xs text-muted-foreground">Pagamento:</span>
+                                        <span className="text-xs font-medium text-foreground">{b.payment_method || "Confirmado"}</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <Clock size={14} className="text-amber-600 shrink-0" />
+                                        <span className="text-xs font-medium text-amber-600">Pendente de confirmação pelo Staff</span>
+                                      </div>
+                                    )}
+                                  </div>
 
                                   <div className="pt-2 flex justify-end">
                                     <Button
