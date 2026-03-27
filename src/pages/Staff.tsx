@@ -27,8 +27,8 @@ const STAFF_PACKS = [
 ];
 
 const STAFF_ACCOUNTS = [
-  { name: "Martim Paulino", password: "mpvj2026" },
-  { name: "Diana Bagorro", password: "dbvj2026" },
+  { name: "Martim Paulino", password: "mprc2026" },
+  { name: "Diana Bagorro", password: "dbrc2026" },
 ];
 
 type Booking = {
