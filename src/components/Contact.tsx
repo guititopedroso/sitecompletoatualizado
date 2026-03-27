@@ -20,8 +20,8 @@ const Contact = () => {
   const contactInfo = [
     { icon: Phone, title: t("contact_phone"), lines: ["+351 927 314 506"] },
     { icon: MessageCircle, title: t("contact_whatsapp"), lines: [t("contact_whatsapp_desc")] },
-    { icon: Mail, title: t("contact_email"), lines: ["info@royalcoast.pt"] },
-    { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.setubal"] },
+    { icon: Mail, title: t("contact_email"), lines: ["geral@royalcoast.pt"] },
+    { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.pt"] },
     { icon: Clock, title: t("contact_hours"), lines: [t("contact_hours_1"), t("contact_hours_2")] },
     { icon: MapPin, title: t("contact_location"), lines: [t("contact_loc_1"), t("contact_loc_2")] },
   ];
