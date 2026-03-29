@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format, isBefore, startOfToday } from "date-fns";
+import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -85,6 +85,7 @@ const Booking = () => {
   const [boatDuration, setBoatDuration] = useState<"4h" | "8h">("4h");
   const [packFotos, setPackFotos] = useState(false);
   const [numMotas, setNumMotas] = useState(1);
+  const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
 
   const today = startOfToday();
 
@@ -226,6 +227,10 @@ const Booking = () => {
                     selected={date}
                     onSelect={setDate}
                     disabled={(d) => isBefore(d, today)}
+                    month={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    fromMonth={set(new Date(), { month: 4, date: 1 })}
+                    toMonth={set(new Date(), { month: 8, date: 30 })}
                     locale={pt}
                     className="p-3 pointer-events-auto"
                   />
@@ -335,7 +340,7 @@ const Booking = () => {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2 font-display">{t("book_duration")}</label>
                   <div className="grid grid-cols-2 gap-3">
-                    {(["4h", "8h"] as const).map((d) => (
+                    {(['4h', '8h'] as const).map((d) => (
                       <button
                         key={d}
                         type="button"

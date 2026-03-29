@@ -22,7 +22,7 @@ const Contact = () => {
     { icon: MessageCircle, title: t("contact_whatsapp"), lines: [t("contact_whatsapp_desc")] },
     { icon: Mail, title: t("contact_email"), lines: ["geral@royalcoast.pt"] },
     { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.pt"] },
-    { icon: Clock, title: t("contact_hours"), lines: [t("contact_hours_1"), t("contact_hours_2")] },
+    { icon: Clock, title: t("contact_hours"), lines: [t("contact_hours_1")] },
     { icon: MapPin, title: t("contact_location"), lines: [t("contact_loc_1"), t("contact_loc_2")] },
   ];
 

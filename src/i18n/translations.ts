@@ -145,7 +145,6 @@ type TranslationKeys = {
   contact_instagram: string;
   contact_hours: string;
   contact_hours_1: string;
-  contact_hours_2: string;
   contact_location: string;
   contact_loc_1: string;
   contact_loc_2: string;
@@ -342,8 +341,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horário",
-    contact_hours_1: "Maio – Setembro: 9h – 19h",
-    contact_hours_2: "Restantes meses: sob marcação",
+    contact_hours_1: "Maio a Setembro: 9h – 19h",
     contact_location: "Localização",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -534,8 +532,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Hours",
-    contact_hours_1: "May – September: 9am – 7pm",
-    contact_hours_2: "Other months: by appointment",
+    contact_hours_1: "May to September: 9am – 7pm",
     contact_location: "Location",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -726,8 +723,7 @@ export const translations: Translations = {
     contact_email: "E-Mail",
     contact_instagram: "Instagram",
     contact_hours: "Öffnungszeiten",
-    contact_hours_1: "Mai – September: 9 – 19 Uhr",
-    contact_hours_2: "Übrige Monate: nach Vereinbarung",
+    contact_hours_1: "Mai bis September: 9 – 19 Uhr",
     contact_location: "Standort",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -918,8 +914,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horario",
-    contact_hours_1: "Mayo – Septiembre: 9h – 19h",
-    contact_hours_2: "Resto de meses: con cita previa",
+    contact_hours_1: "Mayo a Septiembre: 9h – 19h",
     contact_location: "Ubicación",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -1110,8 +1105,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horaires",
-    contact_hours_1: "Mai – Septembre : 9h – 19h",
-    contact_hours_2: "Autres mois : sur rendez-vous",
+    contact_hours_1: "Mai à Septembre : 9h – 19h",
     contact_location: "Localisation",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -1302,8 +1296,7 @@ export const translations: Translations = {
     contact_email: "邮箱",
     contact_instagram: "Instagram",
     contact_hours: "营业时间",
-    contact_hours_1: "5月–9月：9:00–19:00",
-    contact_hours_2: "其他月份：预约制",
+    contact_hours_1: "5月至9月：上午9点至晚上7点",
     contact_location: "位置",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
