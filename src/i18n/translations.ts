@@ -123,6 +123,9 @@ type TranslationKeys = {
   // Gallery
   gallery_tag: string;
   gallery_title: string;
+  gallery_cta: string;
+  gallery_title_full: string;
+  gallery_desc_full: string;
 
   // Testimonials
   test_tag: string;
@@ -322,6 +325,9 @@ export const translations: Translations = {
 
     gallery_tag: "Galeria",
     gallery_title: "Momentos que ficam",
+    gallery_cta: "Ver Todas",
+    gallery_title_full: "Galeria Completa",
+    gallery_desc_full: "Momentos inesquecíveis capturados nas nossas aventuras.",
 
     test_tag: "Testemunhos",
     test_title: "O que dizem os aventureiros",
@@ -513,6 +519,9 @@ export const translations: Translations = {
 
     gallery_tag: "Gallery",
     gallery_title: "Moments that last",
+    gallery_cta: "View All",
+    gallery_title_full: "Full Gallery",
+    gallery_desc_full: "Unforgettable moments captured on our adventures.",
 
     test_tag: "Testimonials",
     test_title: "What adventurers say",
@@ -704,6 +713,9 @@ export const translations: Translations = {
 
     gallery_tag: "Galerie",
     gallery_title: "Momente die bleiben",
+    gallery_cta: "Alle ansehen",
+    gallery_title_full: "Vollständige Galerie",
+    gallery_desc_full: "Unvergessliche Momente, die auf unseren Abenteuern festgehalten wurden.",
 
     test_tag: "Bewertungen",
     test_title: "Was Abenteurer sagen",
@@ -895,6 +907,9 @@ export const translations: Translations = {
 
     gallery_tag: "Galería",
     gallery_title: "Momentos que perduran",
+    gallery_cta: "Ver Todas",
+    gallery_title_full: "Galería Completa",
+    gallery_desc_full: "Momentos inolvidables capturados en nuestras aventuras.",
 
     test_tag: "Testimonios",
     test_title: "Lo que dicen los aventureros",
@@ -1086,6 +1101,9 @@ export const translations: Translations = {
 
     gallery_tag: "Galerie",
     gallery_title: "Des moments qui restent",
+    gallery_cta: "Voir Tout",
+    gallery_title_full: "Galerie Complète",
+    gallery_desc_full: "Des moments inoubliables capturés lors de nos aventures.",
 
     test_tag: "Témoignages",
     test_title: "Ce que disent les aventuriers",
@@ -1277,6 +1295,9 @@ export const translations: Translations = {
 
     gallery_tag: "画廊",
     gallery_title: "难忘的时刻",
+    gallery_cta: "查看全部",
+    gallery_title_full: "完整画廊",
+    gallery_desc_full: "在我们探险中捕捉到的难忘时刻。",
 
     test_tag: "评价",
     test_title: "冒险者怎么说",

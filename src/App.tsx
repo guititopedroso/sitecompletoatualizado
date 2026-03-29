@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Staff from "./pages/Staff";
 import Referral from "./pages/Referral";
+import GalleryPage from "./pages/GalleryPage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/admin-painel" element={<Admin />} />
             <Route path="/staff-painel" element={<Staff />} />
             <Route path="/afiliado" element={<Referral />} />
+            <Route path="/galeria" element={<GalleryPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
