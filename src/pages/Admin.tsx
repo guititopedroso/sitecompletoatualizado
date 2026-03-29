@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 
 const ADMIN_PASSWORD = "Guitacrapazes.101010";
 const REFERRAL_GOAL = 4;
+const AUTH_KEY = "rc-admin-auth";
 
 type Booking = {
   id: string;
@@ -72,6 +73,11 @@ const Admin = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  useEffect(() => {
+    const isAuthenticated = sessionStorage.getItem(AUTH_KEY) === "true";
+    setAuthenticated(isAuthenticated);
+  }, []);
 
   const fetchAllData = () => {
     fetchBookings();
@@ -161,11 +167,17 @@ const Admin = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
+      sessionStorage.setItem(AUTH_KEY, "true");
       setAuthenticated(true);
       setError(false);
     } else {
       setError(true);
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(AUTH_KEY);
+    setAuthenticated(false);
   };
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
@@ -267,7 +279,7 @@ const Admin = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setAuthenticated(false)}
+              onClick={handleLogout}
               className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
             >
               <LogOut size={16} />

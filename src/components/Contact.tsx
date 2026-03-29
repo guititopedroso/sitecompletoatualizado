@@ -14,7 +14,7 @@ const Contact = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const msg = encodeURIComponent(`Olá! O meu nome é ${form.nome}. ${form.mensagem}`);
-    window.open(`https://wa.me/351927314506?text=${msg}`, "_blank");
+    window.open(`https.wa.me/351927314506?text=${msg}`, "_blank");
   };
 
   const contactInfo = [
@@ -141,7 +141,7 @@ const Contact = () => {
           >
             <iframe
               title="Localização Royal Coast"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3118.5!2d-8.8882!3d38.5244!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd194f4a2e7b1b1d%3A0x1c5e3a5e7b1b1b1d!2sClube%20Naval%20Setubalense!5e0!3m2!1spt-PT!2spt!4v1700000000000!5m2!1spt-PT!2spt"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3118.490842433155!2d-8.89196102364789!3d38.5246747718076!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd194361c4d96c4b%3A0x6b4f74f76239ed7b!2sAv.%20Jaime%20Rebelo%2041%2C%202900-308%20Set%C3%BAbal!5e0!3m2!1spt-PT!2spt!4v1716382830335!5m2!1spt-PT!2spt"
               width="100%"
               height="100%"
               style={{ border: 0 }}
