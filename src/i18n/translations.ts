@@ -241,14 +241,14 @@ export const translations: Translations = {
     hero_badge: "📍 Setúbal, Portugal",
     hero_title_1: "Sente a Liberdade",
     hero_title_2: "do Sado",
-    hero_subtitle: "Vive uma experiência inesquecível na costa de Setúbal com as nossas aventuras náuticas.",
+    hero_subtitle: "Aluguer de motas de água em Setúbal. Vive uma experiência inesquecível na costa de Setúbal e Tróia com as nossas aventuras náuticas.",
     hero_cta_book: "Reservar Agora",
     hero_cta_experiences: "Ver Experiências",
 
     about_tag: "Sobre Nós",
     about_title_1: "A energia do mar",
     about_title_2: "na palma da tua mão",
-    about_desc: "A Royal Coast é uma empresa jovem e energética, focada em proporcionar momentos de pura liberdade na costa de Setúbal. Com equipamento de última geração e uma equipa apaixonada, garantimos diversão com total segurança.",
+    about_desc: "A Royal Coast é uma empresa jovem e energética, focada em proporcionar momentos de pura liberdade através do aluguer de motas de água na costa de Setúbal. Com equipamento de última geração e uma equipa apaixonada, garantimos diversão com total segurança nas suas aventuras de jet ski em Tróia e Arrábida.",
     about_f1_title: "Paixão pelo Mar",
     about_f1_desc: "Nascemos da ligação ao oceano e à costa de Setúbal.",
     about_f2_title: "Segurança Total",
@@ -273,7 +273,7 @@ export const translations: Translations = {
 
     exp_tag: "Experiências",
     exp_title: "Escolhe a tua aventura",
-    exp_desc: "Do passeio rápido à experiência sunset, temos o pacote perfeito para ti.",
+    exp_desc: "Do aluguer de motas de água rápido à experiência sunset, temos o pacote perfeito para as tuas aventuras em Setúbal, Tróia e Arrábida.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Barcos",
     exp_tab_extras: "Extras",
@@ -340,7 +340,7 @@ export const translations: Translations = {
 
     contact_tag: "Contactos",
     contact_title: "Vamos à aventura?",
-    contact_desc: "Entra em contacto e reserva já a tua experiência.",
+    contact_desc: "Entra em contacto para o aluguer de motas de água e reserva já a tua experiência em Setúbal.",
     contact_phone: "Telefone",
     contact_whatsapp: "WhatsApp",
     contact_whatsapp_desc: "Envia-nos mensagem a qualquer hora",
@@ -1218,32 +1218,32 @@ export const translations: Translations = {
     about_tag: "关于我们",
     about_title_1: "大海的能量",
     about_title_2: "尽在掌中",
-    about_desc: "Royal Coast是一家年轻而充满活力的公司，致力于在塞图巴尔海岸提供纯粹自由的时刻。凭借先进的设备和充满热情的团队，我们确保安全与乐趣并存。",
+    about_desc: "Royal Coast是一家年轻而充满活力的公司，致力于在塞图巴尔海岸提供纯粹自由的时刻。凭借先进的设备和充满热情的团队，我们确保安全与乐趣并存。"，
     about_f1_title: "热爱大海",
-    about_f1_desc: "源于我们与海洋和塞图巴尔海岸的深厚联系。",
+    about_f1_desc: "源于我们与海洋和塞图巴尔海岸的深厚联系。"，
     about_f2_title: "全面安全",
-    about_f2_desc: "认证设备，每次出行前进行完整安全讲解。",
+    about_f2_desc: "认证设备，每次出行前进行完整安全讲解。"，
     about_f3_title: "独特体验",
-    about_f3_desc: "每次旅程都经过精心设计，令人难忘。",
+    about_f3_desc: "每次旅程都经过精心设计，令人难忘。"，
     about_f4_title: "纯粹肾上腺素",
-    about_f4_desc: "在萨杜河水域享受速度与自由。",
+    about_f4_desc: "在萨杜河水域享受速度与自由。"，
 
     weather_tag: "天气",
     weather_title: "塞图巴尔天气预报",
-    weather_desc: "预订体验前查看天气状况。",
+    weather_desc: "预订体验前查看天气状况。"，
     weather_s1_title: "晴",
-    weather_s1_desc: "晴天是海上探险的绝佳日子。",
+    weather_s1_desc: "晴天是海上探险的绝佳日子。"，
     weather_s2_title: "风",
-    weather_s2_desc: "风可能会带来更具挑战性的条件。",
+    weather_s2_desc: "风可能会带来更具挑战性的条件。"，
     weather_s3_title: "多云",
-    weather_s3_desc: "多云天气不会影响乐趣。",
+    weather_s3_desc: "多云天气不会影响乐趣。"，
     weather_s4_title: "雨",
-    weather_s4_desc: "如果下雨，我们将重新安排您的体验。",
+    weather_s4_desc: "如果下雨，我们将重新安排您的体验。"，
     weather_source: "数据由IPMA提供 — 葡萄牙海洋与大气研究所",
 
     exp_tag: "体验",
     exp_title: "选择你的冒险",
-    exp_desc: "从快速骑行到日落体验，我们为你准备了完美的套餐。",
+    exp_desc: "从快速骑行到日落体验，我们为你准备了完美的套餐。"，
     exp_tab_jetski: "水上摩托",
     exp_tab_boats: "船只",
     exp_tab_extras: "附加项目",
@@ -1283,34 +1283,34 @@ export const translations: Translations = {
 
     safety_tag: "安全",
     safety_title: "您的安全是我们的首要任务",
-    safety_desc: "无忧的乐趣。我们精心考虑每一个细节，让您充分享受。",
+    safety_desc: "无忧的乐趣。我们精心考虑每一个细节，让您充分享受。"，
     safety_s1_title: "安全设备",
-    safety_s1_desc: "为所有参与者提供经过认证的救生衣。",
+    safety_s1_desc: "为所有参与者提供经过认证的救生衣。"，
     safety_s2_title: "完整简报",
-    safety_s2_desc: "每次出发前，我们的团队都会提供详细的安全简报。",
+    safety_s2_desc: "每次出发前，我们的团队都会提供详细的安全简报。"，
     safety_s3_title: "认证教练",
-    safety_s3_desc: "由经验丰富且经过认证的教练持续监督。",
+    safety_s3_desc: "由经验丰富且经过认证的教练持续监督。"，
     safety_s4_title: "包含保险",
-    safety_s4_desc: "我们所有的体验都包括人身意外伤害和责任保险。",
+    safety_s4_desc: "我们所有的体验都包括人身意外伤害和责任保险。"，
 
     gallery_tag: "画廊",
     gallery_title: "难忘的时刻",
     gallery_cta: "查看全部",
     gallery_title_full: "完整画廊",
-    gallery_desc_full: "在我们探险中捕捉到的难忘时刻。",
+    gallery_desc_full: "在我们探险中捕捉到的难忘时刻。"，
 
     test_tag: "评价",
     test_title: "冒险者怎么说",
     test_r1_name: "Miguel Santos",
-    test_r1_text: "不可思议的体验！团队非常专业，从海上看阿拉比达海岸美得令人窒息。已经预订了明年夏天！",
+    test_r1_text: "不可思议的体验！团队非常专业，从海上看阿拉比达海岸美得令人窒息。已经预订了明年夏天！"，
     test_r2_name: "Ana Costa",
-    test_r2_text: "日落体验太神奇了。肾上腺素+日落=完美！100%推荐。",
+    test_r2_text: "日落体验太神奇了。肾上腺素+日落=完美！100%推荐。"，
     test_r3_name: "Ricardo Lopes",
-    test_r3_text: "我们团体去的，这是今年夏天最棒的活动。组织完美，充满乐趣。太棒了！",
+    test_r3_text: "我们团体去的，这是今年夏天最棒的活动。组织完美，充满乐趣。太棒了！"，
 
     contact_tag: "联系方式",
     contact_title: "准备好冒险了吗？",
-    contact_desc: "联系我们，立即预订你的体验。",
+    contact_desc: "联系我们，立即预订你的体验。"，
     contact_phone: "电话",
     contact_whatsapp: "WhatsApp",
     contact_whatsapp_desc: "随时给我们发消息",
@@ -1329,23 +1329,23 @@ export const translations: Translations = {
     contact_form_send: "发送消息",
 
     faq_title: "常见问题",
-    faq_desc: "体验前你需要知道的一切。",
+    faq_desc: "体验前你需要知道的一切。"，
     faq_q1: "我需要经验才能驾驶水上摩托吗？",
-    faq_a1: "不需要！每次出发前我们都会进行完整的安全讲解。非常简单和安全。",
+    faq_a1: "不需要！每次出发前我们都会进行完整的安全讲解。非常简单和安全。"，
     faq_q2: "最低年龄是多少？",
-    faq_a2: "驾驶最低年龄为16岁。16岁以下可以作为乘客由成人陪同。",
+    faq_a2: "驾驶最低年龄为16岁。16岁以下可以作为乘客由成人陪同。"，
     faq_q3: "我可以取消或改期预订吗？",
-    faq_a3: "可以，您可以在体验前24小时免费取消或改期。",
+    faq_a3: "可以，您可以在体验前24小时免费取消或改期。"，
     faq_q4: "天气不好怎么办？",
-    faq_a4: "如遇恶劣天气，我们会联系您免费改期。",
+    faq_a4: "如遇恶劣天气，我们会联系您免费改期。"，
     faq_q5: "包含保险吗？",
-    faq_a5: "是的，所有体验都包含人身意外和责任保险。",
+    faq_a5: "是的，所有体验都包含人身意外和责任保险。"，
     faq_q6: "体验期间可以带手机吗？",
-    faq_a6: "我们建议将贵重物品留在岸上。有储物柜可用。选择摄影套餐，我们为您记录美好回忆！",
+    faq_a6: "我们建议将贵重物品留在岸上。有储物柜可用。选择摄影套餐，我们为您记录美好回忆！"，
     faq_q7: "驾驶水上摩托需要驾照吗？",
-    faq_a7: "不需要，在我们的体验活动中驾驶水上摩托不需要驾照。所有活动都由持证教练全程陪同和监督。每次出发前，您将接受完整的操作和安全规则讲解。无论您是否有相关经验，我们的团队都会确保您感到舒适和安全。您只需要带上享受乐趣的心情！",
+    faq_a7: "不需要，在我们的体验活动中驾驶水上摩托不需要驾照。所有活动都由持证教练全程陪同和监督。每次出发前，您将接受完整的操作和安全规则讲解。无论您是否有相关经验，我们的团队都会确保您感到舒适和安全。您只需要带上享受乐趣的心情！"，
 
-    footer_rights: "版权所有。",
+    footer_rights: "版权所有。"，
     footer_terms: "条款",
     footer_privacy: "隐私",
 
@@ -1388,7 +1388,7 @@ export const translations: Translations = {
     book_back_home: "返回首页",
     book_pack_fotos_desc: "15张专业编辑照片，24小时内数字交付",
     book_sent_toast: "预订已发送！",
-    book_sent_toast_desc: "你将很快收到确认邮件。",
+    book_sent_toast_desc: "你将很快收到确认邮件。"，
     book_error_toast: "发送失败",
     book_error_toast_desc: "请重试或直接联系我们。",
   },
