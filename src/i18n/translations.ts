@@ -63,6 +63,13 @@ type TranslationKeys = {
   weather_s4_title: string;
   weather_s4_desc: string;
   weather_source: string;
+  weather_modal_temp: string;
+  weather_modal_wind: string;
+  weather_modal_precipitation: string;
+  weather_modal_sea_state: string;
+  weather_modal_sunrise: string;
+  weather_modal_sunset: string;
+
 
   // Experiences
   exp_tag: string;
@@ -270,6 +277,12 @@ export const translations: Translations = {
     weather_s4_title: "Chuva",
     weather_s4_desc: "Em caso de chuva, reagendamos a sua experiência.",
     weather_source: "Dados fornecidos pelo IPMA — Instituto Português do Mar e da Atmosfera",
+    weather_modal_temp: "Temperatura",
+    weather_modal_wind: "Vento",
+    weather_modal_precipitation: "Precipitação",
+    weather_modal_sea_state: "Estado do Mar",
+    weather_modal_sunrise: "Nascer do Sol",
+    weather_modal_sunset: "Pôr do Sol",
 
     exp_tag: "Experiências",
     exp_title: "Escolhe a tua aventura",
@@ -464,6 +477,12 @@ export const translations: Translations = {
     weather_s4_title: "Rain",
     weather_s4_desc: "In case of rain, we will reschedule your experience.",
     weather_source: "Data provided by IPMA — Portuguese Institute for Sea and Atmosphere",
+    weather_modal_temp: "Temperature",
+    weather_modal_wind: "Wind",
+    weather_modal_precipitation: "Precipitation",
+    weather_modal_sea_state: "Sea State",
+    weather_modal_sunrise: "Sunrise",
+    weather_modal_sunset: "Sunset",
 
     exp_tag: "Experiences",
     exp_title: "Choose your adventure",
@@ -658,6 +677,12 @@ export const translations: Translations = {
     weather_s4_title: "Regen",
     weather_s4_desc: "Bei Regen werden wir dein Erlebnis verschieben.",
     weather_source: "Daten bereitgestellt von IPMA — Portugiesisches Institut für Meer und Atmosphäre",
+    weather_modal_temp: "Temperatur",
+    weather_modal_wind: "Wind",
+    weather_modal_precipitation: "Niederschlag",
+    weather_modal_sea_state: "Seegang",
+    weather_modal_sunrise: "Sonnenaufgang",
+    weather_modal_sunset: "Sonnenuntergang",
 
     exp_tag: "Erlebnisse",
     exp_title: "Wähle dein Abenteuer",
@@ -852,6 +877,12 @@ export const translations: Translations = {
     weather_s4_title: "Lluvia",
     weather_s4_desc: "En caso de lluvia, reprogramaremos su experiencia.",
     weather_source: "Datos proporcionados por IPMA — Instituto Portugués del Mar y la Atmósfera",
+    weather_modal_temp: "Temperatura",
+    weather_modal_wind: "Viento",
+    weather_modal_precipitation: "Precipitación",
+    weather_modal_sea_state: "Estado del Mar",
+    weather_modal_sunrise: "Amanecer",
+    weather_modal_sunset: "Atardecer",
 
     exp_tag: "Experiencias",
     exp_title: "Elige tu aventura",
@@ -1046,6 +1077,12 @@ export const translations: Translations = {
     weather_s4_title: "Pluie",
     weather_s4_desc: "En cas de pluie, nous reporterons votre expérience.",
     weather_source: "Données fournies par l'IPMA — Institut Portugais de la Mer et de l'Atmosphère",
+    weather_modal_temp: "Température",
+    weather_modal_wind: "Vent",
+    weather_modal_precipitation: "Précipitations",
+    weather_modal_sea_state: "État de la Mer",
+    weather_modal_sunrise: "Lever du Soleil",
+    weather_modal_sunset: "Coucher du Soleil",
 
     exp_tag: "Expériences",
     exp_title: "Choisissez votre aventure",
@@ -1240,6 +1277,12 @@ export const translations: Translations = {
     weather_s4_title: "雨",
     weather_s4_desc: "如果下雨，我们将重新安排您的体验。",
     weather_source: "数据由IPMA提供 — 葡萄牙海洋与大气研究所",
+    weather_modal_temp: "温度",
+    weather_modal_wind: "风",
+    weather_modal_precipitation: "降水",
+    weather_modal_sea_state: "海况",
+    weather_modal_sunrise: "日出",
+    weather_modal_sunset: "日落",
 
     exp_tag: "体验",
     exp_title: "选择你的冒险",

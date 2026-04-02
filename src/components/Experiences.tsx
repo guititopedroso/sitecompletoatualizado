@@ -83,7 +83,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
         className="absolute top-0 left-0 right-0 z-10 -translate-y-full"
       />
       <SectionWrapper>
-        <div className="section-padding">
+        <div className="pt-6 pb-16 md:pt-10 md:pb-24">
           <div className="container-max">
             <div className="text-center max-w-3xl mx-auto mb-10">
               <span className="text-sm font-semibold text-coral uppercase tracking-widest font-display mb-3 block">

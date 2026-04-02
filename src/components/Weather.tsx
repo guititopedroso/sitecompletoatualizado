@@ -20,7 +20,7 @@ import { motion } from "framer-motion";
 import SectionWrapper from "./ui/section-wrapper";
 import { useEffect, useState } from "react";
 
-// Interface para o objeto de previsão diária
+// Interface para o objeto de previsão diária do IPMA
 interface Forecast {
   precipitaProb: string;
   tMin: string;
@@ -30,7 +30,13 @@ interface Forecast {
   forecastDate: string;
 }
 
-// Mapeamento dos códigos de tempo para ícones com a nova cor
+// Interface para os dados do nascer/pôr do sol
+interface SunTimes {
+  sunrise: string;
+  sunset: string;
+}
+
+// Mapeamento dos códigos de tempo para ícones
 const weatherIconMapping: { [key: number]: JSX.Element } = {
   1: <Sun size={32} className="text-foreground" />, // Céu limpo
   2: <CloudSun size={32} className="text-foreground" />, // Céu pouco nublado
@@ -43,30 +49,52 @@ const weatherIconMapping: { [key: number]: JSX.Element } = {
 const Weather = () => {
   const { t, language } = useLanguage();
   const [forecast, setForecast] = useState<Forecast[]>([]);
+  const [sunTimes, setSunTimes] = useState<SunTimes | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchWeather = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/1151200.json");
-        if (!response.ok) {
-          throw new Error("Failed to fetch weather data");
+        // Coordenadas de Setúbal
+        const lat = 38.5244;
+        const lng = -8.8926;
+
+        const weatherResponse = await fetch(
+          "https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/1151200.json"
+        );
+        if (!weatherResponse.ok) throw new Error("Failed to fetch weather data");
+        const weatherData = await weatherResponse.json();
+        setForecast(weatherData.data.slice(0, 5));
+
+        const sunResponse = await fetch(
+          `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`
+        );
+        if (!sunResponse.ok) throw new Error("Failed to fetch sun data");
+        const sunData = await sunResponse.json();
+
+        if (sunData.status === "OK") {
+          const sunriseUTC = new Date(sunData.results.sunrise);
+          const sunsetUTC = new Date(sunData.results.sunset);
+
+          setSunTimes({
+            sunrise: sunriseUTC.toLocaleTimeString("pt-PT", { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon' }),
+            sunset: sunsetUTC.toLocaleTimeString("pt-PT", { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon' }),
+          });
         }
-        const data = await response.json();
-        setForecast(data.data.slice(0, 5));
-        setLoading(false);
+
       } catch (err) {
         if (err instanceof Error) {
-            setError(err.message);
-          } else {
-            setError("An unknown error occurred");
-          }
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred");
+        }
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchWeather();
+    fetchData();
   }, []);
 
   const getDayOfWeek = (dateString: string) => {
@@ -75,7 +103,7 @@ const Weather = () => {
   }
 
   return (
-    <section id="tempo" className="pt-24 pb-12 md:pt-32 md:pb-16 bg-foam">
+    <section id="tempo" className="pt-24 pb-6 md:pt-32 md:pb-8 bg-foam">
       <SectionWrapper>
         <div className="container-max">
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -105,7 +133,7 @@ const Weather = () => {
                     delay: 0.2 * i,
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  className="bg-gray-400 bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 shadow-lg text-foreground text-center flex flex-col items-center justify-between"
+                  className="group bg-gray-400 bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 shadow-lg text-foreground text-center flex flex-col items-center justify-between"
                 >
                   <p className="font-bold text-lg capitalize mb-3">{getDayOfWeek(day.forecastDate)}</p>
                   <motion.div
@@ -121,9 +149,25 @@ const Weather = () => {
                     <span className="text-coral">{day.tMax}°</span>
                     <span className="text-blue-500">{day.tMin}°</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <CloudRain size={18} />
-                    <span>{day.precipitaProb}%</span>
+                  <div className="text-sm text-muted-foreground w-full h-10 flex flex-col justify-center">
+                    <div className="block group-hover:hidden">
+                      <div className="flex items-center justify-center space-x-2">
+                          <CloudRain size={18} />
+                          <span>{day.precipitaProb}%</span>
+                      </div>
+                    </div>
+                    {sunTimes && (
+                      <div className="hidden group-hover:block">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Sunrise size={18} />
+                          <span>{sunTimes.sunrise}</span>
+                        </div>
+                        <div className="flex items-center justify-center space-x-2">
+                          <Sunset size={18} />
+                          <span>{sunTimes.sunset}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
