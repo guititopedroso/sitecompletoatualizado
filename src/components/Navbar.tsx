@@ -18,7 +18,7 @@ const Navbar = () => {
     { label: t("nav_about"), href: "#sobre" },
     { label: t("nav_gallery"), href: "#galeria" },
     { label: t("nav_contacts"), href: "#contactos" },
-    { label: "🎁 Afiliados", href: "/afiliado" },
+    { label: t("nav_affiliates"), href: "/afiliado" },
   ];
 
   const languages: Language[] = ["pt", "en", "de", "es", "fr", "zh"];
