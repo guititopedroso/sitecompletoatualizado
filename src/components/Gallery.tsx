@@ -32,7 +32,8 @@ const Gallery = () => {
         const formattedImages = data.map((img, i) => ({
             ...img,
             id: img.id,
-            url: img.url,
+            // Otimização: Pedir imagem redimensionada e comprimida ao Supabase
+            url: img.url.replace('/object/public/', '/render/image/public/') + '?width=600&quality=75',
             alt: img.alt,
             span: spans[i % spans.length],
         }));
