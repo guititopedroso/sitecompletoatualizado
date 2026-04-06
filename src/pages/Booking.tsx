@@ -137,6 +137,7 @@ const Booking = () => {
         num_people: people,
         location: location,
         referral_code: referralCode,
+        price: totalPrice, // Guardar o preço exato da reserva
       });
 
       toast({
