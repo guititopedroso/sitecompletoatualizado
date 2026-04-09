@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Language, languageFlags, languageLabels } from "@/i18n/translations";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaInstagram } from "react-icons/fa";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -63,7 +64,7 @@ const Navbar = () => {
         </motion.button>
 
         {/* Desktop */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {navLinks.map((l, i) => {
             const isPageLink = l.href.startsWith('/');
             const commonClasses = "text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors";
@@ -108,6 +109,15 @@ const Navbar = () => {
           >
             {t("nav_book_now")}
           </motion.button>
+
+          <a
+            href="https://www.instagram.com/royalcoast.pt"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+          >
+            <FaInstagram size={22} />
+          </a>
 
           {/* Language switcher */}
           <div className="relative">
@@ -249,6 +259,22 @@ const Navbar = () => {
                     </motion.button>
                   )
               })}
+               <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 * navLinks.length }}
+              >
+                <a
+                  href="https://www.instagram.com/royalcoast.pt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 w-full text-left text-primary-foreground/80 hover:text-primary-foreground py-2 text-sm font-medium"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <FaInstagram size={20} />
+                  <span>Instagram</span>
+                </a>
+              </motion.div>
               <motion.button
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

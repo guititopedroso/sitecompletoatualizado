@@ -18,10 +18,10 @@ const Contact = () => {
   };
 
   const contactInfo = [
-    { icon: Phone, title: t("contact_phone"), lines: ["+351 927 314 506"] },
-    { icon: MessageCircle, title: t("contact_whatsapp"), lines: [t("contact_whatsapp_desc")] },
-    { icon: Mail, title: t("contact_email"), lines: ["geral@royalcoast.pt"] },
-    { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.pt"] },
+    { icon: Phone, title: t("contact_phone"), lines: ["+351 927 314 506"], href: "tel:+351927314506" },
+    { icon: MessageCircle, title: t("contact_whatsapp"), lines: [t("contact_whatsapp_desc")], href: "https://wa.me/351927314506" },
+    { icon: Mail, title: t("contact_email"), lines: ["geral@royalcoast.pt"], href: "mailto:geral@royalcoast.pt" },
+    { icon: Instagram, title: t("contact_instagram"), lines: ["@royalcoast.pt"], href: "https://www.instagram.com/royalcoast.pt" },
     { icon: Clock, title: t("contact_hours"), lines: [t("contact_hours_1")] },
     { icon: MapPin, title: t("contact_location"), lines: [t("contact_loc_1"), t("contact_loc_2")] },
   ];
@@ -60,26 +60,50 @@ const Contact = () => {
               transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="space-y-8"
             >
-              {contactInfo.map((c, i) => (
-                <motion.div
-                  key={c.title}
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={inView ? { opacity: 1, x: 0 } : {}}
-                  transition={{ duration: 0.5, delay: 0.25 + 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ x: 6, transition: { duration: 0.2 } }}
-                  className="flex items-start gap-4"
-                >
-                  <div className="w-12 h-12 rounded-xl turquoise-gradient flex items-center justify-center shrink-0">
-                    <c.icon size={20} className="text-secondary-foreground" />
+              {contactInfo.map((c, i) => {
+                const isLink = !!c.href;
+                const MotionWrapper = motion.div;
+                const content = (
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl turquoise-gradient flex items-center justify-center shrink-0">
+                      <c.icon size={20} className="text-secondary-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-700 text-foreground mb-1">{c.title}</h3>
+                      {c.lines.map((l) => (
+                        <p key={l} className="text-muted-foreground">{l}</p>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-display font-700 text-foreground mb-1">{c.title}</h3>
-                    {c.lines.map((l) => (
-                      <p key={l} className="text-muted-foreground">{l}</p>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
+                );
+
+                if (isLink) {
+                  return (
+                    <MotionWrapper
+                      key={c.title}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={inView ? { opacity: 1, x: 0 } : {}}
+                      transition={{ duration: 0.5, delay: 0.25 + 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
+                      whileHover={{ x: 6, transition: { duration: 0.2 } }}
+                    >
+                      <a href={c.href} target="_blank" rel="noopener noreferrer">
+                        {content}
+                      </a>
+                    </MotionWrapper>
+                  );
+                }
+
+                return (
+                  <MotionWrapper
+                    key={c.title}
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={inView ? { opacity: 1, x: 0 } : {}}
+                    transition={{ duration: 0.5, delay: 0.25 + 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {content}
+                  </MotionWrapper>
+                );
+              })}
             </motion.div>
 
             <motion.form
