@@ -78,6 +78,7 @@ type TranslationKeys = {
   exp_desc: string;
   exp_tab_jetski: string;
   exp_tab_boats: string;
+  exp_tab_boats_soon: string;
   exp_tab_extras: string;
   exp_most_popular: string;
   exp_book: string;
@@ -291,6 +292,7 @@ export const translations: Translations = {
     exp_desc: "Do aluguer de motas de água rápido à experiência sunset, temos o pacote perfeito para as tuas aventuras em Setúbal, Tróia e Arrábida.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Barcos",
+    exp_tab_boats_soon: "Barcos (Em breve!)",
     exp_tab_extras: "Extras",
     exp_most_popular: "Mais Popular",
     exp_book: "Reservar",
@@ -492,6 +494,7 @@ export const translations: Translations = {
     exp_desc: "From a quick ride to a sunset experience, we have the perfect package for you.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Boats",
+    exp_tab_boats_soon: "Boats (Coming soon!)",
     exp_tab_extras: "Extras",
     exp_most_popular: "Most Popular",
     exp_book: "Book",
@@ -693,6 +696,7 @@ export const translations: Translations = {
     exp_desc: "Von der schnellen Fahrt bis zum Sonnenuntergangserlebnis – wir haben das perfekte Paket für dich.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Boote",
+    exp_tab_boats_soon: "Boote (Demnächst!)",
     exp_tab_extras: "Extras",
     exp_most_popular: "Am Beliebtesten",
     exp_book: "Buchen",
@@ -894,6 +898,7 @@ export const translations: Translations = {
     exp_desc: "Del paseo rápido a la experiencia sunset, tenemos el paquete perfecto para ti.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Barcos",
+    exp_tab_boats_soon: "Barcos (¡Próximamente!)",
     exp_tab_extras: "Extras",
     exp_most_popular: "Más Popular",
     exp_book: "Reservar",
@@ -1095,6 +1100,7 @@ export const translations: Translations = {
     exp_desc: "De la balade rapide à l\'expérience coucher de soleil, nous avons le forfait parfait pour vous.",
     exp_tab_jetski: "Jet Ski",
     exp_tab_boats: "Bateaux",
+    exp_tab_boats_soon: "Bateaux (Bientôt!)",
     exp_tab_extras: "Extras",
     exp_most_popular: "Le Plus Populaire",
     exp_book: "Réserver",
@@ -1296,6 +1302,7 @@ export const translations: Translations = {
     exp_desc: "从快速骑行到日落体验，我们为你准备了完美的套餐。",
     exp_tab_jetski: "水上摩托",
     exp_tab_boats: "船只",
+    exp_tab_boats_soon: "船只 (敬请期待!)",
     exp_tab_extras: "附加项目",
     exp_most_popular: "最受欢迎",
     exp_book: "预订",
