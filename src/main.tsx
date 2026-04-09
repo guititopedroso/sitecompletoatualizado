@@ -1,5 +1,16 @@
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { LanguageProvider } from "./i18n/LanguageContext";
+import App from "./App";
 import "./index.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <LanguageProvider>
+        <App />
+      </LanguageProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);
