@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 const STAFF_PACKS = [
@@ -79,22 +80,25 @@ const Staff = () => {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const fetchBookings = async () => {
-    setLoading(true);
-    const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-    const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .gte("booking_date", startDate)
-      .lte("booking_date", endDate)
-      .order("booking_time", { ascending: true });
-    setBookings(data || []);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    if (staffName) fetchBookings();
+    if (staffName) {
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
+      
+      const q = query(
+        collection(db, "bookings"),
+        where("booking_date", ">=", startDate),
+        where("booking_date", "<=", endDate)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Booking[];
+        setBookings(data.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
   }, [staffName, year, month]);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -115,43 +119,63 @@ const Staff = () => {
   const addBooking = async () => {
     if (!selectedDate || !newBooking.client_name || !newBooking.pack_name) return;
     const finalPackName = newBooking.pack_fotos ? `${newBooking.pack_name} + Pack Fotos` : newBooking.pack_name;
-    await supabase.from("bookings").insert({
-      client_name: newBooking.client_name,
-      pack_name: finalPackName,
-      booking_date: selectedDate,
-      booking_time: newBooking.booking_time,
-      num_people: newBooking.num_people,
-      location: newBooking.location,
-      created_by: staffName,
-    });
-    setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, pack_fotos: false, location: "Porto de Setúbal" });
-    setShowAddForm(false);
-    fetchBookings();
+    try {
+      await addDoc(collection(db, "bookings"), {
+        client_name: newBooking.client_name,
+        pack_name: finalPackName,
+        booking_date: selectedDate,
+        booking_time: newBooking.booking_time,
+        num_people: newBooking.num_people,
+        location: newBooking.location,
+        created_by: staffName,
+        created_at: new Date().toISOString()
+      });
+      setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, pack_fotos: false, location: "Porto de Setúbal" });
+      setShowAddForm(false);
+    } catch (error: any) {
+      console.error("Error adding booking:", error);
+    }
   };
 
   const removeBooking = async (id: string) => {
-    await supabase.from("bookings").delete().eq("id", id);
-    fetchBookings();
+    try {
+      await deleteDoc(doc(db, "bookings", id));
+    } catch (error: any) {
+      console.error("Error removing booking:", error);
+    }
   };
 
   const setPaymentMethod = async (id: string, method: string) => {
-    await supabase.from("bookings").update({ payment_method: method }).eq("id", id);
-    fetchBookings();
+    try {
+      await updateDoc(doc(db, "bookings", id), { payment_method: method });
+    } catch (error: any) {
+      console.error("Error setting payment method:", error);
+    }
   };
 
   const confirmBooking = async (id: string) => {
-    await supabase.from("bookings").update({ confirmed: true }).eq("id", id);
-    fetchBookings();
+    try {
+      await updateDoc(doc(db, "bookings", id), { confirmed: true });
+    } catch (error: any) {
+      console.error("Error confirming booking:", error);
+    }
   };
 
   // Auto-delete unconfirmed past bookings
   const cleanupUnconfirmed = async () => {
     const todayStr = new Date().toISOString().split("T")[0];
-    await supabase
-      .from("bookings")
-      .delete()
-      .lt("booking_date", todayStr)
-      .or("confirmed.is.null,confirmed.eq.false");
+    try {
+      const q = query(
+        collection(db, "bookings"),
+        where("booking_date", "<", todayStr),
+        where("confirmed", "==", false)
+      );
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(document => deleteDoc(doc(db, "bookings", document.id)));
+      await Promise.all(deletePromises);
+    } catch (error: any) {
+      console.error("Error cleaning up:", error);
+    }
   };
 
   useEffect(() => {

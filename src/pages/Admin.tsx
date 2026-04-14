@@ -4,9 +4,11 @@ import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Lo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AdminGallery from "./AdminGallery";
+import AdminBoats from "./AdminBoats";
 import EarningsChart from "../components/EarningsChart";
 import { toast } from "@/hooks/use-toast";
 
@@ -63,35 +65,64 @@ const Admin = () => {
 
   useEffect(() => { const isAuthenticated = sessionStorage.getItem(AUTH_KEY) === "true"; setAuthenticated(isAuthenticated); }, []);
 
-  const fetchAllFinancialData = async () => {
-    const { data: bookingsData } = await supabase.from("bookings").select("*").eq('confirmed', true);
-    if (bookingsData) { setAllBookings(bookingsData.map(b => ({ ...b, price: b.price ?? getPriceFallback(b.pack_name) }))); }
+  const fetchAllData = () => {
+    // For statistical earnings
+    const qConfirmed = query(collection(db, "bookings"), where("confirmed", "==", true));
+    const unsubAllBookings = onSnapshot(qConfirmed, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+      })) as Booking[];
+      setAllBookings(data);
+    });
 
-    const { data: expensesData } = await supabase.from("expenses").select("*");
-    if (expensesData) { setAllExpenses(expensesData); }
-  };
+    const qAllExpenses = query(collection(db, "expenses"));
+    const unsubAllExpenses = onSnapshot(qAllExpenses, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+      setAllExpenses(data);
+    });
 
-  const fetchCalendarData = async () => {
-    setLoading(true);
+    // For the calendar view (this month)
     const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
 
-    const { data: bookingsData } = await supabase.from("bookings").select("*").gte("booking_date", startDate).lte("booking_date", endDate).order("booking_time", { ascending: true });
-    if (bookingsData) { setBookings(bookingsData.map(b => ({ ...b, price: b.price ?? getPriceFallback(b.pack_name) }))); }
-    
-    const { data: expensesData } = await supabase.from("expenses").select("*").gte("date", startDate).lte("date", endDate);
-    if (expensesData) { setMonthlyExpenses(expensesData); }
+    const qCalendarBookings = query(
+      collection(db, "bookings"), 
+      where("booking_date", ">=", startDate), 
+      where("booking_date", "<=", endDate)
+    );
+    const unsubCalendarBookings = onSnapshot(qCalendarBookings, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+      })) as Booking[];
+      setBookings(data.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
+    });
 
-    setLoading(false);
+    const qCalendarExpenses = query(
+      collection(db, "expenses"),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate)
+    );
+    const unsubCalendarExpenses = onSnapshot(qCalendarExpenses, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+      setMonthlyExpenses(data);
+    });
+
+    return () => {
+      unsubAllBookings();
+      unsubAllExpenses();
+      unsubCalendarBookings();
+      unsubCalendarExpenses();
+    };
   };
-
-  const fetchAllData = () => { fetchCalendarData(); fetchAllFinancialData(); };
 
   useEffect(() => {
     if (authenticated) {
-      fetchAllData();
-      const channel = supabase.channel('realtime-admin-all').on('postgres_changes', { event: '*', schema: 'public' }, fetchAllData).subscribe();
-      return () => { supabase.removeChannel(channel); };
+      const cleanup = fetchAllData();
+      return cleanup;
     }
   }, [authenticated, year, month]);
 
@@ -104,36 +135,61 @@ const Admin = () => {
 
   const addBooking = async () => {
     if (!selectedDate || !newBooking.client_name || !newBooking.pack_name) return;
-    const { error } = await supabase.from("bookings").insert({ ...newBooking, booking_date: selectedDate, created_by: "Admin" });
-    if (error) { toast({ title: "Erro ao adicionar reserva", description: error.message, variant: "destructive" });
-    } else { setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, price: 0 }); setShowAddForm(false); toast({ title: "Reserva adicionada!" }); fetchAllData(); }
+    try {
+      await addDoc(collection(db, "bookings"), { 
+        ...newBooking, 
+        booking_date: selectedDate, 
+        created_by: "Admin",
+        created_at: new Date().toISOString(),
+        confirmed: true
+      });
+      setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, price: 0 }); 
+      setShowAddForm(false); 
+      toast({ title: "Reserva adicionada!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao adicionar reserva", description: error.message, variant: "destructive" });
+    }
   };
 
   const addExpense = async () => {
     if (!selectedDate || !expenseDialog.type || expenseDialog.amount <= 0) {
       toast({ title: "Valor inválido", description: "Por favor, insira um valor maior que zero.", variant: "destructive" }); return;
     }
-    const { error } = await supabase.from("expenses").insert({ date: selectedDate, type: expenseDialog.type, amount: expenseDialog.amount });
-    if (error) { toast({ title: "Erro ao guardar despesa", description: error.message, variant: "destructive" });
-    } else { toast({ title: "Despesa guardada!" }); setExpenseDialog({ open: false, type: null, amount: 0 }); fetchAllData(); }
+    try {
+      await addDoc(collection(db, "expenses"), { 
+        date: selectedDate, 
+        type: expenseDialog.type, 
+        amount: expenseDialog.amount,
+        created_at: new Date().toISOString()
+      });
+      toast({ title: "Despesa guardada!" }); 
+      setExpenseDialog({ open: false, type: null, amount: 0 });
+    } catch (error: any) {
+      toast({ title: "Erro ao guardar despesa", description: error.message, variant: "destructive" });
+    }
   };
 
   const removeBooking = async (id: string) => {
     if (!id) return;
-    const { error } = await supabase.from("bookings").delete().eq("id", id);
-    if (error) { toast({ title: "Erro ao remover reserva", description: error.message, variant: "destructive" });
-    } else { toast({ title: "Reserva removida!" }); fetchAllData(); }
+    try {
+      await deleteDoc(doc(db, "bookings", id));
+      toast({ title: "Reserva removida!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao remover reserva", description: error.message, variant: "destructive" });
+    }
   };
 
-  // CORREÇÃO: ID é um número e tem uma verificação de segurança.
-  const removeExpense = async (id: number) => {
+  const removeExpense = async (id: string) => {
     if (!id) {
         toast({ title: "Erro ao remover", description: "A despesa não tem um ID válido.", variant: "destructive" });
         return;
     }
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
-    if (error) { toast({ title: "Erro ao remover despesa", description: error.message, variant: "destructive" });
-    } else { toast({ title: "Despesa removida!" }); fetchAllData(); }
+    try {
+      await deleteDoc(doc(db, "expenses", id));
+      toast({ title: "Despesa removida!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao remover despesa", description: error.message, variant: "destructive" });
+    }
   };
 
   const getBookingsForDate = (dateStr: string) => bookings.filter((b) => b.booking_date === dateStr);
@@ -152,11 +208,12 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="ocean-gradient py-4 px-4 sm:px-6 shadow-ocean"> <div className="max-w-7xl mx-auto flex items-center justify-between"> <div className="flex items-center gap-3"> <CalendarDays className="text-primary-foreground" size={24}/> <h1 className="font-display text-xl font-bold text-primary-foreground"> Royal<span className="text-coral">Coast</span> — Admin </h1> </div> <div className="flex items-center gap-2"> <Button variant="ghost" size="sm" onClick={()=>togglePanel("earnings")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="earnings"?"bg-primary-foreground/10":""}`}> <DollarSign size={16}/> <span className="hidden sm:inline ml-1">Ganhos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("gallery")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="gallery"?"bg-primary-foreground/10":""}`}> <ImageIcon size={16}/> <span className="hidden sm:inline ml-1">Galeria</span> </Button> <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"> <LogOut size={16}/> <span className="hidden sm:inline ml-1">Sair</span> </Button> </div> </div> </div>
+      <div className="ocean-gradient py-4 px-4 sm:px-6 shadow-ocean"> <div className="max-w-7xl mx-auto flex items-center justify-between"> <div className="flex items-center gap-3"> <CalendarDays className="text-primary-foreground" size={24}/> <h1 className="font-display text-xl font-bold text-primary-foreground"> Royal<span className="text-coral">Coast</span> — Admin </h1> </div> <div className="flex items-center gap-2"> <Button variant="ghost" size="sm" onClick={()=>togglePanel("earnings")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="earnings"?"bg-primary-foreground/10":""}`}> <DollarSign size={16}/> <span className="hidden sm:inline ml-1">Ganhos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("boats")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="boats"?"bg-primary-foreground/10":""}`}> <Anchor size={16}/> <span className="hidden sm:inline ml-1">Barcos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("gallery")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="gallery"?"bg-primary-foreground/10":""}`}> <ImageIcon size={16}/> <span className="hidden sm:inline ml-1">Galeria</span> </Button> <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"> <LogOut size={16}/> <span className="hidden sm:inline ml-1">Sair</span> </Button> </div> </div> </div>
 
       <AnimatePresence mode="wait">
         <motion.div key={activePanel} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
           {activePanel === "earnings" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <EarningsChart bookings={allBookings} expenses={allExpenses} /> </div> )}
+          {activePanel === "boats" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <AdminBoats /> </div> )}
           {activePanel === "gallery" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <AdminGallery /> </div> )}
         </motion.div>
       </AnimatePresence>

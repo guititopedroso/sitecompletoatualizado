@@ -70,7 +70,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
   const tabs = [
     { id: "jetski", label: t("exp_tab_jetski") },
-    // { id: "barcos", label: t("exp_tab_boats") },
+    { id: "barcos", label: t("exp_tab_boats") },
   ];
 
   const currentPacks = jetskiPacks;
@@ -111,23 +111,11 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   {tab.label}
                 </motion.button>
               ))}
-              <motion.button
-                  key={"barcos"}
-                  // onClick={() => setActiveTab("barcos")}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`relative px-6 py-3 rounded-full font-display font-600 text-sm transition-all duration-300 cursor-not-allowed ${
-                    activeTab === "barcos"
-                      ? "ocean-gradient text-primary-foreground shadow-ocean"
-                      : "bg-card text-muted-foreground hover:text-foreground shadow-card"
-                  }`}
-                >
-                  {t("exp_tab_boats_soon")}
-                </motion.button>
+
             </div>
 
             <AnimatePresence mode="wait">
-              {/* {activeTab === "barcos" ? ( 
+              {activeTab === "barcos" ? ( 
                 <motion.div
                   key="barcos"
                   initial={{ opacity: 0, y: 30 }}
@@ -137,7 +125,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                 >
                   <BoatCatalog referralCode={referralCode} />
                 </motion.div>
-              ) : ( */} 
+              ) : ( 
                 <motion.div
                   key={activeTab}
                   initial={{ opacity: 0, y: 30 }}
@@ -232,7 +220,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                     </motion.div>
                   ))}
                 </motion.div>
-              {/* )} */}
+              )}
             </AnimatePresence>
           </div>
         </div>

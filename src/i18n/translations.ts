@@ -115,6 +115,10 @@ type TranslationKeys = {
   boat_inc_lifejacket: string;
   boat_inc_briefing: string;
   boat_inc_insurance: string;
+  boat_range_all: string;
+  boat_range_low: string;
+  boat_range_mid: string;
+  boat_range_high: string;
 
   // Safety
   safety_tag: string;
@@ -327,6 +331,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "Coletes salva-vidas",
     boat_inc_briefing: "Briefing de segurança",
     boat_inc_insurance: "Seguro incluído",
+    boat_range_all: "Tudo",
+    boat_range_low: "Gama Baixa",
+    boat_range_mid: "Gama Média",
+    boat_range_high: "Gama Alta",
 
     safety_tag: "Segurança",
     safety_title: "A tua segurança é a nossa prioridade",
@@ -529,6 +537,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "Life jackets",
     boat_inc_briefing: "Safety briefing",
     boat_inc_insurance: "Insurance included",
+    boat_range_all: "All",
+    boat_range_low: "Low Range",
+    boat_range_mid: "Mid Range",
+    boat_range_high: "High Range",
 
     safety_tag: "Safety",
     safety_title: "Your safety is our priority",
@@ -731,6 +743,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "Schwimmwesten",
     boat_inc_briefing: "Sicherheitsbriefing",
     boat_inc_insurance: "Versicherung inklusive",
+    boat_range_all: "Alle",
+    boat_range_low: "Gama Baixa",
+    boat_range_mid: "Gama Média",
+    boat_range_high: "Gama Alta",
 
     safety_tag: "Sicherheit",
     safety_title: "Deine Sicherheit hat Priorität",
@@ -933,6 +949,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "Chalecos salvavidas",
     boat_inc_briefing: "Briefing de seguridad",
     boat_inc_insurance: "Seguro incluido",
+    boat_range_all: "Todo",
+    boat_range_low: "Gama Baja",
+    boat_range_mid: "Gama Media",
+    boat_range_high: "Gama Alta",
 
     safety_tag: "Seguridad",
     safety_title: "Tu seguridad es nuestra prioridad",
@@ -1135,6 +1155,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "Gilets de sauvetage",
     boat_inc_briefing: "Briefing de sécurité",
     boat_inc_insurance: "Assurance incluse",
+    boat_range_all: "Tout",
+    boat_range_low: "Gamme Basse",
+    boat_range_mid: "Gamme Moyenne",
+    boat_range_high: "Gamme Haute",
 
     safety_tag: "Sécurité",
     safety_title: "Votre sécurité est notre priorité",
@@ -1337,6 +1361,10 @@ export const translations: Translations = {
     boat_inc_lifejacket: "救生衣",
     boat_inc_briefing: "安全讲解",
     boat_inc_insurance: "含保险",
+    boat_range_all: "全部",
+    boat_range_low: "低端系列",
+    boat_range_mid: "中端系列",
+    boat_range_high: "高端系列",
 
     safety_tag: "安全",
     safety_title: "您的安全是我们的首要任务",

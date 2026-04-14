@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Anchor, Gauge } from "lucide-react";
+import { Users, Anchor, Gauge, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import {
   Dialog,
   DialogContent,
@@ -11,16 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-import boatKeltAzura from "@/assets/boat-kelt-azura.webp";
-import boatCapCamarat from "@/assets/boat-cap-camarat.jpg";
-import boatSanRemo from "@/assets/boat-san-remo.jpg";
-import boatSaver from "@/assets/boat-saver.jpg";
-import boatSelva from "@/assets/boat-selva.jpg";
-import boatBayliner from "@/assets/boat-bayliner.jpg";
-import boatNireus from "@/assets/boat-nireus.jpg";
-import boatSacs from "@/assets/boat-sacs.jpg";
-import boatBwa from "@/assets/boat-bwa.webp";
-import boatSilverMarine from "@/assets/boat-silver-marine.jpg";
+
 
 type Boat = {
   name: string;
@@ -31,30 +24,80 @@ type Boat = {
   price8h: string;
   image: string;
   slug: string;
+  range: "low" | "mid" | "high";
 };
 
-const boats: Boat[] = [
-  { name: "Kelt Azura", size: "5 mts", engine: "Motor Yamaha 50hp four stroke", capacity: 5, price4h: "190€", price8h: "230€", image: boatKeltAzura, slug: "kelt-azura" },
-  { name: "Cap Camarat", size: "5,15 mts", engine: "Motor Honda 75hp four stroke", capacity: 6, price4h: "200€", price8h: "285€", image: boatCapCamarat, slug: "cap-camarat" },
-  { name: "San Remo", size: "5,65 mts", engine: "Motor Yamaha 80hp four stroke", capacity: 6, price4h: "200€", price8h: "285€", image: boatSanRemo, slug: "san-remo" },
-  { name: "Saver", size: "5,80 mts", engine: "Motor Yamaha 100hp four stroke", capacity: 6, price4h: "210€", price8h: "300€", image: boatSaver, slug: "saver" },
-  { name: "Selva", size: "5,80 mts", engine: "Motor Selva 100hp four stroke", capacity: 7, price4h: "220€", price8h: "310€", image: boatSelva, slug: "selva" },
-  { name: "Bayliner", size: "5,70 mts", engine: "Motor Honda 115hp four stroke", capacity: 7, price4h: "220€", price8h: "310€", image: boatBayliner, slug: "bayliner" },
-  { name: "Nireus", size: "5,70 mts", engine: "Motor Yamaha 90hp VMAX four stroke", capacity: 8, price4h: "230€", price8h: "320€", image: boatNireus, slug: "nireus" },
-  { name: "Sacs", size: "6 mts", engine: "Motor Honda 150hp four stroke", capacity: 10, price4h: "250€", price8h: "330€", image: boatSacs, slug: "sacs" },
-  { name: "BWA", size: "6,50 mts", engine: "Motor Suzuki 150hp four stroke", capacity: 12, price4h: "285€", price8h: "360€", image: boatBwa, slug: "bwa" },
-  { name: "Silver Marine", size: "6,60 mts", engine: "Motor Yamaha 175hp four stroke", capacity: 14, price4h: "330€", price8h: "410€", image: boatSilverMarine, slug: "silver-marine" },
-];
-
 const BoatCatalog = ({ referralCode }: { referralCode?: string }) => {
+  const [boats, setBoats] = useState<Boat[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedBoat, setSelectedBoat] = useState<Boat | null>(null);
+  const [activeRange, setActiveRange] = useState<"all" | "low" | "mid" | "high">("all");
   const navigate = useNavigate();
   const { t } = useLanguage();
 
+  const fetchBoats = async () => {
+    setLoading(true);
+    try {
+      const boatsRef = collection(db, "boats");
+      const q = query(boatsRef, orderBy("created_at", "asc"));
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Boat[];
+      setBoats(data);
+    } catch (error) {
+      console.error("Error fetching boats:", error);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchBoats();
+  }, []);
+
+  const filteredBoats = activeRange === "all" 
+    ? boats 
+    : boats.filter(b => b.range === activeRange);
+
+  const ranges = [
+    { id: "all", label: t("boat_range_all") },
+    { id: "low", label: t("boat_range_low") },
+    { id: "mid", label: t("boat_range_mid") },
+    { id: "high", label: t("boat_range_high") },
+  ];
+
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {boats.map((boat, i) => (
+      <div className="flex flex-wrap justify-center gap-2 mb-8">
+        {ranges.map((range) => (
+          <motion.button
+            key={range.id}
+            onClick={() => setActiveRange(range.id as any)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 ${
+              activeRange === range.id
+                ? "bg-coral text-white shadow-md"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {range.label}
+          </motion.button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="animate-spin text-primary" size={40} />
+        </div>
+      ) : filteredBoats.length === 0 ? (
+        <div className="text-center py-20 text-muted-foreground">
+          <p>{t("no_boats_found") || "Nenhum barco encontrado nesta categoria."}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredBoats.map((boat, i) => (
           <motion.div
             key={boat.slug}
             initial={{ opacity: 0, y: 20 }}
@@ -92,7 +135,8 @@ const BoatCatalog = ({ referralCode }: { referralCode?: string }) => {
             </div>
           </motion.div>
         ))}
-      </div>
+        </div>
+      )}
 
       <Dialog open={!!selectedBoat} onOpenChange={(open) => !open && setSelectedBoat(null)}>
         {selectedBoat && (

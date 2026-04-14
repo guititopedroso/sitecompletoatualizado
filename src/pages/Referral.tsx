@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { Link2, Copy, Check, Users, ArrowLeft, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -21,26 +22,27 @@ const Referral = () => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleCreate = async () => {
-    if (!name.trim() || !email.trim()) return;
-    setLoading(true);
-    const code = generateCode(name);
-
-    const { error } = await supabase.from("referrals").insert({
-      name: name.trim(),
-      email: email.trim(),
-      code,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        toast({ title: "Já tens um link!", description: "Usa o email para procurar o teu código existente.", variant: "destructive" });
+    try {
+      // Verificar se já existe (opcional, mas bom para UX)
+      const q = query(collection(db, "referrals"), where("email", "==", email.trim()));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        setReferralCode(snap.docs[0].data().code);
+        toast({ title: "Já tens um link!", description: "Recuperámos o teu código existente." });
       } else {
-        toast({ title: "Erro", description: "Tenta novamente.", variant: "destructive" });
+        await addDoc(collection(db, "referrals"), {
+          name: name.trim(),
+          email: email.trim(),
+          code,
+          created_at: new Date().toISOString()
+        });
+        setReferralCode(code);
+        toast({ title: "Link criado! 🎉", description: "Partilha com os teus amigos." });
       }
-    } else {
-      setReferralCode(code);
-      toast({ title: "Link criado! 🎉", description: "Partilha com os teus amigos." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: "Tenta novamente.", variant: "destructive" });
+      console.error(err);
     }
     setLoading(false);
   };

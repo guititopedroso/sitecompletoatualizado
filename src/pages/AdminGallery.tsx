@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabase";
+import { db, storage } from "@/lib/firebase";
+import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, onSnapshot } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Upload, Trash2, Loader2, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -24,31 +26,33 @@ type GalleryImage = {
   
     const fetchImages = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("gallery")
-        .select("*")
-        .order("created_at", { ascending: false });
-  
-      if (error) {
+      try {
+        const q = query(collection(db, "gallery"), orderBy("created_at", "desc"));
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as GalleryImage[];
+        setImages(data);
+      } catch (err) {
         setError("Não foi possível carregar as imagens.");
-        console.error(error);
-      } else {
-        setImages(data as GalleryImage[]);
+        console.error(err);
       }
       setLoading(false);
     };
   
     useEffect(() => {
-      fetchImages();
-      const channel = supabase.channel('realtime gallery')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => {
-          fetchImages();
-        })
-        .subscribe();
+      const q = query(collection(db, "gallery"), orderBy("created_at", "desc"));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as GalleryImage[];
+        setImages(data);
+        setLoading(false);
+      });
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      return () => unsubscribe();
     }, []);
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,36 +63,23 @@ type GalleryImage = {
         setError(null);
     
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `gallery/${fileName}`;
+        const fileName = `${Date.now()}.${fileExt}`;
+        const storageRef = ref(storage, `gallery/${fileName}`);
     
-        const { error: uploadError } = await supabase.storage
-          .from("public-bucket")
-          .upload(filePath, file);
-    
-        if (uploadError) {
-          setError("Falha no upload da imagem. Tente novamente.");
-          console.error(uploadError);
-          setUploading(false);
-          return;
-        }
-    
-        const { data: { publicUrl } } = supabase.storage
-          .from("public-bucket")
-          .getPublicUrl(filePath);
-    
-        const { error: insertError } = await supabase.from("gallery").insert({
-          url: publicUrl,
-          alt: "Imagem da galeria", // Default alt text
-        });
-    
-        if (insertError) {
-          setError("Não foi possível guardar a imagem na base de dados.");
-          console.error(insertError);
-          // Clean up orphaned storage file if DB insert fails
-          await supabase.storage.from("public-bucket").remove([filePath]);
-        } else {
+        try {
+          const snapshot = await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(snapshot.ref);
+          
+          await addDoc(collection(db, "gallery"), {
+            url,
+            alt: "Imagem da galeria",
+            created_at: new Date().toISOString()
+          });
+
           toast({ title: "Sucesso!", description: "A imagem foi adicionada à galeria." });
+        } catch (err: any) {
+          setError("Falha no upload da imagem. Tente novamente.");
+          console.error(err);
         }
         setUploading(false);
       };
@@ -102,28 +93,24 @@ type GalleryImage = {
       };
   
     const deleteImage = async (image: GalleryImage) => {
-        const filePath = image.url.substring(image.url.lastIndexOf('public-bucket/') + 'public-bucket/'.length);
-      
-        const { error: storageError } = await supabase.storage
-          .from("public-bucket")
-          .remove([filePath]);
-    
-      if (storageError) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível eliminar o ficheiro da imagem." });
-        console.error(storageError);
-        return;
-      }
-  
-      const { error: dbError } = await supabase
-        .from("gallery")
-        .delete()
-        .eq("id", image.id);
-  
-      if (dbError) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível eliminar a referência da imagem na base de dados." });
-        console.error(dbError);
-      } else {
+      try {
+        // 1. Eliminar do Firestore
+        await deleteDoc(doc(db, "gallery", image.id));
+
+        // 2. Tentar eliminar do Storage se for um URL do Firebase
+        if (image.url.includes("firebasestorage")) {
+          try {
+            const imageRef = ref(storage, image.url);
+            await deleteObject(imageRef);
+          } catch (storageErr) {
+            console.warn("Imagem não encontrada no Storage", storageErr);
+          }
+        }
+        
         toast({ title: "Sucesso!", description: "A imagem foi removida da galeria." });
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível eliminar a imagem." });
+        console.error(err);
       }
     };
   

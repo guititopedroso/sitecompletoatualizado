@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 
 type GalleryImage = {
   id: string;
@@ -25,22 +26,25 @@ const GalleryPage = () => {
   useEffect(() => {
     const fetchImages = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("gallery")
-        .select("id, url, alt")
-        .order("created_at", { ascending: false });
+      try {
+        const q = query(collection(db, "gallery"), orderBy("created_at", "desc"));
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as any[];
 
-      if (data) {
-        // Assign spans dynamically for layout purposes
-        const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
-        const formattedImages = data.map((img, i) => ({
-          ...img,
-          id: img.id,
-          url: img.url,
-          alt: img.alt,
-          span: spans[i % spans.length], // Cycle through spans
-        }));
-        setImages(formattedImages);
+        if (data) {
+          // Assign spans dynamically for layout purposes
+          const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
+          const formattedImages = data.map((img, i) => ({
+            ...img,
+            span: spans[i % spans.length], // Cycle through spans
+          }));
+          setImages(formattedImages);
+        }
+      } catch (err) {
+        console.error("Error fetching images:", err);
       }
       setLoading(false);
     };

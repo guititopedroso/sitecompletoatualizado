@@ -5,11 +5,12 @@ import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2 } from "luc
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
+import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import emailjs from "@emailjs/browser";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 import LegalDialog from "@/components/LegalDialog";
 import { useLanguage } from "@/i18n/LanguageContext";
 
@@ -109,25 +110,8 @@ const Booking = () => {
 
   const handleConfirm = async () => {
     setSending(true);
-    const templateParams = {
-      to_name: name,
-      to_email: email,
-      pack_name: pack.name + (packFotos ? " + Pack Fotos" : ""),
-      pack_price: totalPriceStr,
-      booking_date: date ? format(date, "dd/MM/yyyy") : "",
-      booking_time: time,
-      num_people: people,
-      phone: phone,
-      location: location,
-    };
     try {
-      await Promise.all([
-        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY),
-        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email: ADMIN_EMAIL }, EMAILJS_PUBLIC_KEY),
-      ]);
-
-      // Save booking to Supabase
-      await supabase.from("bookings").insert({
+      await addDoc(collection(db, "bookings"), {
         client_name: name,
         client_email: email,
         client_phone: phone,
@@ -137,8 +121,26 @@ const Booking = () => {
         num_people: people,
         location: location,
         referral_code: referralCode,
-        price: totalPrice, // Guardar o preço exato da reserva
+        price: totalPrice,
+        created_at: new Date().toISOString(),
       });
+
+      const templateParams = {
+        to_name: name,
+        to_email: email,
+        pack_name: pack.name + (packFotos ? " + Pack Fotos" : ""),
+        pack_price: totalPriceStr,
+        booking_date: date ? format(date, "dd/MM/yyyy") : "",
+        booking_time: time,
+        num_people: people,
+        phone: phone,
+        location: location,
+      };
+
+      await Promise.all([
+        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY),
+        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email: ADMIN_EMAIL }, EMAILJS_PUBLIC_KEY),
+      ]);
 
       toast({
         title: t("book_sent_toast"),
