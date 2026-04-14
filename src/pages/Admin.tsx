@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -34,7 +34,7 @@ const getPriceFallback = (packName: string): number => {
 
 type Booking = { id: string; client_name: string; client_email: string | null; client_phone: string | null; pack_name: string; booking_date: string; booking_time: string | null; num_people: number; location: string | null; created_at: string; created_by: string | null; payment_method: string | null; confirmed: boolean | null; referral_code?: string; price?: number; };
 // CORREÇÃO: O ID é um número, não uma string.
-type Expense = { id: number; date: string; type: 'gasolina' | 'manutencao'; amount: number; };
+type Expense = { id: string; date: string; type: 'gasolina' | 'manutencao'; amount: number; };
 
 const months = [ "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro" ];
 const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -202,7 +202,7 @@ const Admin = () => {
   const selectedBookings = selectedDate ? getBookingsForDate(selectedDate) : [];
   const selectedExpenses = selectedDate ? getExpensesForDate(selectedDate) : [];
   
-  const togglePanel = (panel: string) => { setActivePanel(activePanel === panel ? "bookings" : panel); if (panel === 'earnings' && activePanel !== 'earnings') fetchAllFinancialData(); };
+  const togglePanel = (panel: string) => { setActivePanel(activePanel === panel ? "bookings" : panel); };
 
   if (!authenticated) { return( <div className="min-h-screen bg-background flex items-center justify-center p-4"> <motion.div initial={{opacity:0,scale:.9}} animate={{opacity:1,scale:1}} className="w-full max-w-sm"> <div className="ocean-gradient rounded-2xl p-8 shadow-ocean text-center"> <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary-foreground/10 flex items-center justify-center"> <Lock className="text-primary-foreground" size={28}/> </div> <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2"> Royal<span className="text-coral">Coast</span> Admin </h1> <p className="text-primary-foreground/60 text-sm mb-6">Área reservada</p> <form onSubmit={handleLogin} className="space-y-4"> <Input type="password" placeholder="Password" value={password} onChange={a=>{setPassword(a.target.value);setError(false)}} className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/40 text-center"/> {error&&(<motion.p initial={{opacity:0}} animate={{opacity:1}} className="text-coral text-sm"> Password incorreta </motion.p>)} <Button type="submit" className="w-full sunset-gradient text-accent-foreground font-semibold rounded-full"> Entrar </Button> </form> </div> </motion.div> </div> )}
 

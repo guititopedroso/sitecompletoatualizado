@@ -75,10 +75,9 @@ const AdminBoats = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const [isDragging, setIsDragging] = useState(false);
 
+  const processFile = async (file: File) => {
     setUploading(true);
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
@@ -87,12 +86,34 @@ const AdminBoats = () => {
     try {
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
-      setFormData({ ...formData, image: url });
+      setFormData(prev => ({ ...prev, image: url }));
       toast({ title: "Sucesso", description: "Imagem carregada!" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no upload", description: error.message });
     }
     setUploading(false);
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   };
 
   const createSlug = (name: string) => {
@@ -230,16 +251,34 @@ const AdminBoats = () => {
                 <option value="high">Gama Alta</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Imagem</label>
-              <div className="flex gap-2">
-                <Input placeholder="URL da imagem ou carrega ficheiro" value={formData.image} onChange={e => setFormData({ ...formData, image: e.target.value })} className="flex-1" />
-                <Button variant="outline" asChild disabled={uploading} className="shrink-0">
-                  <label className="cursor-pointer">
-                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                  </label>
-                </Button>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Imagem do Barco (URL ou Upload)</label>
+              <div 
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`
+                  relative border-2 border-dashed rounded-xl p-6 transition-all duration-200
+                  ${isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-border bg-muted/20"}
+                  ${uploading ? "opacity-60 pointer-events-none" : "hover:border-primary/50"}
+                `}
+              >
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="flex-1 w-full space-y-2">
+                    <Input placeholder="URL da imagem" value={formData.image} onChange={e => setFormData({ ...formData, image: e.target.value })} className="bg-background" />
+                    <p className="text-[10px] text-muted-foreground">Podes colar um link ou arrastar um ficheiro para aqui.</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground font-medium">ou</span>
+                    <Button variant="outline" asChild disabled={uploading} className="bg-background">
+                      <label className="cursor-pointer">
+                        {uploading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Upload size={14} className="mr-2" />}
+                        Selecionar Ficheiro
+                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                      </label>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

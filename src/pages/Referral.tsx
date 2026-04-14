@@ -22,6 +22,11 @@ const Referral = () => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const handleCreate = async () => {
+    if (!name.trim() || !email.trim()) return;
+    setLoading(true);
+    const code = generateCode(name);
+
     try {
       // Verificar se já existe (opcional, mas bom para UX)
       const q = query(collection(db, "referrals"), where("email", "==", email.trim()));
