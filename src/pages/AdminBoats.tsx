@@ -1,13 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { Upload, Trash2, Loader2, Anchor, Plus, X, Save, AlertTriangle, Edit2 } from "lucide-react";
+import { Upload, Trash2, Loader2, Anchor, Plus, X, Save, AlertTriangle, Edit2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+
+// DnD Kit Imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type Boat = {
   id: string;
@@ -17,10 +36,98 @@ type Boat = {
   capacity: number;
   price4h: string;
   price8h: string;
-  image: string;
+  images: string[];
   slug: string;
   range: "low" | "mid" | "high";
-  created_at: string;
+  order?: number;
+  created_at?: string;
+  features?: string[];
+};
+
+// Sortable Item Component
+const SortableBoat = ({ boat, startEdit, requestDelete, moveBoat }: { 
+  boat: Boat, 
+  startEdit: (b: Boat) => void, 
+  requestDelete: (b: Boat) => void,
+  moveBoat: (id: string, direction: 'top' | 'bottom') => void
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: boat.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group relative ${isDragging ? 'shadow-2xl ring-2 ring-primary/20' : ''}`}
+    >
+      <div className="h-40 relative">
+        <img src={boat.images?.[0] || (boat as any).image || ""} alt={boat.name} className="w-full h-full object-cover" />
+        
+        {/* Drag Handle Overlay */}
+        <div 
+          {...attributes} 
+          {...listeners}
+          className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-grab active:cursor-grabbing"
+        >
+          <div className="bg-white/80 p-2 rounded-full shadow-lg">
+            <GripVertical className="text-primary h-6 w-6" />
+          </div>
+        </div>
+
+        <div className="absolute top-2 right-2 flex gap-1 z-10">
+          <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => startEdit(boat)}>
+            <Edit2 size={14} />
+          </Button>
+          <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => requestDelete(boat)}>
+            <Trash2 size={14} />
+          </Button>
+        </div>
+
+        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+          <Button 
+            size="icon" 
+            variant="secondary" 
+            className="h-7 w-7 rounded-full bg-white/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity" 
+            title="Mover para o topo"
+            onClick={() => moveBoat(boat.id, 'top')}
+          >
+            <ArrowUp size={12} />
+          </Button>
+          <Button 
+            size="icon" 
+            variant="secondary" 
+            className="h-7 w-7 rounded-full bg-white/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity" 
+            title="Mover para o fim"
+            onClick={() => moveBoat(boat.id, 'bottom')}
+          >
+            <ArrowDown size={12} />
+          </Button>
+        </div>
+
+      </div>
+      <div className="p-4">
+        <h4 className="font-display font-bold text-foreground">{boat.name}</h4>
+        <p className="text-xs text-muted-foreground mb-3">{boat.size} · {boat.engine}</p>
+        <div className="flex justify-between items-center text-sm font-bold">
+          <span>{boat.price4h.includes('€') ? boat.price4h : `${boat.price4h}€`} (4h)</span>
+          <span>{boat.price8h.includes('€') ? boat.price8h : `${boat.price8h}€`} (8h)</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const AdminBoats = () => {
@@ -37,23 +144,57 @@ const AdminBoats = () => {
     name: "",
     size: "",
     engine: "",
-    capacity: 6,
+    capacity: 2,
     price4h: "",
     price8h: "",
-    image: "",
-    range: "low",
+    images: [],
+    range: "mid" as const,
+    features: []
   });
+  const [featureInput, setFeatureInput] = useState("");
+  const PRESET_FEATURES = [
+    "Passeio de veleiro em exclusivo, um barco só para si e a sua família e/ou amigos.",
+    "Veleje e sinta a brisa, e apenas o barulho do mar, é super relaxante.",
+    "Conheça uma das mais belas baías do mundo, com um guia local, passe pela Arrábida, Tróia e Setúbal.",
+    "Pode velejar e se quiser também parar para banhos.",
+    "Durante o passeio passará pela Costa da Arrábida e Costa de Tróia, são feitas paragens para banhos.",
+    "Será acompanhado por um guia local que lhe irá mostrar os sítios mais belos da nossa zona, e explicando um pouco da nossa cultura.",
+    "Esta é a embarcação ideal para reunir amigos e/ou família, com capacidade para 14 pessoas mais tripulação.",
+    "Pode realizar vários tipos de eventos: Despedidas de solteira, Festas de Aniversário, Refeições a bordo, Festas sunset, Festas surpresa.",
+    "Todas as experiências são personalizáveis, para tornar o momento único e inesquecível.",
+    "Ou apenas aproveitar para relaxar."
+  ];
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const clientSort = (data: Boat[]) =>
+    [...data].sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      if (a.created_at && b.created_at)
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return 0;
+    });
 
   const fetchBoats = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, "boats"), orderBy("created_at", "desc"));
+      // Sem orderBy para não excluir documentos sem o campo 'order'
+      const q = collection(db, "boats");
       const querySnapshot = await getDocs(q);
       const data = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Boat[];
-      setBoats(data);
+      setBoats(clientSort(data));
     } catch (error) {
       setError("Não foi possível carregar os barcos.");
       console.error(error);
@@ -62,13 +203,17 @@ const AdminBoats = () => {
   };
 
   useEffect(() => {
-    const q = query(collection(db, "boats"), orderBy("created_at", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    // Sem orderBy — ordenação feita no cliente para suportar docs sem campo 'order'
+    const unsubscribe = onSnapshot(collection(db, "boats"), (querySnapshot) => {
       const data = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Boat[];
-      setBoats(data);
+      setBoats(clientSort(data));
+      setLoading(false);
+    }, (error) => {
+      console.error("Erro ao ouvir barcos:", error);
+      setError("Não foi possível carregar os barcos.");
       setLoading(false);
     });
 
@@ -86,8 +231,8 @@ const AdminBoats = () => {
     try {
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
-      setFormData(prev => ({ ...prev, image: url }));
-      toast({ title: "Sucesso", description: "Imagem carregada!" });
+      setFormData(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+      toast({ title: "Sucesso", description: "Imagem adicionada à galeria do barco!" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no upload", description: error.message });
     }
@@ -95,8 +240,9 @@ const AdminBoats = () => {
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) processFile(file);
+    if (event.target.files) {
+      Array.from(event.target.files).forEach(file => processFile(file));
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -109,11 +255,13 @@ const AdminBoats = () => {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    for (const file of files) {
+      await processFile(file);
+    }
   };
 
   const createSlug = (name: string) => {
@@ -121,16 +269,20 @@ const AdminBoats = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.image || !formData.price4h || !formData.price8h) {
-      toast({ variant: "destructive", title: "Campos em falta", description: "Por favor preencha o nome, imagem e preços." });
+    if (!formData.name || !formData.images || formData.images.length === 0 || !formData.price4h || !formData.price8h) {
+      toast({ variant: "destructive", title: "Campos em falta", description: "Por favor preencha o nome, adicione pelo menos uma imagem e defina os preços." });
       return;
     }
 
     const { id, ...saveData } = formData;
     const finalData = {
       ...saveData,
+      price4h: saveData.price4h?.includes('€') ? saveData.price4h : `${saveData.price4h}€`,
+      price8h: saveData.price8h?.includes('€') ? saveData.price8h : `${saveData.price8h}€`,
       slug: createSlug(saveData.name || ""),
-      created_at: saveData.created_at || new Date().toISOString()
+      image: (saveData.images && saveData.images.length > 0) ? saveData.images[0] : (saveData.image || ""), // Sincroniza foto de capa legacy
+      created_at: saveData.created_at || new Date().toISOString(),
+      order: saveData.order ?? (boats.length > 0 ? Math.max(...boats.map(b => b.order || 0)) + 1 : 0)
     };
 
     try {
@@ -148,23 +300,87 @@ const AdminBoats = () => {
     }
   };
 
+  const updateBoatsOrder = async (newBoats: Boat[]) => {
+    try {
+      const batch = writeBatch(db);
+      newBoats.forEach((boat, index) => {
+        const boatRef = doc(db, "boats", boat.id);
+        batch.update(boatRef, { order: index });
+      });
+      await batch.commit();
+      toast({ title: "Ordenação guardada", description: "A nova ordem dos barcos foi atualizada." });
+    } catch (error: any) {
+      console.error("Erro ao atualizar ordem:", error);
+      toast({ variant: "destructive", title: "Erro na ordenação", description: error.message });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = boats.findIndex((boat) => boat.id === active.id);
+      const newIndex = boats.findIndex((boat) => boat.id === over.id);
+
+      const newBoats = arrayMove(boats, oldIndex, newIndex);
+      setBoats(newBoats);
+      updateBoatsOrder(newBoats);
+    }
+  };
+
+  const moveBoat = (id: string, direction: 'top' | 'bottom') => {
+    const boatIndex = boats.findIndex(b => b.id === id);
+    if (boatIndex === -1) return;
+
+    let newBoats = [...boats];
+    const boatToMove = newBoats[boatIndex];
+    newBoats.splice(boatIndex, 1);
+
+    if (direction === 'top') {
+      newBoats.unshift(boatToMove);
+    } else {
+      newBoats.push(boatToMove);
+    }
+
+    setBoats(newBoats);
+    updateBoatsOrder(newBoats);
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
       size: "",
       engine: "",
-      capacity: 6,
+      capacity: 2,
       price4h: "",
       price8h: "",
-      image: "",
-      range: "low",
+      images: [],
+      range: "mid" as const,
+      features: []
     });
     setEditingBoat(null);
   };
 
+  const addFeature = () => {
+    if (featureInput.trim()) {
+      setFormData(prev => ({ ...prev, features: [...(prev.features || []), featureInput.trim()] }));
+      setFeatureInput("");
+    }
+  };
+
+  const removeFeature = (idx: number) => {
+    setFormData(prev => ({ ...prev, features: prev.features?.filter((_, i) => i !== idx) }));
+  };
+
   const startEdit = (boat: Boat) => {
-    setEditingBoat(boat);
-    setFormData(boat);
+    const boatWithGallery = {
+      ...boat,
+      images: (boat.images && boat.images.length > 0) 
+        ? boat.images 
+        : ((boat as any).image ? [(boat as any).image] : [])
+    };
+    setEditingBoat(boatWithGallery as Boat);
+    setFormData(boatWithGallery as Boat);
     setShowAddForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -182,16 +398,15 @@ const AdminBoats = () => {
       // 1. Eliminar documento da Firestore
       await deleteDoc(doc(db, "boats", boat.id));
 
-      // 2. Tentar eliminar imagem do Storage se for um URL do Firebase
-      if (boat.image.includes("firebasestorage")) {
-        try {
-          const imageRef = ref(storage, boat.image);
-          await deleteObject(imageRef);
-        } catch (storageErr) {
-          console.warn("Imagem não encontrada no Storage ao eliminar barco", storageErr);
+      // 2. Tentar eliminar imagem
+      for (const imgUrl of (boat.images || [])) {
+        if (imgUrl.includes("firebasestorage")) {
+          try {
+            const imageRef = ref(storage, imgUrl);
+            await deleteObject(imageRef);
+          } catch (storageErr) {}
         }
       }
-
       toast({ title: "Sucesso", description: "Barco removido!" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao eliminar", description: error.message });
@@ -239,55 +454,77 @@ const AdminBoats = () => {
               <label className="text-sm font-medium">Preço 8h (€)</label>
               <Input placeholder="Ex: 230€" value={formData.price8h} onChange={e => setFormData({ ...formData, price8h: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Gama</label>
-              <select 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={formData.range}
-                onChange={e => setFormData({ ...formData, range: e.target.value as any })}
-              >
-                <option value="low">Gama Baixa</option>
-                <option value="mid">Gama Média</option>
-                <option value="high">Gama Alta</option>
-              </select>
-            </div>
+
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Imagem do Barco (URL ou Upload)</label>
-              <div 
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`
-                  relative border-2 border-dashed rounded-xl p-6 transition-all duration-200
-                  ${isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-border bg-muted/20"}
-                  ${uploading ? "opacity-60 pointer-events-none" : "hover:border-primary/50"}
-                `}
-              >
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                  <div className="flex-1 w-full space-y-2">
-                    <Input placeholder="URL da imagem" value={formData.image} onChange={e => setFormData({ ...formData, image: e.target.value })} className="bg-background" />
-                    <p className="text-[10px] text-muted-foreground">Podes colar um link ou arrastar um ficheiro para aqui.</p>
+              <label className="text-sm font-medium">Galeria de Imagens</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-4">
+                {formData.images?.map((url, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                    <img src={url} alt={`Boat Gallery ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setFormData(prev => ({ ...prev, images: prev.images?.filter((_, i) => i !== idx) }))}
+                      className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={12} />
+                    </button>
+                    {idx === 0 && <div className="absolute bottom-0 left-0 right-0 bg-primary/80 text-[8px] text-white text-center py-0.5">Capa</div>}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground font-medium">ou</span>
-                    <Button variant="outline" asChild disabled={uploading} className="bg-background">
-                      <label className="cursor-pointer">
-                        {uploading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Upload size={14} className="mr-2" />}
-                        Selecionar Ficheiro
-                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                      </label>
-                    </Button>
-                  </div>
+                ))}
+                <label 
+                   onDragOver={handleDragOver}
+                   onDragLeave={handleDragLeave}
+                   onDrop={handleDrop}
+                   className={`aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+                >
+                  {uploading ? <Loader2 size={16} className="animate-spin text-primary" /> : <Plus size={16} className="text-muted-foreground" />}
+                  <span className="text-[10px] text-muted-foreground mt-1">Adicionar</span>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={handleImageUpload} 
+                  />
+                </label>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">Caraterísticas (O que inclui)</label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Ex: Colete salva-vidas incluído" 
+                    value={featureInput} 
+                    onChange={e => setFeatureInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                  />
+                  <Button type="button" onClick={addFeature} variant="outline" size="icon"><Plus size={16}/></Button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-3 p-3 bg-muted/20 rounded-xl border border-dashed border-border text-left">
+                  <p className="w-full text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Sugestões rápidas (clica para adicionar):</p>
+                  {PRESET_FEATURES.filter(s => !formData.features?.includes(s)).map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, features: [...(prev.features || []), suggestion] }))}
+                      className="text-[11px] bg-background hover:bg-primary/10 hover:text-primary border border-border px-2 py-1 rounded-lg transition-colors text-left"
+                    >
+                      + {suggestion}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.features?.map((item, idx) => (
+                    <span key={idx} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs flex items-center gap-2">
+                      {item}
+                      <button onClick={() => removeFeature(idx)} className="hover:text-destructive"><X size={12}/></button>
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
-          {formData.image && (
-            <div className="mb-6">
-              <p className="text-xs text-muted-foreground mb-2">Pré-visualização:</p>
-              <img src={formData.image} alt="Preview" className="h-32 rounded-lg border border-border object-cover" />
-            </div>
-          )}
+
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={resetForm}>Limpar</Button>
             <Button onClick={handleSave} className="sunset-gradient text-accent-foreground">
@@ -310,34 +547,28 @@ const AdminBoats = () => {
           <p className="text-xs">Usa o botão acima para adicionar o primeiro barco.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {boats.map((boat) => (
-            <div key={boat.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              <div className="h-40 relative">
-                <img src={boat.image} alt={boat.name} className="w-full h-full object-cover" />
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => startEdit(boat)}>
-                    <Edit2 size={14} />
-                  </Button>
-                  <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => requestDelete(boat)}>
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/50 backdrop-blur-sm text-[10px] text-white rounded-full capitalize">
-                  {boat.range}
-                </div>
-              </div>
-              <div className="p-4">
-                <h4 className="font-display font-bold text-foreground">{boat.name}</h4>
-                <p className="text-xs text-muted-foreground mb-3">{boat.size} · {boat.engine}</p>
-                <div className="flex justify-between items-center text-sm font-bold">
-                  <span>{boat.price4h} (4h)</span>
-                  <span>{boat.price8h} (8h)</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SortableContext 
+              items={boats.map(b => b.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {boats.map((boat) => (
+                <SortableBoat 
+                  key={boat.id} 
+                  boat={boat} 
+                  startEdit={startEdit} 
+                  requestDelete={requestDelete}
+                  moveBoat={moveBoat}
+                />
+              ))}
+            </SortableContext>
+          </div>
+        </DndContext>
       )}
 
       <ConfirmDialog

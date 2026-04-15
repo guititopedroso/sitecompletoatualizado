@@ -80,8 +80,9 @@ type TranslationKeys = {
   exp_tab_boats: string;
   exp_tab_boats_soon: string;
   exp_tab_extras: string;
-  exp_most_popular: string;
   exp_book: string;
+  exp_book_now: string;
+  exp_view_details: string;
   exp_max_2: string;
   exp_photos_optional: string;
   exp_15min: string;
@@ -300,6 +301,8 @@ export const translations: Translations = {
     exp_tab_extras: "Extras",
     exp_most_popular: "Mais Popular",
     exp_book: "Reservar",
+    exp_book_now: "Reservar Agora",
+    exp_view_details: "Ver Detalhes e Preços",
     exp_max_2: "Máx. 2 pessoas por mota",
     exp_photos_optional: "Pack Fotos opcional",
     exp_15min: "15 Minutos",
@@ -506,6 +509,8 @@ export const translations: Translations = {
     exp_tab_extras: "Extras",
     exp_most_popular: "Most Popular",
     exp_book: "Book",
+    exp_book_now: "Book Now",
+    exp_view_details: "View Details and Prices",
     exp_max_2: "Max. 2 people per jet ski",
     exp_photos_optional: "Optional Photo Pack",
     exp_15min: "15 Minutes",
