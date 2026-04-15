@@ -186,12 +186,22 @@ const Booking = () => {
     setSending(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
     const fullPhone = `${phonePrefix} ${phone.trim()}`;
+    const durationStr = pack.isBoat 
+      ? ` (${boatDuration})` 
+      : pack.isTour && pack.tourPacks 
+      ? ` (${pack.tourPacks[tourDurationIdx]?.duration})` 
+      : pack.isJetski 
+      ? ` (${effectiveMotas} Motas)` 
+      : "";
+    
+    const finalPackName = pack.name + durationStr + (packFotos ? " + Pack Fotos" : "");
+
     try {
       await addDoc(collection(db, "bookings"), {
         client_name: fullName,
         client_email: email,
         client_phone: fullPhone,
-        pack_name: pack.name + (packFotos ? " + Pack Fotos" : ""),
+        pack_name: finalPackName,
         booking_date: date ? format(date, "yyyy-MM-dd") : null,
         booking_time: time,
         num_people: people,
@@ -204,7 +214,7 @@ const Booking = () => {
       const templateParams = {
         to_name: fullName,
         to_email: email,
-        pack_name: pack.name + (packFotos ? " + Pack Fotos" : ""),
+        pack_name: finalPackName,
         pack_price: totalPriceStr,
         booking_date: date ? format(date, "dd/MM/yyyy") : "",
         booking_time: time,
