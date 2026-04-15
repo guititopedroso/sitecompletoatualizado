@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge } from "lucide-react";
@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
 import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import emailjs from "@emailjs/browser";
@@ -26,9 +26,11 @@ type PackInfo = {
   duration: string;
   isJetski?: boolean;
   isBoat?: boolean;
+  isTour?: boolean;
   price4h?: number;
   price8h?: number;
   maxPeople?: number;
+  tourPacks?: { duration: string; price: string }[];
 };
 
 const allPacks: Record<string, PackInfo> = {
@@ -78,7 +80,7 @@ const Booking = () => {
   const { t } = useLanguage();
   const packId = searchParams.get("pack") || "30-minutos";
   const referralCode = searchParams.get("ref") || null;
-  const pack = allPacks[packId] || allPacks["30-minutos"];
+  const initialPack = allPacks[packId];
 
   const steps = [
     { id: 1, label: t("book_step_date"), icon: CalendarIcon },
@@ -101,14 +103,56 @@ const Booking = () => {
   const [sending, setSending] = useState(false);
   const [legalDialog, setLegalDialog] = useState<{ open: boolean; type: "terms" | "privacy" }>({ open: false, type: "terms" });
   const [boatDuration, setBoatDuration] = useState<"4h" | "8h">("4h");
+  const [tourDurationIdx, setTourDurationIdx] = useState(0);
   const [packFotos, setPackFotos] = useState(false);
   const [numMotas, setNumMotas] = useState(1);
   const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
 
+  const [dynamicPack, setDynamicPack] = useState<PackInfo | null>(null);
+  const [loadingDynamic, setLoadingDynamic] = useState(!initialPack);
+
+  useEffect(() => {
+    if (!initialPack) {
+      const fetchTour = async () => {
+        try {
+          const q = query(collection(db, "tours"), where("slug", "==", packId));
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const data = snapshot.docs[0].data();
+            const rawPacks = data.packs || [];
+            const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
+            const firstPack = tPacks.length > 0 ? tPacks[0] : { duration: "Personalizado", price: "0€" };
+            const bPrice = parseInt(firstPack.price.replace("€", "")) || 0;
+            
+            setDynamicPack({
+              name: data.name,
+              basePrice: bPrice,
+              price: firstPack.price,
+              duration: firstPack.duration,
+              isTour: true,
+              maxPeople: data.capacity || 10,
+              tourPacks: tPacks
+            });
+          } else {
+             setDynamicPack(allPacks["30-minutos"]);
+          }
+        } catch (e) {
+          console.error(e);
+          setDynamicPack(allPacks["30-minutos"]);
+        } finally {
+          setLoadingDynamic(false);
+        }
+      };
+      fetchTour();
+    }
+  });
+
+  const pack = initialPack || dynamicPack || allPacks["30-minutos"];
+
   const today = startOfToday();
 
   const isGroupPack = packId === "pack-grupo";
-  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : 4;
+  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : (pack.isTour ? (pack.maxPeople || 10) : 4);
 
   const motaOptions = useMemo(() => {
     if (!pack.isJetski) return [];
@@ -123,6 +167,8 @@ const Booking = () => {
   const effectiveMotas = pack.isJetski ? (isGroupPack ? 4 : numMotas) : 1;
   const baseTotal = pack.isBoat
     ? (boatDuration === "8h" ? pack.price8h! : pack.price4h!)
+    : pack.isTour && pack.tourPacks && pack.tourPacks.length > 0
+    ? (parseInt(pack.tourPacks[tourDurationIdx]?.price?.replace("€", "")) || pack.basePrice)
     : pack.isJetski
     ? (isGroupPack ? pack.basePrice : effectiveMotas * pack.basePrice)
     : pack.basePrice;
@@ -188,6 +234,17 @@ const Booking = () => {
       setSending(false);
     }
   };
+
+  if (loadingDynamic) {
+    return (
+      <div className="min-h-screen bg-[#FDFDFD] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={48} className="animate-spin text-primary" />
+          <p className="font-display font-800 text-muted-foreground uppercase tracking-widest text-sm">A carregar...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FDFDFD]">
@@ -338,7 +395,7 @@ const Booking = () => {
                             type="button"
                             onClick={() => {
                               setBoatDuration(d);
-                              setTime(undefined); // Reset time when duration changes
+                              setTime(undefined);
                             }}
                             className={cn(
                               "flex-1 py-4 px-4 rounded-2xl font-display font-900 text-xs uppercase tracking-widest transition-all duration-300",
@@ -353,18 +410,52 @@ const Booking = () => {
                     </div>
                   )}
 
+                  {pack.isTour && pack.tourPacks && (
+                    <div className="mb-10 space-y-4">
+                      <label className="block text-[10px] font-900 text-muted-foreground uppercase tracking-[0.2em] ml-1">Duração do Passeio</label>
+                      <div className="flex flex-wrap gap-2">
+                         {pack.tourPacks.map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setTourDurationIdx(idx);
+                                setTime(undefined);
+                              }}
+                              className={cn(
+                                "py-3 px-5 sm:py-4 sm:px-6 rounded-2xl font-display font-900 text-xs sm:text-sm uppercase tracking-widest transition-all duration-300 flex items-center gap-2",
+                                tourDurationIdx === idx
+                                  ? "bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]"
+                                  : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                              )}
+                            >
+                              <span>{p.duration}</span>
+                              <span className={cn("text-[10px] sm:text-xs", tourDurationIdx === idx ? "text-white/80" : "text-primary/60")}>— {p.price}</span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                     {timeSlots.map((ts) => {
                       const isSelected = time === ts;
-                      const durationInMinutes = pack.isBoat ? (boatDuration === "4h" ? 240 : 480) : (packId === "1-hora" || packId === "pack-grupo" || packId === "experiencia-sunset" ? 60 : packId === "30-minutos" ? 30 : 15);
+                      let durationInMinutes = 60;
+                      if (pack.isBoat) {
+                        durationInMinutes = boatDuration === "4h" ? 240 : 480;
+                      } else if (pack.isTour && pack.tourPacks) {
+                        const match = pack.tourPacks[tourDurationIdx]?.duration.match(/(\d+)/);
+                        durationInMinutes = match ? parseInt(match[0]) * 60 : 120;
+                      } else {
+                        durationInMinutes = (packId === "1-hora" || packId === "pack-grupo" || packId === "experiencia-sunset" ? 60 : packId === "30-minutos" ? 30 : 15);
+                      }
                       
-                      // Check if this slot belongs to the range of the selected start time
                       let isInRange = false;
-                      if (time && pack.isBoat) {
+                      if (time && (pack.isBoat || pack.isTour)) {
                         const startIndex = timeSlots.indexOf(time);
                         const currentIndex = timeSlots.indexOf(ts);
                         const slotsNeeded = durationInMinutes / 30;
-                        if (currentIndex >= startIndex && currentIndex <= slotsNeeded + startIndex) {
+                        if (startIndex !== -1 && currentIndex >= startIndex && currentIndex <= slotsNeeded + startIndex) {
                           isInRange = true;
                         }
                       }
@@ -388,7 +479,7 @@ const Booking = () => {
                     })}
                   </div>
 
-                  {time && pack.isBoat && (
+                  {time && (pack.isBoat || pack.isTour) && (
                     <motion.p 
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -397,7 +488,13 @@ const Booking = () => {
                       Reserva das {time} até às {
                         (() => {
                           const idx = timeSlots.indexOf(time);
-                          const durationInMinutes = boatDuration === "4h" ? 240 : 480;
+                          let durationInMinutes = 60;
+                          if (pack.isBoat) {
+                            durationInMinutes = boatDuration === "4h" ? 240 : 480;
+                          } else if (pack.isTour && pack.tourPacks) {
+                            const match = pack.tourPacks[tourDurationIdx]?.duration.match(/(\d+)/);
+                            durationInMinutes = match ? parseInt(match[0]) * 60 : 120;
+                          }
                           const slotsNeeded = durationInMinutes / 30;
                           const endIdx = idx + slotsNeeded;
                           return timeSlots[endIdx] || "Fim do dia";
