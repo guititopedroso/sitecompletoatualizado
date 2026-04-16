@@ -689,7 +689,7 @@ const Profile = () => {
                               Parece que ainda não tens nenhuma viagem marcada. Estás pronto para a tua próxima aventura?
                            </p>
                            <Button 
-                              onClick={() => navigate("/reservar")}
+                              onClick={() => navigate("/#experiencias")}
                               className="sunset-gradient text-white rounded-2xl h-14 px-10 font-display font-900 uppercase tracking-widest text-xs"
                            >
                               Reservar Agora
