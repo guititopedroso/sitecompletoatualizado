@@ -13,7 +13,7 @@ import Footer from "@/components/Footer";
 
 const Index = () => {
   const [searchParams] = useSearchParams();
-  const ref = searchParams.get("ref") || undefined;
+  const ref = searchParams.get("ref") || localStorage.getItem("royal_coast_referral") || undefined;
 
   return (
     <div className="min-h-screen bg-background">

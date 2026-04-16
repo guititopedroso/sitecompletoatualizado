@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -11,7 +11,10 @@ import AdminGallery from "./AdminGallery";
 import AdminBoats from "./AdminBoats";
 import AdminTours from "./AdminTours";
 import EarningsChart from "../components/EarningsChart";
+import { format, parseISO } from "date-fns";
+import { pt } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const ADMIN_PASSWORD = "Guitacrapazes.101010";
 const AUTH_KEY = "rc-admin-auth";
@@ -35,9 +38,22 @@ const getPriceFallback = (packName: string): number => {
   return basePrice + (hasPhotoPack ? PHOTO_PACK_PRICE : 0);
 };
 
-type Booking = { id: string; client_name: string; client_email: string | null; client_phone: string | null; pack_name: string; booking_date: string; booking_time: string | null; num_people: number; location: string | null; created_at: string; created_by: string | null; payment_method: string | null; confirmed: boolean | null; referral_code?: string; price?: number; };
-// CORREÇÃO: O ID é um número, não uma string.
+type Booking = { id: string; client_name: string; client_email: string | null; client_phone: string | null; pack_name: string; booking_date: string; booking_time: string | null; num_people: number; location: string | null; created_at: string; created_by: string | null; payment_method: string | null; confirmed: boolean | null; referralCode?: string; price?: number; };
 type Expense = { id: string; date: string; type: 'gasolina' | 'manutencao'; amount: number; };
+type Customer = { 
+  uid: string; 
+  email: string; 
+  displayName: string; 
+  photoURL: string; 
+  provider: string; 
+  lastLogin: any;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
+  phonePrefix?: string;
+  phoneNumber?: string;
+  referralCode?: string;
+};
 
 const months = [ "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro" ];
 const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -51,6 +67,7 @@ const Admin = () => {
   const [error, setError] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
@@ -62,6 +79,7 @@ const Admin = () => {
   const [activePanel, setActivePanel] = useState("bookings");
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void } | null>(null);
   const [expenseDialog, setExpenseDialog] = useState<{ open: boolean; type: 'gasolina' | 'manutencao' | null; amount: number }>({ open: false, type: null, amount: 0 });
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -114,11 +132,18 @@ const Admin = () => {
       setMonthlyExpenses(data);
     });
 
+    const qCustomers = query(collection(db, "users"), orderBy("updatedAt", "desc"));
+    const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data() })) as Customer[];
+      setCustomers(data);
+    });
+
     return () => {
       unsubAllBookings();
       unsubAllExpenses();
       unsubCalendarBookings();
       unsubCalendarExpenses();
+      unsubCustomers();
     };
   };
 
@@ -173,12 +198,21 @@ const Admin = () => {
   };
 
   const removeBooking = async (id: string) => {
-    if (!id) return;
     try {
       await deleteDoc(doc(db, "bookings", id));
-      toast({ title: "Reserva removida!" });
-    } catch (error: any) {
-      toast({ title: "Erro ao remover reserva", description: error.message, variant: "destructive" });
+      toast({ title: "Reserva removida", description: "A reserva foi eliminada com sucesso.", });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro ao remover", description: "Não foi possível remover a reserva." });
+    }
+  };
+
+  const removeCustomer = async (uid: string) => {
+    try {
+      await deleteDoc(doc(db, "users", uid));
+      setSelectedCustomer(null);
+      toast({ title: "Cliente removido", description: "O perfil do cliente foi eliminado com sucesso.", });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro ao remover", description: "Não foi possível remover o perfil do cliente." });
     }
   };
 
@@ -211,11 +245,235 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="ocean-gradient py-4 px-4 sm:px-6 shadow-ocean"> <div className="max-w-7xl mx-auto flex items-center justify-between"> <div className="flex items-center gap-3"> <CalendarDays className="text-primary-foreground" size={24}/> <h1 className="font-display text-xl font-bold text-primary-foreground"> Royal<span className="text-coral">Coast</span> — Admin </h1> </div> <div className="flex items-center gap-2"> <Button variant="ghost" size="sm" onClick={()=>togglePanel("earnings")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="earnings"?"bg-primary-foreground/10":""}`}> <DollarSign size={16}/> <span className="hidden sm:inline ml-1">Ganhos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("boats")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="boats"?"bg-primary-foreground/10":""}`}> <Anchor size={16}/> <span className="hidden sm:inline ml-1">Barcos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("tours")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="tours"?"bg-primary-foreground/10":""}`}> <MapPin size={16}/> <span className="hidden sm:inline ml-1">Passeios</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("gallery")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="gallery"?"bg-primary-foreground/10":""}`}> <ImageIcon size={16}/> <span className="hidden sm:inline ml-1">Galeria</span> </Button> <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"> <LogOut size={16}/> <span className="hidden sm:inline ml-1">Sair</span> </Button> </div> </div> </div>
+      <div className="ocean-gradient py-4 px-4 sm:px-6 shadow-ocean"> <div className="max-w-7xl mx-auto flex items-center justify-between"> <div className="flex items-center gap-3"> <CalendarDays className="text-primary-foreground" size={24}/> <h1 className="font-display text-xl font-bold text-primary-foreground"> Royal<span className="text-coral">Coast</span> — Admin </h1> </div> <div className="flex items-center gap-2"> <Button variant="ghost" size="sm" onClick={()=>togglePanel("earnings")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="earnings"?"bg-primary-foreground/10":""}`}> <DollarSign size={16}/> <span className="hidden sm:inline ml-1">Ganhos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("customers")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="customers"?"bg-primary-foreground/10":""}`}> <Users size={16}/> <span className="hidden sm:inline ml-1">Clientes</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("boats")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="boats"?"bg-primary-foreground/10":""}`}> <Anchor size={16}/> <span className="hidden sm:inline ml-1">Barcos</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("tours")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="tours"?"bg-primary-foreground/10":""}`}> <MapPin size={16}/> <span className="hidden sm:inline ml-1">Passeios</span> </Button> <Button variant="ghost" size="sm" onClick={()=>togglePanel("gallery")} className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${activePanel==="gallery"?"bg-primary-foreground/10":""}`}> <ImageIcon size={16}/> <span className="hidden sm:inline ml-1">Galeria</span> </Button> <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"> <LogOut size={16}/> <span className="hidden sm:inline ml-1">Sair</span> </Button> </div> </div> </div>
 
       <AnimatePresence mode="wait">
         <motion.div key={activePanel} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
           {activePanel === "earnings" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <EarningsChart bookings={allBookings} expenses={allExpenses} /> </div> )}
+          {activePanel === "customers" && (
+            <div className="max-w-7xl mx-auto p-4 sm:p-6">
+              <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-border flex items-center justify-between">
+                  <h2 className="font-display text-xl font-bold">Clientes Registados</h2>
+                  <span className="bg-primary/10 text-primary text-xs font-900 px-3 py-1 rounded-full">{customers.length} Utilizadores</span>
+                </div>
+                <div className="overflow-x-auto scroller-hidden">
+                   <table className="w-full text-left border-collapse min-w-[1000px]">
+                      <thead className="bg-muted/50 border-b border-border">
+                         <tr>
+                            <th className="px-6 py-4 text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Cliente</th>
+                            <th className="px-6 py-4 text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Contacto</th>
+                            <th className="px-6 py-4 text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Email</th>
+                            <th className="px-6 py-4 text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Nascimento</th>
+                            <th className="px-6 py-4 text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Afiliado</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                         {customers.map((c) => {
+                            const referralsCount = allBookings.filter(b => b.referralCode === c.referralCode && b.confirmed === true).length;
+                            const fullName = c.firstName ? `${c.firstName} ${c.lastName || ""}` : c.displayName;
+                            const fullPhone = c.phoneNumber ? `${c.phonePrefix || "+351"} ${c.phoneNumber}` : "—";
+                            
+                            return (
+                               <tr 
+                                 key={c.uid} 
+                                 onClick={() => setSelectedCustomer(c)}
+                                 className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                               >
+                                  <td className="px-6 py-4">
+                                     <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center relative">
+                                           {c.photoURL ? (
+                                             <img 
+                                               src={c.photoURL} 
+                                               alt="" 
+                                               className="w-full h-full object-cover" 
+                                               onError={(e) => {
+                                                 (e.target as HTMLImageElement).style.display = 'none';
+                                                 const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.fallback-icon');
+                                                 if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                                               }}
+                                             />
+                                           ) : null}
+                                           <div className={cn("fallback-icon items-center justify-center w-full h-full text-muted-foreground/50", c.photoURL ? "hidden" : "flex")}>
+                                              <User size={20} />
+                                           </div>
+                                        </div>
+                                        <div className="flex flex-col">
+                                           <span className="font-bold text-sm text-foreground">{fullName || "Sem Nome"}</span>
+                                           <div className="flex items-center gap-1.5 mt-0.5">
+                                              {c.provider === "google.com" ? (
+                                                 <div className="flex items-center gap-1 bg-white border border-border px-1.5 py-0.5 rounded shadow-sm scale-90 origin-left">
+                                                    <img src="https://www.google.com/favicon.ico" className="w-2.5 h-2.5" alt="G" />
+                                                    <span className="text-[8px] font-900 uppercase">Google</span>
+                                                 </div>
+                                              ) : (
+                                                 <div className="flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded scale-90 origin-left">
+                                                    <Mail size={10} className="text-muted-foreground" />
+                                                    <span className="text-[8px] font-900 uppercase text-muted-foreground">Telemóvel</span>
+                                                 </div>
+                                              )}
+                                           </div>
+                                        </div>
+                                     </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                     <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80">
+                                        <Phone size={14} className="text-muted-foreground" />
+                                        {fullPhone}
+                                     </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-sm text-muted-foreground font-medium">{c.email}</td>
+                                  <td className="px-6 py-4">
+                                     {c.birthDate ? (
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                                           <CalendarDays size={14} className="text-primary/60" />
+                                           {format(parseISO(c.birthDate), "dd/MM/yyyy")}
+                                        </div>
+                                     ) : (
+                                        <span className="text-xs text-muted-foreground/40 italic">—</span>
+                                     )}
+                                  </td>
+                                  <td className="px-6 py-4 text-sm">
+                                     <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                           <Trophy size={14} className={cn("text-muted-foreground", referralsCount >= 4 ? "text-secondary" : "")} />
+                                           <span className={cn("font-900 text-xs", referralsCount >= 4 ? "text-secondary" : "text-foreground/70")}>
+                                              {referralsCount} de 4
+                                           </span>
+                                        </div>
+                                     </div>
+                                  </td>
+                               </tr>
+                            );
+                         })}
+                      </tbody>
+                   </table>
+                </div>
+
+                {/* Customer Detail Dialog */}
+                <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
+                   <DialogContent className="max-w-md rounded-[2.5rem] border-none p-0 overflow-hidden bg-white shadow-2xl">
+                      {selectedCustomer && (
+                        <div className="relative">
+                           <div className="ocean-gradient p-8 text-center text-white relative overflow-hidden">
+                              <div className="absolute inset-0 opacity-10">
+                                 <Anchor size={200} className="absolute -bottom-10 -right-10 text-white" />
+                              </div>
+                              <div className="relative w-24 h-24 mx-auto mb-4 p-1 bg-white rounded-[2rem] shadow-xl">
+                                 {selectedCustomer.photoURL ? (
+                                    <img src={selectedCustomer.photoURL} alt="" className="w-full h-full object-cover rounded-[1.8rem]" />
+                                 ) : (
+                                    <div className="w-full h-full bg-muted flex items-center justify-center rounded-[1.8rem] text-muted-foreground">
+                                       <User size={40} />
+                                    </div>
+                                 )}
+                              </div>
+                              <h2 className="font-display text-2xl font-900 tracking-tight">
+                                 {selectedCustomer.firstName ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ""}` : selectedCustomer.displayName}
+                              </h2>
+                              <p className="text-white/60 text-xs font-900 uppercase tracking-widest mt-1">Perfil do Cliente</p>
+                           </div>
+                           
+                           <div className="p-8 space-y-6">
+                              <div className="grid grid-cols-2 gap-6">
+                                 <div className="space-y-1">
+                                    <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest">Apelido</p>
+                                    <p className="font-display font-800 text-foreground">{selectedCustomer.lastName || "—"}</p>
+                                 </div>
+                                 <div className="space-y-1">
+                                    <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest">Telemóvel</p>
+                                    <p className="font-display font-800 text-foreground">
+                                       {selectedCustomer.phoneNumber ? `${selectedCustomer.phonePrefix || "+351"} ${selectedCustomer.phoneNumber}` : "—"}
+                                    </p>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-6">
+                                 <div className="space-y-1">
+                                    <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest">Nascimento</p>
+                                    <p className="font-display font-800 text-foreground">
+                                       {selectedCustomer.birthDate ? format(parseISO(selectedCustomer.birthDate), "dd MMMM yyyy", { locale: pt }) : "—"}
+                                    </p>
+                                 </div>
+                                 <div className="space-y-1">
+                                    <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest">Fidelização</p>
+                                    <div className="flex items-center gap-2">
+                                       <Trophy size={14} className="text-secondary" />
+                                       <span className="font-display font-800 text-foreground">
+                                          {allBookings.filter(b => b.referralCode === selectedCustomer.referralCode && b.confirmed === true).length} Recomendações
+                                       </span>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              {/* Referrals List Section */}
+                              <div className="pt-4 border-t border-border/50">
+                                 <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <Users size={12} /> Amigos Recomendados
+                                 </p>
+                                 <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                    {allBookings.filter(b => b.referralCode === selectedCustomer.referralCode).length > 0 ? (
+                                       allBookings
+                                          .filter(b => b.referralCode === selectedCustomer.referralCode)
+                                          .map(b => (
+                                             <div key={b.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
+                                                <div className="flex flex-col">
+                                                   <span className="text-xs font-bold text-foreground">{b.client_name}</span>
+                                                   <span className="text-[10px] text-muted-foreground">
+                                                      {format(new Date(b.booking_date + "T00:00:00"), "dd MMM yyyy", { locale: pt })}
+                                                   </span>
+                                                </div>
+                                                <span className={cn("text-[8px] font-900 uppercase px-2 py-0.5 rounded-full", b.confirmed ? "bg-secondary/20 text-secondary" : "bg-amber-500/10 text-amber-600")}>
+                                                   {b.confirmed ? "Confirmado" : "Pendente"}
+                                                </span>
+                                             </div>
+                                          ))
+                                    ) : (
+                                       <div className="text-center py-4 bg-muted/20 rounded-xl border border-dashed border-border">
+                                          <p className="text-[10px] text-muted-foreground italic">Nenhum amigo recomendado ainda.</p>
+                                       </div>
+                                    )}
+                                 </div>
+                              </div>
+
+                              <div className="pt-4">
+                                 <div className="flex items-center gap-3 bg-muted/30 p-4 rounded-2xl">
+                                    <Mail className="text-primary" size={18} />
+                                    <div>
+                                       <p className="text-[10px] font-900 text-muted-foreground uppercase tracking-widest leading-none mb-1">Email de Contacto</p>
+                                       <p className="text-sm font-semibold text-foreground/80">{selectedCustomer.email}</p>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="flex gap-3">
+                                 <Button 
+                                    onClick={() => setSelectedCustomer(null)}
+                                    className="flex-1 h-14 bg-muted text-foreground hover:bg-muted/80 rounded-2xl font-display font-900 uppercase tracking-widest text-xs"
+                                 >
+                                    Fechar
+                                 </Button>
+                                 <Button 
+                                    onClick={() => setConfirmAction({
+                                       title: "Remover Cliente",
+                                       description: `Tens a certeza que queres eliminar o perfil de ${selectedCustomer.firstName || selectedCustomer.displayName}? Esta ação é irreversível.`,
+                                       action: () => removeCustomer(selectedCustomer.uid)
+                                    })}
+                                    variant="outline"
+                                    className="h-14 border-destructive/20 text-destructive hover:bg-destructive hover:text-white rounded-2xl px-6 font-display font-900 uppercase tracking-widest text-xs transition-all"
+                                 >
+                                    <Trash2 size={16} />
+                                 </Button>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                   </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          )}
           {activePanel === "boats" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <AdminBoats /> </div> )}
           {activePanel === "tours" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <AdminTours /> </div> )}
           {activePanel === "gallery" && ( <div className="max-w-7xl mx-auto p-4 sm:p-6"> <AdminGallery /> </div> )}
@@ -235,7 +493,7 @@ const Admin = () => {
                   <div className="flex items-center justify-between mb-4 border-t border-border pt-4"> <h4 className="font-display font-bold text-md text-foreground">Reservas</h4> <Button size="sm" onClick={() => setShowAddForm(!showAddForm)} className="sunset-gradient text-accent-foreground rounded-full"> <Plus size={14} /> {showAddForm ? 'Fechar' : 'Adicionar'} </Button> </div>
                   <AnimatePresence> {showAddForm&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} className="overflow-hidden mb-4"> <div className="space-y-3 p-4 bg-muted/50 rounded-xl"> <Input placeholder="Nome do cliente" value={newBooking.client_name} onChange={a=>setNewBooking({...newBooking,client_name:a.target.value})}/> <Input placeholder="Pack" value={newBooking.pack_name} onChange={a=>setNewBooking({...newBooking,pack_name:a.target.value})}/> <Input type="number" placeholder="Preço" value={newBooking.price||''} onChange={a=>setNewBooking({...newBooking,price:parseFloat(a.target.value)||0})}/> <div className="flex gap-2"> <Input type="time" value={newBooking.booking_time} onChange={a=>setNewBooking({...newBooking,booking_time:a.target.value})} className="flex-1"/> <Input type="number" min={1} value={newBooking.num_people} onChange={a=>setNewBooking({...newBooking,num_people:parseInt(a.target.value)||1})} className="w-20"/> </div> <div className="flex gap-2"> <Button onClick={addBooking} size="sm" className="flex-1">Guardar</Button> <Button onClick={()=>setShowAddForm(false)} size="sm" variant="outline">Cancelar</Button> </div> </div> </motion.div> )} </AnimatePresence>
                   
-                  {selectedBookings.length === 0 ? ( <div className="text-center py-6 text-muted-foreground text-sm"> <p>Sem reservas neste dia.</p> </div> ) : ( <div className="space-y-2"> {selectedBookings.map(a=>{const b=expandedBooking===a.id;return( <motion.div key={a.id} layout initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl bg-muted/50 overflow-hidden group"> <button onClick={()=>setExpandedBooking(b?null:a.id)} className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/80 transition-colors"> <div className="w-1 h-10 rounded-full shrink-0" style={{background:a.confirmed?"hsl(var(--secondary))":"hsl(var(--muted-foreground) / 0.3)"}}/> <div className="flex-1 min-w-0"> <div className="flex items-center justify-between"> <p className="font-semibold text-sm text-foreground truncate">{a.client_name}</p> <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${a.confirmed?"bg-secondary/20 text-secondary":"bg-amber-500/20 text-amber-600"}`}> {a.confirmed?"Confirmada":"Pendente"} </span> </div> <p className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5"> {a.pack_name.replace(" + Pack Fotos","")} · {a.booking_time||"—"} <span className="text-muted-foreground/80">· {a.num_people}p</span> {a.pack_name.includes("Pack Fotos")&&<Camera size={12} className="text-coral ml-1"/>} </p> </div> <ChevronDown size={16} className={`text-muted-foreground transition-transform shrink-0 ${b?"rotate-180":""}`}/> </button> <AnimatePresence> {b&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:.2}} className="overflow-hidden"> <div className="px-4 pb-4 pt-1 space-y-2.5 border-t border-border/50 ml-4 mr-3"> <div className="flex items-center gap-2 pt-2.5"> <Package size={14} className="text-secondary shrink-0"/> <span className="text-xs font-medium text-foreground">{a.pack_name}</span> </div> {a.price > 0 && ( <div className="flex items-center gap-2"> <DollarSign size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.price}€</span> </div> )} {a.client_email&&( <div className="flex items-center gap-2"> <Mail size={14} className="text-secondary shrink-0" /> <a href={`mailto:${a.client_email}`} className="text-xs font-medium text-primary hover:underline">{a.client_email}</a> </div> )} {a.client_phone&&( <div className="flex items-center gap-2"> <Phone size={14} className="text-secondary shrink-0" /> <a href={`tel:${a.client_phone}`} className="text-xs font-medium text-primary hover:underline">{a.client_phone}</a> </div> )} {a.location && ( <div className="flex items-center gap-2"> <MapPin size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.location}</span> </div> )} <div className="flex items-center gap-2"> <Users size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.num_people} Pessoas</span> </div> <div className="pt-2 flex justify-end"> <Button variant="ghost" size="sm" onClick={()=>setConfirmAction({title:"Remover reserva",description:`Tens a certeza que queres remover a reserva de ${a.client_name}?`,action:()=>removeBooking(a.id)})} className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"> <Trash2 size={12}/> Remover </Button> </div> </div> </motion.div> )} </AnimatePresence> </motion.div> )})} </div> )}
+                  {selectedBookings.length === 0 ? ( <div className="text-center py-6 text-muted-foreground text-sm"> <p>Sem reservas neste dia.</p> </div> ) : ( <div className="space-y-2"> {selectedBookings.map(a=>{const b=expandedBooking===a.id;return( <motion.div key={a.id} layout initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl bg-muted/50 overflow-hidden group"> <button onClick={()=>setExpandedBooking(b?null:a.id)} className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/80 transition-colors"> <div className="w-1 h-10 rounded-full shrink-0" style={{background:a.confirmed?"hsl(var(--secondary))":"hsl(var(--muted-foreground) / 0.3)"}}/> <div className="flex-1 min-w-0"> <div className="flex items-center justify-between"> <p className="font-semibold text-sm text-foreground truncate">{a.client_name}</p> <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${a.confirmed?"bg-secondary/20 text-secondary":"bg-amber-500/20 text-amber-600"}`}> {a.confirmed?"Confirmada":"Pendente"} </span> </div> <p className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5"> {a.pack_name.replace(" + Pack Fotos","")} · {a.booking_time||"—"} <span className="text-muted-foreground/80">· {a.num_people}p</span> {a.pack_name.includes("Pack Fotos")&&<Camera size={12} className="text-coral ml-1"/>} </p> </div> <ChevronDown size={16} className={`text-muted-foreground transition-transform shrink-0 ${b?"rotate-180":""}`}/> </button> <AnimatePresence> {b&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:.2}} className="overflow-hidden"> <div className="px-4 pb-4 pt-1 space-y-2.5 border-t border-border/50 ml-4 mr-3"> <div className="flex items-center gap-2 pt-2.5"> <Package size={14} className="text-secondary shrink-0"/> <span className="text-xs font-medium text-foreground">{a.pack_name}</span> </div> {a.price > 0 && ( <div className="flex items-center gap-2"> <DollarSign size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.price}€</span> </div> )} {a.client_email&&( <div className="flex items-center gap-2"> <Mail size={14} className="text-secondary shrink-0" /> <a href={`mailto:${a.client_email}`} className="text-xs font-medium text-primary hover:underline">{a.client_email}</a> </div> )} {a.client_phone&&( <div className="flex items-center gap-2"> <Phone size={14} className="text-secondary shrink-0" /> <a href={`tel:${a.client_phone}`} className="text-xs font-medium text-primary hover:underline">{a.client_phone}</a> </div> )} {a.location && ( <div className="flex items-center gap-2"> <MapPin size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.location}</span> </div> )} <div className="flex items-center gap-2"> <Users size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.num_people} Pessoas</span> </div> {a.referralCode && ( <div className="flex items-center gap-2 p-2 bg-secondary/5 border border-secondary/10 rounded-lg my-2"> <Link2 size={12} className="text-secondary shrink-0" /> <div className="flex-1 min-w-0"> <p className="text-[8px] font-900 uppercase text-secondary/70 leading-none mb-1">Recomendado por</p> <p className="text-[10px] font-bold text-secondary truncate"> {customers.find(c => c.referralCode === a.referralCode)?.firstName ? `${customers.find(c => c.referralCode === a.referralCode)?.firstName} ${customers.find(c => c.referralCode === a.referralCode)?.lastName || ""}` : (customers.find(c => c.referralCode === a.referralCode)?.displayName || "Código: " + a.referralCode)} </p> </div> </div> )} <div className="pt-2 flex justify-end"> <Button variant="ghost" size="sm" onClick={()=>setConfirmAction({title:"Remover reserva",description:`Tens a certeza que queres remover a reserva de ${a.client_name}?`,action:()=>removeBooking(a.id)})} className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"> <Trash2 size={12}/> Remover </Button> </div> </div> </motion.div> )} </AnimatePresence> </motion.div> )})} </div> )}
 
                   {selectedExpenses.length > 0 && (
                     <div className="border-t border-border mt-4 pt-4">

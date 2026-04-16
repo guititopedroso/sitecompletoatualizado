@@ -1,16 +1,21 @@
 import { useState, useEffect } from "react";
-import { Menu, X, Globe } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Menu, X, Globe, User, LogOut, Settings, Gift, Anchor } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Language, languageFlags, languageLabels } from "@/i18n/translations";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaInstagram } from "react-icons/fa";
+import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const navLinks = [
     { label: t("nav_home"), href: "#hero" },
@@ -31,16 +36,30 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
-    if (!langOpen) return;
-    const close = () => setLangOpen(false);
+    if (!langOpen && !userMenuOpen) return;
+    const close = () => {
+      setLangOpen(false);
+      setUserMenuOpen(false);
+    };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, [langOpen]);
+  }, [langOpen, userMenuOpen]);
 
   const scrollTo = (href: string) => {
     setMobileOpen(false);
-    const el = document.querySelector(href);
-    el?.scrollIntoView({ behavior: "smooth" });
+    if (href.startsWith("#")) {
+      const el = document.querySelector(href);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      } else {
+        navigate("/");
+        setTimeout(() => {
+          document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    } else {
+      navigate(href);
+    }
   };
 
   return (
@@ -98,10 +117,104 @@ const Navbar = () => {
               </motion.button>
             )
           })}
+          
+          <div className="h-6 w-px bg-primary-foreground/20 hidden lg:block" />
+
+          {/* Auth Section */}
+          <div className="relative">
+            {user ? (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setUserMenuOpen(!userMenuOpen); }}
+                  className="flex items-center gap-2 group"
+                >
+                    <div className="w-9 h-9 rounded-xl border-2 border-primary-foreground/20 overflow-hidden transition-all group-hover:border-primary-foreground/50 group-hover:scale-105 flex items-center justify-center bg-primary/10">
+                       {user.photoURL ? (
+                         <img 
+                           src={user.photoURL} 
+                           alt="User" 
+                           className="w-full h-full object-cover" 
+                           onError={(e) => {
+                               (e.target as HTMLImageElement).style.display = 'none';
+                               const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.fallback-icon');
+                               if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                           }}
+                         />
+                       ) : null}
+                       <div className={cn("fallback-icon items-center justify-center w-full h-full", user.photoURL ? "hidden" : "flex")}>
+                          <User size={18} className="text-primary-foreground" />
+                       </div>
+                    </div>
+                </button>
+
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      className="absolute right-0 top-full mt-2 bg-card rounded-2xl shadow-card-hover border border-border py-3 min-w-[200px] z-50 overflow-hidden"
+                    >
+                      <div className="px-4 py-2 border-b border-border mb-2">
+                         <p className="text-xs font-900 text-muted-foreground uppercase tracking-widest leading-none mb-1">Conta Ativa</p>
+                         <p className="text-sm font-bold text-foreground truncate">{user.displayName || user.email}</p>
+                      </div>
+                      <Link 
+                        to="/perfil" 
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-muted text-foreground transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                         <User size={16} className="text-secondary" />
+                         O Meu Perfil
+                      </Link>
+                      <Link 
+                        to="/afiliado" 
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-muted text-foreground transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                         <Gift size={16} className="text-coral" />
+                         Os Meus Afiliados
+                      </Link>
+                      <Link 
+                        to="/perfil" 
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-muted text-foreground transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                         <Anchor size={16} className="text-primary" />
+                         As Minhas Reservas
+                      </Link>
+                      <Link 
+                        to="/perfil?tab=settings" 
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-muted text-foreground transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                         <Settings size={16} className="text-muted-foreground" />
+                         Definições
+                      </Link>
+                      <div className="h-px bg-border my-2 mx-4" />
+                      <button 
+                        onClick={() => { logout(); setUserMenuOpen(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-red-50 text-red-500 transition-colors"
+                      >
+                         <LogOut size={16} />
+                         Sair
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="text-sm font-bold text-primary-foreground/80 hover:text-primary-foreground flex items-center gap-2 transition-all hover:translate-x-1"
+              >
+                <User size={18} />
+                Login
+              </Link>
+            )}
+          </div>
+
           <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => scrollTo("#experiencias")}
@@ -160,6 +273,16 @@ const Navbar = () => {
 
         {/* Mobile: lang + toggle */}
         <div className="flex items-center gap-3 md:hidden">
+          {user ? (
+             <Link to="/perfil" className="w-8 h-8 rounded-lg border border-primary-foreground/20 overflow-hidden">
+                <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} alt="User" className="w-full h-full object-cover" />
+             </Link>
+          ) : (
+             <Link to="/login" className="text-primary-foreground/80">
+                <User size={20} />
+             </Link>
+          )}
+
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setLangOpen(!langOpen); }}
@@ -259,10 +382,37 @@ const Navbar = () => {
                     </motion.button>
                   )
               })}
+
+              <motion.div
+                 initial={{ opacity: 0, x: -20 }}
+                 animate={{ opacity: 1, x: 0 }}
+                 transition={{ duration: 0.3, delay: 0.05 * navLinks.length }}
+              >
+                 {user ? (
+                   <Link 
+                     to="/perfil" 
+                     className="flex items-center gap-3 w-full text-left text-primary-foreground/80 hover:text-primary-foreground py-2 text-sm font-medium"
+                     onClick={() => setMobileOpen(false)}
+                   >
+                     <User size={20} />
+                     <span>A Minha Conta</span>
+                   </Link>
+                 ) : (
+                   <Link 
+                     to="/login" 
+                     className="flex items-center gap-3 w-full text-left text-primary-foreground/80 hover:text-primary-foreground py-2 text-sm font-medium"
+                     onClick={() => setMobileOpen(false)}
+                   >
+                     <User size={20} />
+                     <span>Iniciar Sessão</span>
+                   </Link>
+                 )}
+              </motion.div>
+
                <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.05 * navLinks.length }}
+                transition={{ duration: 0.3, delay: 0.05 * (navLinks.length + 1) }}
               >
                 <a
                   href="https://www.instagram.com/royalcoast.pt"

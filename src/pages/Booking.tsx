@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge } from "lucide-react";
@@ -78,8 +79,23 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const packId = searchParams.get("pack") || "30-minutos";
-  const referralCode = searchParams.get("ref") || null;
+
+  useEffect(() => {
+    if (user) {
+      if (user.displayName) {
+        const parts = user.displayName.split(" ");
+        setFirstName(parts[0] || "");
+        setLastName(parts.length > 1 ? parts.slice(1).join(" ") : "");
+      }
+      if (user.email) {
+        setEmail(user.email);
+      }
+    }
+  }, [user]);
+
+  const referralCode = searchParams.get("ref") || localStorage.getItem("royal_coast_referral") || null;
   const initialPack = allPacks[packId];
 
   const steps = [
@@ -206,7 +222,7 @@ const Booking = () => {
         booking_time: time,
         num_people: people,
         location: location,
-        referral_code: referralCode,
+        referralCode: referralCode,
         price: totalPrice,
         created_at: new Date().toISOString(),
       });
