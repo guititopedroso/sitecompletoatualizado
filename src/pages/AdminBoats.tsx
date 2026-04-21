@@ -42,6 +42,10 @@ type Boat = {
   order?: number;
   created_at?: string;
   features?: string[];
+  cost4h?: string;
+  cost8h?: string;
+  useMarkup4h?: boolean;
+  useMarkup8h?: boolean;
 };
 
 // Sortable Item Component
@@ -149,7 +153,11 @@ const AdminBoats = () => {
     price8h: "",
     images: [],
     range: "mid" as const,
-    features: []
+    features: [],
+    cost4h: "",
+    cost8h: "",
+    useMarkup4h: false,
+    useMarkup8h: false
   });
   const [featureInput, setFeatureInput] = useState("");
   const PRESET_FEATURES = [
@@ -279,6 +287,10 @@ const AdminBoats = () => {
       ...saveData,
       price4h: saveData.price4h?.includes('€') ? saveData.price4h : `${saveData.price4h}€`,
       price8h: saveData.price8h?.includes('€') ? saveData.price8h : `${saveData.price8h}€`,
+      cost4h: saveData.cost4h ? (saveData.cost4h.includes('€') ? saveData.cost4h : `${saveData.cost4h}€`) : "",
+      cost8h: saveData.cost8h ? (saveData.cost8h.includes('€') ? saveData.cost8h : `${saveData.cost8h}€`) : "",
+      useMarkup4h: saveData.useMarkup4h || false,
+      useMarkup8h: saveData.useMarkup8h || false,
       slug: createSlug(saveData.name || ""),
       image: (saveData.images && saveData.images.length > 0) ? saveData.images[0] : (saveData.image || ""), // Sincroniza foto de capa legacy
       created_at: saveData.created_at || new Date().toISOString(),
@@ -356,7 +368,11 @@ const AdminBoats = () => {
       price8h: "",
       images: [],
       range: "mid" as const,
-      features: []
+      features: [],
+      cost4h: "",
+      cost8h: "",
+      useMarkup4h: false,
+      useMarkup8h: false
     });
     setEditingBoat(null);
   };
@@ -446,13 +462,122 @@ const AdminBoats = () => {
               <label className="text-sm font-medium">Lotação</label>
               <Input type="number" value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })} />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Preço 4h (€)</label>
-              <Input placeholder="Ex: 190€" value={formData.price4h} onChange={e => setFormData({ ...formData, price4h: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Preço 8h (€)</label>
-              <Input placeholder="Ex: 230€" value={formData.price8h} onChange={e => setFormData({ ...formData, price8h: e.target.value })} />
+            <div className="md:col-span-2 bg-muted/30 p-4 rounded-xl space-y-4">
+              <p className="text-sm font-bold flex items-center gap-2"><Anchor size={16}/> Preçário e Custos</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Preço 4h */}
+                <div className="space-y-3 bg-background p-4 rounded-xl border border-border/50">
+                  <p className="text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Aluguer de 4 Horas</p>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Custo Base</label>
+                      <div className="relative">
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={(formData.cost4h || "").replace('€', '')} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            const newCost = val ? `${val}€` : "";
+                            const newPrice = formData.useMarkup4h && val ? `${Math.ceil(parseFloat(val) * 1.15)}€` : formData.price4h;
+                            setFormData({ ...formData, cost4h: newCost, price4h: newPrice });
+                          }} 
+                          className="pr-8 text-xs font-bold bg-muted/20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">€</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="markup4h"
+                        checked={formData.useMarkup4h} 
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          const costVal = parseFloat((formData.cost4h || "").replace('€', ''));
+                          const newPrice = checked && !isNaN(costVal) ? `${Math.ceil(costVal * 1.15)}€` : formData.price4h;
+                          setFormData({ ...formData, useMarkup4h: checked, price4h: newPrice });
+                        }}
+                        className="w-4 h-4 rounded border-border text-primary"
+                      />
+                      <label htmlFor="markup4h" className="text-[10px] font-bold uppercase text-muted-foreground cursor-pointer">Markup Automático (+15%)</label>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Preço Final (Cliente)</label>
+                      <div className="relative">
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={(formData.price4h || "").replace('€', '')} 
+                          onChange={e => setFormData({ ...formData, price4h: `${e.target.value}€` })} 
+                          disabled={formData.useMarkup4h}
+                          className={`pr-8 text-xs font-900 ${formData.useMarkup4h ? "bg-primary/5 text-primary opacity-100 border-primary/30" : ""}`}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">€</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preço 8h */}
+                <div className="space-y-3 bg-background p-4 rounded-xl border border-border/50">
+                  <p className="text-[10px] font-900 uppercase tracking-widest text-muted-foreground">Aluguer de 8 Horas</p>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Custo Base</label>
+                      <div className="relative">
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={(formData.cost8h || "").replace('€', '')} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            const newCost = val ? `${val}€` : "";
+                            const newPrice = formData.useMarkup8h && val ? `${Math.ceil(parseFloat(val) * 1.15)}€` : formData.price8h;
+                            setFormData({ ...formData, cost8h: newCost, price8h: newPrice });
+                          }} 
+                          className="pr-8 text-xs font-bold bg-muted/20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">€</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="markup8h"
+                        checked={formData.useMarkup8h} 
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          const costVal = parseFloat((formData.cost8h || "").replace('€', ''));
+                          const newPrice = checked && !isNaN(costVal) ? `${Math.ceil(costVal * 1.15)}€` : formData.price8h;
+                          setFormData({ ...formData, useMarkup8h: checked, price8h: newPrice });
+                        }}
+                        className="w-4 h-4 rounded border-border text-primary"
+                      />
+                      <label htmlFor="markup8h" className="text-[10px] font-bold uppercase text-muted-foreground cursor-pointer">Markup Automático (+15%)</label>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Preço Final (Cliente)</label>
+                      <div className="relative">
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={(formData.price8h || "").replace('€', '')} 
+                          onChange={e => setFormData({ ...formData, price8h: `${e.target.value}€` })} 
+                          disabled={formData.useMarkup8h}
+                          className={`pr-8 text-xs font-900 ${formData.useMarkup8h ? "bg-primary/5 text-primary opacity-100 border-primary/30" : ""}`}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">€</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2 md:col-span-2">

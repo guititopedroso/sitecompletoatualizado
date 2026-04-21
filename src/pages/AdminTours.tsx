@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { cn } from "@/lib/utils";
 
 // DnD Kit Imports
 import {
@@ -31,6 +32,8 @@ import { CSS } from '@dnd-kit/utilities';
 type TourPack = {
   duration: string;
   price: string;
+  cost?: string;
+  useMarkup?: boolean;
 };
 
 type Tour = {
@@ -160,13 +163,13 @@ const AdminTours = () => {
     popular: false,
     includes: [],
     packs: [
-      { duration: "2h", price: "" },
-      { duration: "3h", price: "" },
-      { duration: "4h", price: "" },
-      { duration: "5h", price: "" },
-      { duration: "6h", price: "" },
-      { duration: "7h", price: "" },
-      { duration: "8h", price: "" },
+      { duration: "2h", price: "", cost: "", useMarkup: false },
+      { duration: "3h", price: "", cost: "", useMarkup: false },
+      { duration: "4h", price: "", cost: "", useMarkup: false },
+      { duration: "5h", price: "", cost: "", useMarkup: false },
+      { duration: "6h", price: "", cost: "", useMarkup: false },
+      { duration: "7h", price: "", cost: "", useMarkup: false },
+      { duration: "8h", price: "", cost: "", useMarkup: false },
     ],
     capacity: 10,
   });
@@ -265,7 +268,9 @@ const AdminTours = () => {
       ...saveData,
       packs: filteredPacks.map(p => ({
         duration: p.duration.includes('h') ? p.duration : `${p.duration}h`,
-        price: p.price.includes('€') ? p.price : `${p.price}€`
+        price: p.price.includes('€') ? p.price : `${p.price}€`,
+        cost: p.cost ? (p.cost.includes('€') ? p.cost : `${p.cost}€`) : "",
+        useMarkup: p.useMarkup || false
       })),
       images: saveData.images || [],
       image: (saveData.images && saveData.images.length > 0) ? saveData.images[0] : "", // Sincroniza foto de capa legacy
@@ -330,13 +335,13 @@ const AdminTours = () => {
       popular: false, 
       includes: [], 
       packs: [
-        { duration: "2h", price: "" },
-        { duration: "3h", price: "" },
-        { duration: "4h", price: "" },
-        { duration: "5h", price: "" },
-        { duration: "6h", price: "" },
-        { duration: "7h", price: "" },
-        { duration: "8h", price: "" },
+        { duration: "2h", price: "", cost: "", useMarkup: false },
+        { duration: "3h", price: "", cost: "", useMarkup: false },
+        { duration: "4h", price: "", cost: "", useMarkup: false },
+        { duration: "5h", price: "", cost: "", useMarkup: false },
+        { duration: "6h", price: "", cost: "", useMarkup: false },
+        { duration: "7h", price: "", cost: "", useMarkup: false },
+        { duration: "8h", price: "", cost: "", useMarkup: false },
       ],
       capacity: 10
     });
@@ -397,9 +402,20 @@ const AdminTours = () => {
     setFormData(prev => ({ ...prev, packs: (prev.packs || []).filter((_, i) => i !== index) }));
   };
 
-  const updatePack = (index: number, field: keyof TourPack, value: string) => {
+  const updatePack = (index: number, field: keyof TourPack, value: any) => {
     const newPacks = [...(formData.packs || [])];
-    newPacks[index][field] = value;
+    (newPacks[index] as any)[field] = value;
+    
+    // Auto calculate markup if enabled
+    if (field === 'cost' || field === 'useMarkup') {
+      const currentPack = newPacks[index];
+      if (currentPack.useMarkup && currentPack.cost) {
+        const costVal = parseFloat(currentPack.cost.replace('€', '')) || 0;
+        const finalPrice = Math.ceil(costVal * 1.15);
+        currentPack.price = `${finalPrice}€`;
+      }
+    }
+    
     setFormData(prev => ({ ...prev, packs: newPacks }));
   };
 
@@ -448,14 +464,21 @@ const AdminTours = () => {
                   <Plus size={12} className="mr-1"/> Adicionar Pack
                 </Button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
+                <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-[10px] uppercase font-900 text-muted-foreground tracking-widest">
+                  <div className="col-span-3">Duração</div>
+                  <div className="col-span-3">Custo (Base)</div>
+                  <div className="col-span-2 text-center">Markup +15%</div>
+                  <div className="col-span-3">Preço Final (Cliente)</div>
+                  <div className="col-span-1"></div>
+                </div>
                 {formData.packs?.map((pack, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <div className="flex-1 relative">
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-background p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="col-span-3">
                       <select 
                         value={pack.duration.replace('h', '')} 
                         onChange={e => updatePack(idx, 'duration', `${e.target.value}h`)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
                         <option value="">Duração...</option>
                         {["1", "1.5", "2", "2.5", "3", "3.5", "4", "5", "6", "7", "8"].map(h => (
@@ -463,21 +486,51 @@ const AdminTours = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="flex-1 relative">
+                    
+                    <div className="col-span-3 relative">
+                      <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Custo (Base)</span>
+                      <Input 
+                        type="number"
+                        placeholder="0.00" 
+                        value={(pack.cost || "").replace('€', '')} 
+                        onChange={e => updatePack(idx, 'cost', `${e.target.value}€`)} 
+                        className="pr-8 text-xs font-bold bg-muted/20"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 md:mt-0 text-muted-foreground text-[10px]">€</span>
+                    </div>
+
+                    <div className="col-span-2 flex justify-center">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="checkbox" 
+                          checked={pack.useMarkup} 
+                          onChange={e => updatePack(idx, 'useMarkup', e.target.checked)}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <span className="md:hidden text-xs">Calcular +15%</span>
+                      </div>
+                    </div>
+
+                    <div className="col-span-3 relative">
+                      <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Preço Final (Cliente)</span>
                       <Input 
                         type="number"
                         placeholder="0.00" 
                         value={pack.price.replace('€', '')} 
                         onChange={e => updatePack(idx, 'price', `${e.target.value}€`)} 
-                        className="pr-8"
+                        disabled={pack.useMarkup}
+                        className={cn("pr-8 text-xs font-display font-900 border-primary/20", pack.useMarkup ? "bg-primary/5 text-primary opacity-100" : "bg-background")}
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 md:mt-0 text-muted-foreground text-[10px]">€</span>
                     </div>
-                    {formData.packs!.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => removePack(idx)} className="text-destructive shrink-0">
-                        <Trash2 size={16}/>
-                      </Button>
-                    )}
+
+                    <div className="col-span-1 flex justify-end">
+                      {formData.packs!.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => removePack(idx)} className="text-destructive h-8 w-8">
+                          <Trash2 size={14}/>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
