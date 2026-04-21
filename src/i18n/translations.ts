@@ -253,7 +253,7 @@ export const translations: Translations = {
     nav_safety: "Segurança",
     nav_gallery: "Galeria",
     nav_contacts: "Contactos",
-    nav_affiliates: "🎁 Afiliados",
+    nav_affiliates: "👑 RoyalCoast Elite",
     nav_book_now: "Reservar Agora",
 
     hero_badge: "📍 Setúbal, Portugal",
@@ -463,7 +463,7 @@ export const translations: Translations = {
     nav_safety: "Safety",
     nav_gallery: "Gallery",
     nav_contacts: "Contact",
-    nav_affiliates: "🎁 Affiliates",
+    nav_affiliates: "👑 RoyalCoast Elite",
     nav_book_now: "Book Now",
 
     hero_badge: "📍 Setúbal, Portugal",
@@ -673,7 +673,7 @@ export const translations: Translations = {
     nav_safety: "Sicherheit",
     nav_gallery: "Galerie",
     nav_contacts: "Kontakt",
-    nav_affiliates: "🎁 Partner",
+    nav_affiliates: "👑 RoyalCoast Elite",
     nav_book_now: "Jetzt Buchen",
 
     hero_badge: "📍 Setúbal, Portugal",

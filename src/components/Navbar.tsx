@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, X, Globe, User, LogOut, Settings, Gift, Anchor } from "lucide-react";
+import { Menu, X, Globe, User, LogOut, Settings, Crown, Anchor } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Language, languageFlags, languageLabels } from "@/i18n/translations";
@@ -172,8 +172,8 @@ const Navbar = () => {
                         className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-muted text-foreground transition-colors"
                         onClick={() => setUserMenuOpen(false)}
                       >
-                         <Gift size={16} className="text-coral" />
-                         Os Meus Afiliados
+                         <Crown size={16} className="text-coral" />
+                         Os Meus Elite
                       </Link>
                       <Link 
                         to="/perfil" 

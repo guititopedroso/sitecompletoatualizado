@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Link2, Copy, Check, Users, ArrowLeft, Gift, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Link2, Copy, Check, Users, ArrowLeft, Crown, Loader2, Gem, Sparkles, Trophy, Zap, Gift, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
@@ -22,26 +22,17 @@ const Referral = () => {
     if (!authLoading && !user) {
       const returnPath = encodeURIComponent(location.pathname + location.search);
       navigate(`/login?redirect=${returnPath}`);
-      toast({ 
-        title: "Inicia sessão primeiro", 
-        description: "Precisas de ter uma conta para ver o teu link de afiliado.", 
-        variant: "destructive" 
-      });
       return;
     }
 
     const fetchReferralData = async () => {
       if (!user) return;
       try {
-        // Fetch user's code from their profile
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        
         if (userDoc.exists()) {
           const code = userDoc.data().referralCode;
           setReferralCode(code);
-
           if (code) {
-            // Fetch how many bookings used this code
             const q = query(
               collection(db, "bookings"), 
               where("referralCode", "==", code),
@@ -58,27 +49,26 @@ const Referral = () => {
       }
     };
 
-    if (user) {
-      fetchReferralData();
-    }
+    if (user) fetchReferralData();
   }, [user, authLoading, navigate]);
 
-  const referralLink = referralCode
-    ? `${window.location.origin}?ref=${referralCode}`
-    : "";
+  const referralLink = referralCode ? `${window.location.origin}?ref=${referralCode}` : "";
 
   const copyLink = () => {
     if (!referralLink) return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast({ title: "Link copiado!" });
+    toast({ title: "💎 Link Elite Copiado!" });
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={40} />
+      <div className="min-h-screen bg-[#020817] flex items-center justify-center">
+        <div className="relative">
+           <Loader2 className="animate-spin text-primary" size={48} />
+           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -86,112 +76,203 @@ const Referral = () => {
   const progress = Math.min((referralCount / 4) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="ocean-gradient">
-        <div className="max-w-3xl mx-auto px-4 py-8 flex items-center gap-6">
-          <button
+    <div className="min-h-screen bg-[#020817] text-white selection:bg-primary/30 overflow-x-hidden">
+      {/* Background Decor */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
+      {/* Header Section */}
+      <div className="relative border-b border-white/5 bg-white/5 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto px-6 py-8 flex items-center gap-6">
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: -5 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => navigate("/")}
-            className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+            className="w-14 h-14 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all border border-white/10"
           >
-            <ArrowLeft size={24} className="text-white" />
-          </button>
+            <ArrowLeft size={28} />
+          </motion.button>
           <div>
-            <h1 className="font-display text-2xl font-900 text-white tracking-tight">Programa de Afiliados</h1>
-            <p className="text-white/70 text-sm font-medium">Recomenda a Royal Coast e ganha aventuras!</p>
+            <motion.div 
+               initial={{ opacity: 0, x: -20 }}
+               animate={{ opacity: 1, x: 0 }}
+               className="flex items-center gap-2 mb-1"
+            >
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">Elite Partner</span>
+            </motion.div>
+            <h1 className="font-display text-3xl font-900 tracking-tight flex items-center gap-3">
+              RoyalCoast <span className="text-primary italic">Elite</span> <Crown className="text-primary" size={28} />
+            </h1>
           </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <div className="space-y-8">
-          {/* Main Link Card */}
+      <main className="relative max-w-5xl mx-auto px-6 py-16 space-y-16">
+        
+        {/* Main Section Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          
+          {/* Card VIP Link (Left) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-[2.5rem] shadow-xl shadow-black/5 border border-border/40 p-8 md:p-10 text-center relative overflow-hidden"
+            className="lg:col-span-3 group relative"
           >
-            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
-               <Gift size={120} />
-            </div>
-
-            <div className="w-20 h-20 rounded-3xl bg-secondary/10 flex items-center justify-center mx-auto mb-6 text-secondary transform -rotate-3 group-hover:rotate-0 transition-transform">
-              <Link2 size={36} />
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
-            <h2 className="font-display text-2xl font-900 text-foreground mb-3">O teu link exclusivo</h2>
-            <p className="text-muted-foreground mb-8 max-w-sm mx-auto font-medium">
-              Por cada 4 amigos que reservem através do teu link, ganhas uma experiência grátis de 30 min!
-            </p>
-
-            <div className="flex flex-col md:flex-row items-center gap-3 bg-muted/50 rounded-2xl p-2 border border-border/50">
-              <div className="flex-1 px-4 py-3 text-sm font-mono text-foreground/80 truncate w-full text-center md:text-left">
-                {referralLink}
-              </div>
-              <Button 
-                onClick={copyLink} 
-                className={cn(
-                  "w-full md:w-auto h-12 px-8 rounded-xl font-display font-900 uppercase tracking-widest text-xs transition-all",
-                  copied ? "bg-green-500 hover:bg-green-600" : "sunset-gradient"
-                )}
-              >
-                {copied ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
-                {copied ? "Copiado!" : "Copiar Link"}
-              </Button>
-            </div>
-          </motion.div>
-
-          {/* Progress Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card rounded-[2.5rem] shadow-xl shadow-black/5 border border-border/40 p-8"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Users size={20} />
-                </div>
-                <h3 className="font-display font-800 text-foreground">O teu progresso</h3>
-              </div>
-              <span className="text-xs font-900 text-primary uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
-                {referralCount} / 4 Reservas
-              </span>
-            </div>
-
-            <div className="relative h-4 bg-muted rounded-full overflow-hidden mb-4">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                className="absolute inset-y-0 left-0 ocean-gradient rounded-full"
-              />
-            </div>
-            
-            <div className="flex justify-between items-center text-[10px] font-900 text-muted-foreground uppercase tracking-widest px-1">
-               <span>Início</span>
-               <span className={cn(referralCount >= 4 ? "text-secondary" : "")}>
-                  {referralCount >= 4 ? "Prémio Disponível! 🎉" : `${4 - referralCount} faltam para o prémio`}
-               </span>
-               <span>Meta</span>
-            </div>
-          </motion.div>
-
-          {/* How it works */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             {[
-               { icon: <Link2 className="w-6 h-6" />, title: "Partilha", desc: "Envia o link a amigos" },
-               { icon: <Users className="w-6 h-6" />, title: "Reservam", desc: "Eles fazem a reserva" },
-               { icon: <Gift className="w-6 h-6" />, title: "Ganha", desc: "Viagem grátis p/ ti!" }
-             ].map((item, i) => (
-               <div key={i} className="bg-white shadow-lg shadow-black/5 border border-border/20 p-6 rounded-[2rem] text-center">
-                  <div className="text-primary mb-3 flex justify-center">{item.icon}</div>
-                  <h4 className="font-display font-800 text-sm mb-1">{item.title}</h4>
-                  <p className="text-[11px] text-muted-foreground font-medium leading-tight">{item.desc}</p>
+            <div className="relative bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-[3rem] p-10 md:p-12 h-full overflow-hidden">
+               {/* Pattern Background */}
+               <div className="absolute top-0 right-0 p-12 opacity-[0.05] rotate-12 pointer-events-none">
+                  <Waves size={240} className="text-white" />
                </div>
-             ))}
+
+               <div className="relative z-10 space-y-8">
+                  <div className="flex items-center gap-4">
+                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary to-secondary p-[1px]">
+                        <div className="w-full h-full bg-[#020817] rounded-2xl flex items-center justify-center">
+                           <Gift size={32} className="text-primary" />
+                        </div>
+                     </div>
+                     <div>
+                        <h2 className="text-2xl font-900 tracking-tight">Convida e Navega 🌊</h2>
+                        <p className="text-white/50 text-sm font-medium">Recomenda aos teus amigos e ganha viagens</p>
+                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                     <p className="text-lg text-white/80 leading-relaxed font-inter">
+                        Partilha o teu link exclusivo. Por cada 4 amigos que confirmem uma reserva, a tua próxima aventura de <span className="text-primary font-black italic">15 minutos de mota de água é oferta nossa.</span>
+                     </p>
+                  </div>
+
+                  <div className="space-y-3 pt-4">
+                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 px-2 flex items-center gap-2">
+                        <Zap size={14} className="text-primary" /> O Teu Link Pessoal
+                     </label>
+                     <div className="flex flex-col md:flex-row items-stretch gap-3 bg-white/5 p-3 rounded-[2rem] border border-white/5">
+                        <div className="flex-1 px-5 py-4 text-sm font-mono text-white/90 truncate bg-black/40 rounded-2xl flex items-center border border-white/5">
+                           {referralLink}
+                        </div>
+                        <motion.button 
+                           whileHover={{ scale: 1.02 }}
+                           whileTap={{ scale: 0.98 }}
+                           onClick={copyLink} 
+                           className={cn(
+                             "h-14 px-10 rounded-2xl font-900 uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-3",
+                             copied ? "bg-green-500 text-white" : "sunset-gradient text-accent-foreground"
+                           )}
+                        >
+                           {copied ? <Check size={20} /> : <Copy size={20} />}
+                           {copied ? "Copiado" : "Copiar Link"}
+                        </motion.button>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </motion.div>
+
+          {/* Mini Stats (Right) */}
+          <div className="lg:col-span-2 space-y-8">
+            <motion.div
+               initial={{ opacity: 0, x: 30 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.1 }}
+               className="bg-[#0f172a] border border-white/10 rounded-[2.5rem] p-8 relative overflow-hidden"
+            >
+               <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <Trophy size={80} />
+               </div>
+               <h3 className="text-lg font-900 mb-6 flex items-center gap-3"><Sparkles className="text-primary" size={20}/> Meta de Viagem</h3>
+               
+               <div className="flex items-end justify-between mb-2">
+                  <span className="text-3xl font-900 text-primary">{referralCount}<span className="text-white/20 text-sm px-2">/ 4</span></span>
+                  <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">Amigos a bordo</span>
+               </div>
+               
+               <div className="relative h-5 bg-white/5 rounded-full overflow-hidden mb-6 border border-white/5">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 1, ease: "circOut" }}
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary/80 to-secondary rounded-full shadow-[0_0_20px_rgba(255,107,0,0.4)]"
+                  />
+               </div>
+
+               <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
+                  <p className="text-[11px] font-900 uppercase tracking-widest text-primary italic">
+                     {referralCount >= 4 ? "JÁ GANHASTE UMA VIAGEM! 🔥" : `Faltam ${4 - referralCount} para navegar à borla`}
+                  </p>
+               </div>
+            </motion.div>
+
+            <motion.div
+               initial={{ opacity: 0, x: 30 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.2 }}
+               className="bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 rounded-[2.5rem] p-8"
+            >
+               <h4 className="text-sm font-black uppercase tracking-widest mb-4">Vantagens Elite</h4>
+               <ul className="space-y-4">
+                  {[
+                    "Viagens grátis ilimitadas por metas",
+                    "Ganha 15 min de mota de água p/ 4 amigos",
+                    "Desconto especial no teu dia de anos",
+                    "Passeios exclusivos para o teu grupo"
+                  ].map((benefit, i) => (
+                    <li key={i} className="flex items-start gap-3 text-xs text-white/60 font-medium">
+                       <Check size={14} className="text-primary mt-0.5 shrink-0" />
+                       {benefit}
+                    </li>
+                  ))}
+               </ul>
+            </motion.div>
           </div>
         </div>
-      </div>
+
+        {/* Steps Section */}
+        <section className="pt-10">
+           <div className="text-center mb-12 space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-[0.4em] text-primary">Missão Elite</h3>
+              <h2 className="text-3xl font-900 tracking-tight">O teu caminho até à água</h2>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { icon: <Link2 size={32} />, title: "Partilha", color: "text-primary", desc: "Envia o link aos teus amigos mais aventureiros" },
+                { icon: <Users size={32} />, title: "Eles Reservam", color: "text-white", desc: "Os teus amigos vivem a experiência Royal Coast" },
+                { icon: <Waves size={32} />, title: "Tu Navegas", color: "text-secondary", desc: "Recebes o prémio e vais para a água de borla" }
+              ].map((step, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="bg-white/5 border border-white/10 p-10 rounded-[3rem] text-center hover:bg-white/[0.08] transition-all group"
+                >
+                   <div className={cn("mb-6 flex justify-center transform group-hover:scale-110 group-hover:rotate-6 transition-transform", step.color)}>{step.icon}</div>
+                   <h4 className="font-display font-900 text-xl mb-3 tracking-tight">{step.title}</h4>
+                   <p className="text-sm text-white/50 font-medium leading-relaxed">{step.desc}</p>
+                </motion.div>
+              ))}
+           </div>
+        </section>
+
+        {/* Footer CTA */}
+        <motion.div 
+           initial={{ opacity: 0 }}
+           whileInView={{ opacity: 1 }}
+           className="text-center pt-10"
+        >
+           <p className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-4">Dúvidas sobre o sistema de prémios?</p>
+           <a href="/#contactos" className="inline-flex items-center gap-2 text-sm font-bold text-white hover:text-primary transition-colors border-b border-white/20 pb-1">
+              Falar com a equipa Royal Coast
+           </a>
+        </motion.div>
+
+      </main>
     </div>
   );
 };
