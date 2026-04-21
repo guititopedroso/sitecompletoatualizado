@@ -31,15 +31,16 @@ type PackInfo = {
   price4h?: number;
   price8h?: number;
   maxPeople?: number;
+  theme?: "turquoise-light" | "coral" | "ocean" | "turquoise-dark";
   tourPacks?: { duration: string; price: string }[];
 };
 
 const allPacks: Record<string, PackInfo> = {
-  "15-minutos": { name: "Jet Ski – 15 Minutos", basePrice: 50, price: "50€", duration: "15 min", isJetski: true },
-  "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 80, price: "80€", duration: "30 min", isJetski: true },
-  "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 120, price: "120€", duration: "1h", isJetski: true },
-  "pack-grupo": { name: "Jet Ski – Pack Grupo", basePrice: 400, price: "400€", duration: "1h", isJetski: true },
-  "experiencia-sunset": { name: "Experiência Sunset", basePrice: 150, price: "150€", duration: "1h" },
+  "15-minutos": { name: "Jet Ski – 15 Minutos", basePrice: 50, price: "50€", duration: "15 min", isJetski: true, theme: "turquoise-light" },
+  "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 80, price: "80€", duration: "30 min", isJetski: true, theme: "coral" },
+  "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 120, price: "120€", duration: "1h", isJetski: true, theme: "ocean" },
+  "pack-grupo": { name: "Jet Ski – Pack Grupo", basePrice: 400, price: "400€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
+  "experiencia-sunset": { name: "Experiência Sunset", basePrice: 150, price: "150€", duration: "1h", theme: "coral" },
   // Boats
   "kelt-azura": { name: "Kelt Azura – 5 mts", basePrice: 190, price: "190€", duration: "4h", isBoat: true, price4h: 190, price8h: 230, maxPeople: 5 },
   "cap-camarat": { name: "Cap Camarat – 5,15 mts", basePrice: 200, price: "200€", duration: "4h", isBoat: true, price4h: 200, price8h: 285, maxPeople: 6 },
@@ -57,7 +58,7 @@ const timeSlots = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
   "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
   "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-  "18:00", "18:30",
+  "18:00", "18:30", "19:00", "19:30", "20:00",
 ];
 
 const countryPrefixes = [
@@ -121,6 +122,7 @@ const Booking = () => {
   const [boatDuration, setBoatDuration] = useState<"4h" | "8h">("4h");
   const [tourDurationIdx, setTourDurationIdx] = useState(0);
   const [packFotos, setPackFotos] = useState(false);
+  const [packCatering, setPackCatering] = useState(false);
   const [numMotas, setNumMotas] = useState(1);
   const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
 
@@ -188,7 +190,7 @@ const Booking = () => {
     : pack.isJetski
     ? (isGroupPack ? pack.basePrice : effectiveMotas * pack.basePrice)
     : pack.basePrice;
-  const totalPrice = baseTotal + (packFotos ? 15 : 0);
+  const totalPrice = baseTotal + (packFotos ? 15 : 0) + (packCatering ? people * 30 : 0);
   const totalPriceStr = `${totalPrice}€`;
 
   const canNext = useMemo(() => {
@@ -210,7 +212,7 @@ const Booking = () => {
       ? ` (${effectiveMotas} Motas)` 
       : "";
     
-    const finalPackName = pack.name + durationStr + (packFotos ? " + Pack Fotos" : "");
+    const finalPackName = pack.name + durationStr + (packFotos ? " + Pack Fotos" : "") + (packCatering ? " + Catering" : "");
 
     try {
       await addDoc(collection(db, "bookings"), {
@@ -275,7 +277,14 @@ const Booking = () => {
   return (
     <div className="min-h-screen bg-[#FDFDFD]">
       {/* Header Section */}
-      <div className="relative overflow-hidden bg-primary py-12 md:py-16">
+      <div className={cn(
+        "relative overflow-hidden py-12 md:py-16 transition-colors duration-700",
+        pack.theme === "turquoise-light" && "bg-turquoise-light",
+        pack.theme === "coral" && "bg-primary",
+        pack.theme === "ocean" && "bg-ocean-deep",
+        pack.theme === "turquoise-dark" && "bg-turquoise",
+        !pack.theme && "bg-primary"
+      )}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-coral rounded-full translate-x-1/2 translate-y-1/2 blur-3xl"></div>
@@ -300,7 +309,7 @@ const Booking = () => {
               </h1>
               <div className="flex items-center gap-4 text-white/70">
                 <span className="bg-white/10 px-3 py-1 rounded-md text-xs font-bold border border-white/10">{pack.name}</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-coral"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white/40"></span>
                 <span className="text-xl font-display font-800 text-white">{totalPriceStr}</span>
               </div>
             </div>
@@ -315,13 +324,21 @@ const Booking = () => {
             {steps.map((s, i) => (
               <div key={s.id} className="flex flex-col items-center flex-1 relative">
                 <div className="flex items-center w-full">
-                  <div className={cn("hidden md:block flex-1 h-[2px]", i === 0 ? "opacity-0" : step >= s.id ? "bg-primary" : "bg-muted")} />
+                  <div className={cn("hidden md:block flex-1 h-[2px]", i === 0 ? "opacity-0" : step >= s.id ? (pack.theme === "coral" ? "bg-primary" : "bg-primary") : "bg-muted")} />
                   <motion.div
                     initial={false}
                     animate={{ 
                       scale: step === s.id ? 1.1 : 1,
-                      borderColor: step > s.id ? "var(--secondary)" : step === s.id ? "var(--primary)" : "rgb(229 231 235)",
-                      color: step > s.id ? "var(--secondary)" : step === s.id ? "var(--primary)" : "rgb(156 163 175)"
+                      borderColor: step > s.id 
+                        ? (pack.theme === "turquoise-light" ? "var(--turquoise-light)" : pack.theme === "turquoise-dark" ? "var(--turquoise)" : "var(--secondary)") 
+                        : step === s.id 
+                        ? (pack.theme === "turquoise-light" ? "var(--turquoise-light)" : pack.theme === "turquoise-dark" ? "var(--turquoise)" : "var(--primary)") 
+                        : "rgb(229 231 235)",
+                      color: step > s.id 
+                        ? (pack.theme === "turquoise-light" ? "var(--turquoise-light)" : pack.theme === "turquoise-dark" ? "var(--turquoise)" : "var(--secondary)") 
+                        : step === s.id 
+                        ? (pack.theme === "turquoise-light" ? "var(--turquoise-light)" : pack.theme === "turquoise-dark" ? "var(--turquoise)" : "var(--primary)") 
+                        : "rgb(156 163 175)"
                     }}
                     className={cn(
                       "w-12 h-12 rounded-2xl flex items-center justify-center bg-white border-2 font-display font-800 text-sm transition-all z-10",
@@ -334,7 +351,7 @@ const Booking = () => {
                 </div>
                 <span className={cn(
                   "text-[10px] uppercase tracking-widest mt-3 font-900 transition-colors",
-                  step >= s.id ? "text-primary" : "text-muted-foreground/60"
+                  step >= s.id ? (pack.theme === "turquoise-light" ? "text-turquoise-light" : pack.theme === "turquoise-dark" ? "text-turquoise" : "text-primary") : "text-muted-foreground/60"
                 )}>
                   {s.label}
                 </span>
@@ -374,13 +391,13 @@ const Booking = () => {
                     fromMonth={set(new Date(), { month: 4, date: 1 })}
                     toMonth={set(new Date(), { month: 8, date: 30 })}
                     locale={pt}
-                    className="p-0"
+                    className="p-0 scale-[0.9] sm:scale-100"
                     classNames={{
                       day_selected: "bg-primary text-white hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/30",
                       day_today: "text-coral font-bold",
-                      day: "h-12 w-12 md:h-14 md:w-14 p-0 font-display font-700 text-base aria-selected:opacity-100 hover:bg-muted rounded-xl transition-all",
+                      day: "h-10 w-10 md:h-14 md:w-14 p-0 font-display font-700 text-sm md:text-base aria-selected:opacity-100 hover:bg-muted rounded-xl transition-all",
                       head_row: "flex w-full mt-2 justify-between",
-                      head_cell: "text-muted-foreground font-bold text-[10px] uppercase tracking-widest w-12 md:w-14 pb-4 text-center",
+                      head_cell: "text-muted-foreground font-bold text-[10px] uppercase tracking-widest w-10 md:w-14 pb-4 text-center",
                       row: "flex w-full mt-2 justify-between",
                     }}
                   />
@@ -486,16 +503,24 @@ const Booking = () => {
                         }
                       }
 
+                      const tsIdx = timeSlots.indexOf(ts);
+                      const closingIdx = timeSlots.indexOf("20:00");
+                      const slotsNeeded = durationInMinutes / 30;
+                      const isDisabled = tsIdx + slotsNeeded > closingIdx;
+
                       return (
                         <button
                           key={ts}
-                          onClick={() => setTime(ts)}
+                          disabled={isDisabled}
+                          onClick={() => !isDisabled && setTime(ts)}
                           className={cn(
                             "py-4 rounded-2xl font-display font-800 text-sm transition-all duration-300 border relative",
                             isSelected
                               ? "bg-primary border-primary text-white shadow-xl shadow-primary/20 scale-[1.05] z-10"
                               : isInRange
                               ? "bg-primary/10 border-primary/20 text-primary"
+                              : isDisabled
+                              ? "bg-white border-border/30 text-muted-foreground/40 cursor-not-allowed"
                               : "bg-white border-border/50 text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                           )}
                         >
@@ -548,7 +573,7 @@ const Booking = () => {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-[10px] font-900 text-muted-foreground uppercase tracking-[0.2em] mb-3 ml-1">{t("book_location")}</label>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
                           { value: "Porto de Setúbal", label: "Porto de Setúbal" },
                           { value: "Porto de Tróia", label: "Porto de Tróia" },
@@ -558,7 +583,7 @@ const Booking = () => {
                             type="button"
                             onClick={() => setLocation(loc.value)}
                             className={cn(
-                              "py-4 px-4 rounded-2xl font-display font-800 text-sm transition-all border duration-300",
+                              "py-3.5 px-4 rounded-2xl font-display font-800 text-sm transition-all border duration-300",
                               location === loc.value
                                 ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
                                 : "bg-white border-border text-muted-foreground hover:bg-muted/50"
@@ -687,24 +712,47 @@ const Booking = () => {
                       )}
                     </div>
 
-                    <div className="pt-4">
+                    <div className="pt-4 space-y-4">
+                      {(pack.isTour || pack.isBoat) && (
+                        <label 
+                          className={cn(
+                            "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
+                            packCatering ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white border-border hover:border-primary/20"
+                          )}
+                        >
+                          <Checkbox
+                            checked={packCatering}
+                            onCheckedChange={(v) => setPackCatering(v === true)}
+                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg data-[state=checked]:bg-primary"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-display font-800 text-sm sm:text-base text-foreground block truncate sm:whitespace-normal">{t("book_catering")}</span>
+                            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium line-clamp-2 sm:line-clamp-none">{t("book_catering_desc")}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-display font-900 text-primary text-lg sm:text-xl">+{people * 30}€</span>
+                            <span className="block text-[8px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">30€ / pessoa</span>
+                          </div>
+                        </label>
+                      )}
+
                       <label 
                         className={cn(
-                          "flex items-center gap-4 cursor-pointer select-none rounded-[1.5rem] p-6 border-2 transition-all duration-300",
+                          "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
                           packFotos ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white border-border hover:border-primary/20"
                         )}
                       >
                         <Checkbox
                           checked={packFotos}
                           onCheckedChange={(v) => setPackFotos(v === true)}
-                          className="w-6 h-6 rounded-lg data-[state=checked]:bg-primary"
+                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg data-[state=checked]:bg-primary"
                         />
-                        <div className="flex-1">
-                          <span className="font-display font-800 text-base text-foreground block">{t("exp_photos")}</span>
-                          <span className="text-xs text-muted-foreground font-medium">{t("book_pack_fotos_desc")}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-display font-800 text-sm sm:text-base text-foreground block">{t("exp_photos")}</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground font-medium line-clamp-2 sm:line-clamp-none">{t("book_pack_fotos_desc")}</span>
                         </div>
-                        <div className="text-right">
-                          <span className="font-display font-900 text-primary text-xl">+15€</span>
+                        <div className="text-right shrink-0">
+                          <span className="font-display font-900 text-primary text-lg sm:text-xl">+15€</span>
                         </div>
                       </label>
                     </div>
@@ -715,7 +763,14 @@ const Booking = () => {
             {step === 4 && (
               <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-black/5 overflow-hidden border border-border/40">
-                  <div className="bg-primary p-8 text-white relative overflow-hidden">
+                  <div className={cn(
+                    "p-8 text-white relative overflow-hidden",
+                    pack.theme === "turquoise-light" && "bg-turquoise-light",
+                    pack.theme === "coral" && "sunset-gradient",
+                    pack.theme === "ocean" && "ocean-gradient",
+                    pack.theme === "turquoise-dark" && "turquoise-gradient",
+                    !pack.theme && "bg-primary"
+                  )}>
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                       <Anchor size={120} strokeWidth={1} />
                     </div>
@@ -723,7 +778,10 @@ const Booking = () => {
                       <div>
                         <p className="text-[10px] font-900 uppercase tracking-[0.3em] text-white/60 mb-2">Voucher de Experiência</p>
                         <h2 className="font-display text-3xl font-900 tracking-tighter leading-none">{pack.name}</h2>
-                        {packFotos && <p className="text-coral font-bold text-xs uppercase mt-2">+ Pack Fotos Incluído</p>}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {packFotos && <span className="inline-block bg-white/20 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase backdrop-blur-sm">Pack Fotos</span>}
+                          {packCatering && <span className="inline-block bg-white/20 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase backdrop-blur-sm">Catering</span>}
+                        </div>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-900 uppercase tracking-[0.3em] text-white/60 mb-1">Total a Pagar</p>
@@ -789,7 +847,14 @@ const Booking = () => {
                       <button
                         onClick={handleConfirm}
                         disabled={sending || !acceptedTerms}
-                        className="w-full sunset-gradient text-white py-6 rounded-2xl font-display font-900 uppercase tracking-widest text-sm shadow-xl shadow-coral/30 hover:shadow-coral/40 transition-all hover:scale-[1.01] flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed group"
+                        className={cn(
+                          "w-full text-white py-6 rounded-2xl font-display font-900 uppercase tracking-widest text-sm shadow-xl transition-all hover:scale-[1.01] flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed group",
+                          pack.theme === "turquoise-light" && "bg-turquoise-light hover:shadow-turquoise-light/30",
+                          pack.theme === "coral" && "sunset-gradient hover:shadow-coral/30",
+                          pack.theme === "ocean" && "ocean-gradient hover:shadow-ocean/30",
+                          pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30",
+                          !pack.theme && "bg-primary"
+                        )}
                       >
                         {sending ? <Loader2 size={20} className="animate-spin" /> : <Mail size={20} className="group-hover:translate-x-1 transition-transform" />}
                         {sending ? t("book_sending") : t("book_confirm")}
@@ -830,30 +895,50 @@ const Booking = () => {
           </motion.div>
         </AnimatePresence>
 
-        <div className="flex justify-between mt-10 max-w-md mx-auto">
-          {step > 1 && step < 5 && (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="px-6 py-3 rounded-xl font-display font-600 text-sm bg-card shadow-card text-foreground hover:bg-muted transition-all"
-            >
-              {t("book_back")}
-            </button>
-          )}
-          {step < 4 && (
-            <button
-              onClick={() => canNext && setStep(step + 1)}
-              disabled={!canNext}
-              className={cn(
-                "px-8 py-3 rounded-xl font-display font-700 text-sm transition-all ml-auto",
-                canNext
-                  ? "ocean-gradient text-primary-foreground shadow-ocean hover:scale-[1.02]"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-              )}
-            >
-              {t("book_next")}
-            </button>
-          )}
+        {/* Sticky Mobile Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-border/50 z-50 md:relative md:bg-transparent md:backdrop-blur-none md:border-none md:p-0 md:mt-10 md:mb-12">
+          <div className="max-w-md mx-auto flex justify-between gap-4">
+            {step > 1 && step < 5 && (
+              <button
+                onClick={() => setStep(step - 1)}
+                className="px-6 py-3 rounded-xl font-display font-600 text-sm bg-card border border-border/50 shadow-sm text-foreground hover:bg-muted transition-all flex-1 md:flex-none text-center"
+              >
+                {t("book_back")}
+              </button>
+            )}
+            {step < 4 && (
+              <button
+                onClick={() => {
+                  if (canNext) {
+                    setStep(step + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  } else {
+                    toast({
+                      title: "Campos em falta",
+                      description: "Por favor preencha todos os campos obrigatórios para avançar.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                className={cn(
+                  "px-8 py-3 rounded-xl font-display font-700 text-sm transition-all flex-1 md:flex-none text-center",
+                  canNext
+                    ? (
+                      pack.theme === "turquoise-light" ? "bg-turquoise-light text-white shadow-lg shadow-turquoise-light/20" :
+                      pack.theme === "coral" ? "sunset-gradient text-white shadow-lg shadow-coral/20" :
+                      pack.theme === "ocean" ? "ocean-gradient text-white shadow-lg shadow-ocean/20" :
+                      pack.theme === "turquoise-dark" ? "turquoise-gradient text-white shadow-lg shadow-turquoise/20" :
+                      "ocean-gradient text-primary-foreground shadow-ocean"
+                    )
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                )}
+              >
+                {t("book_next")}
+              </button>
+            )}
+          </div>
         </div>
+        <div className="h-24 md:hidden" /> {/* Spacer for sticky button */}
       </div>
 
       <LegalDialog

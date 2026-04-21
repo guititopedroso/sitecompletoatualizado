@@ -83,7 +83,7 @@ const Hero = () => {
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => scrollTo("#experiencias")}
-            className="sunset-gradient text-accent-foreground px-8 py-4 rounded-full text-base font-bold font-display shadow-coral transition-shadow"
+            className="sunset-gradient text-accent-foreground px-8 py-4 rounded-full text-base font-bold font-display shadow-coral transition-shadow w-full sm:w-auto max-w-[280px] mx-auto"
           >
             {t("hero_cta_book")}
           </motion.button>

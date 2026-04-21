@@ -122,7 +122,7 @@ const Weather = () => {
           {error && <p className="text-center text-red-500">Erro: {error}</p>}
 
           {!loading && !error && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8">
               {forecast.map((day, i) => (
                 <motion.div
                   key={day.forecastDate}
@@ -133,7 +133,7 @@ const Weather = () => {
                     delay: 0.2 * i,
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  className="group bg-gray-400 bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 shadow-lg text-foreground text-center flex flex-col items-center justify-between"
+                  className="group bg-gray-400 bg-opacity-20 backdrop-blur-lg rounded-2xl p-4 sm:p-6 shadow-lg text-foreground text-center flex flex-col items-center justify-between"
                 >
                   <p className="font-bold text-lg capitalize mb-3">{getDayOfWeek(day.forecastDate)}</p>
                   <motion.div

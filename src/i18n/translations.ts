@@ -80,6 +80,7 @@ type TranslationKeys = {
   exp_tab_boats: string;
   exp_tab_boats_soon: string;
   exp_tab_extras: string;
+  exp_most_popular: string;
   exp_book: string;
   exp_book_now: string;
   exp_view_details: string;
@@ -238,6 +239,8 @@ type TranslationKeys = {
   book_sent_toast_desc: string;
   book_error_toast: string;
   book_error_toast_desc: string;
+  book_catering: string;
+  book_catering_desc: string;
 };
 
 export type Translations = Record<Language, TranslationKeys>;
@@ -375,7 +378,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horário",
-    contact_hours_1: "Maio a Setembro: 9h – 19h",
+    contact_hours_1: "Maio a Setembro: 9h – 20h",
     contact_location: "Localização",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -449,6 +452,8 @@ export const translations: Translations = {
     book_sent_toast_desc: "Receberás um email de confirmação em breve.",
     book_error_toast: "Erro ao enviar",
     book_error_toast_desc: "Tenta novamente ou contacta-nos diretamente.",
+    book_catering: "Serviço de Catering",
+    book_catering_desc: "Tábua de queijos e enchidos, snacks, bebidas frescas e frutas da época.",
   },
 
   en: {
@@ -583,7 +588,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Hours",
-    contact_hours_1: "May to September: 9am – 7pm",
+    contact_hours_1: "May to September: 9am – 8pm",
     contact_location: "Location",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -657,6 +662,8 @@ export const translations: Translations = {
     book_sent_toast_desc: "You will receive a confirmation email shortly.",
     book_error_toast: "Error sending",
     book_error_toast_desc: "Please try again or contact us directly.",
+    book_catering: "Catering Service",
+    book_catering_desc: "Cheese and charcuterie board, snacks, cold drinks and seasonal fruits.",
   },
 
   de: {
@@ -717,6 +724,8 @@ export const translations: Translations = {
     exp_tab_extras: "Extras",
     exp_most_popular: "Am Beliebtesten",
     exp_book: "Buchen",
+    exp_book_now: "Jetzt buchen",
+    exp_view_details: "Details und Preise anzeigen",
     exp_max_2: "Max. 2 Personen pro Jetski",
     exp_photos_optional: "Optionales Fotopaket",
     exp_15min: "15 Minuten",
@@ -789,7 +798,7 @@ export const translations: Translations = {
     contact_email: "E-Mail",
     contact_instagram: "Instagram",
     contact_hours: "Öffnungszeiten",
-    contact_hours_1: "Mai bis September: 9 – 19 Uhr",
+    contact_hours_1: "Mai bis September: 9 – 20 Uhr",
     contact_location: "Standort",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -862,7 +871,9 @@ export const translations: Translations = {
     book_sent_toast: "Buchung gesendet!",
     book_sent_toast_desc: "Du erhältst in Kürze eine Bestätigungs-E-Mail.",
     book_error_toast: "Fehler beim Senden",
-    book_error_toast_desc: "Bitte versuche es erneut oder kontaktiere uns direkt.",
+    book_error_toast_desc: "Bitte versuchen Sie es erneut oder kontaktiere uns direkt.",
+    book_catering: "Catering-Service",
+    book_catering_desc: "Käse- und Wurstplatte, Snacks, kühle Getränke und saisonale Früchte.",
   },
 
   es: {
@@ -923,6 +934,8 @@ export const translations: Translations = {
     exp_tab_extras: "Extras",
     exp_most_popular: "Más Popular",
     exp_book: "Reservar",
+    exp_book_now: "Reservar ahora",
+    exp_view_details: "Ver detalles y precios",
     exp_max_2: "Máx. 2 personas por moto",
     exp_photos_optional: "Pack Fotos opcional",
     exp_15min: "15 Minutos",
@@ -995,7 +1008,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horario",
-    contact_hours_1: "Mayo a Septiembre: 9h – 19h",
+    contact_hours_1: "Mayo a Septiembre: 9h – 20h",
     contact_location: "Ubicación",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -1069,6 +1082,8 @@ export const translations: Translations = {
     book_sent_toast_desc: "Recibirás un email de confirmación pronto.",
     book_error_toast: "Error al enviar",
     book_error_toast_desc: "Inténtalo de nuevo o contáctanos directamente.",
+    book_catering: "Servicio de Catering",
+    book_catering_desc: "Tabla de quesos y embutidos, snacks, bebidas frescas y frutas de temporada.",
   },
 
   fr: {
@@ -1129,6 +1144,8 @@ export const translations: Translations = {
     exp_tab_extras: "Extras",
     exp_most_popular: "Le Plus Populaire",
     exp_book: "Réserver",
+    exp_book_now: "Réserver maintenant",
+    exp_view_details: "Voir les détails et les prix",
     exp_max_2: "Max. 2 personnes par jet ski",
     exp_photos_optional: "Pack Photos en option",
     exp_15min: "15 Minutes",
@@ -1201,7 +1218,7 @@ export const translations: Translations = {
     contact_email: "Email",
     contact_instagram: "Instagram",
     contact_hours: "Horaires",
-    contact_hours_1: "Mai à Septembre : 9h – 19h",
+    contact_hours_1: "Mai à Septembre : 9h – 20h",
     contact_location: "Localisation",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -1275,6 +1292,8 @@ export const translations: Translations = {
     book_sent_toast_desc: "Vous recevrez un email de confirmation bientôt.",
     book_error_toast: "Erreur d\'envoi",
     book_error_toast_desc: "Veuillez réessayer ou nous contacter directement.",
+    book_catering: "Service de Traiteur",
+    book_catering_desc: "Planche de fromages et charcuteries, snacks, boissons fraîches et fruits de saison.",
   },
 
   zh: {
@@ -1335,6 +1354,8 @@ export const translations: Translations = {
     exp_tab_extras: "附加项目",
     exp_most_popular: "最受欢迎",
     exp_book: "预订",
+    exp_book_now: "立即预订",
+    exp_view_details: "查看详情和价格",
     exp_max_2: "每辆摩托最多2人",
     exp_photos_optional: "可选摄影套餐",
     exp_15min: "15分钟",
@@ -1407,7 +1428,7 @@ export const translations: Translations = {
     contact_email: "邮箱",
     contact_instagram: "Instagram",
     contact_hours: "营业时间",
-    contact_hours_1: "5月至9月：上午9点至晚上7点",
+    contact_hours_1: "5月至9月：上午9点至晚上8点",
     contact_location: "位置",
     contact_loc_1: "Avenida Jaime Rebelo 41",
     contact_loc_2: "2904-503 Setúbal",
@@ -1481,5 +1502,7 @@ export const translations: Translations = {
     book_sent_toast_desc: "你将很快收到确认邮件。",
     book_error_toast: "发送失败",
     book_error_toast_desc: "请重试或直接联系我们。",
+    book_catering: "餐饮服务",
+    book_catering_desc: "奶酪和熟食拼盘、小吃、冷饮和时令水果。",
   },
 };

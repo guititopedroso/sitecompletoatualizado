@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 type DynamicTour = {
   id: string;
@@ -59,9 +60,12 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     {
       icon: Clock,
       name: t("exp_15min"),
+      tag: "Express",
+      label: "Rápido & Intenso",
       slug: "15-minutos",
       price: "50€",
       popular: false,
+      theme: "turquoise-light",
       includes: [
         t("exp_inc_1jetski"),
         t("exp_inc_lifejacket"),
@@ -72,9 +76,12 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     {
       icon: Clock,
       name: t("exp_30min"),
+      tag: "Exploração",
+      label: "Mais Popular",
       slug: "30-minutos",
       price: "80€",
       popular: true,
+      theme: "coral",
       includes: [
         t("exp_inc_1jetski"),
         t("exp_inc_lifejacket"),
@@ -85,9 +92,12 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     {
       icon: Clock,
       name: t("exp_1hour"),
+      tag: "Aventura",
+      label: "Recomendado",
       slug: "1-hora",
       price: "120€",
       popular: false,
+      theme: "ocean",
       includes: [
         t("exp_inc_1jetski"),
         t("exp_inc_lifejacket"),
@@ -98,9 +108,12 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     {
       icon: Users,
       name: t("exp_group"),
+      tag: "Equipa",
+      label: "Melhor Valor",
       slug: "pack-grupo",
       price: "400€",
       popular: false,
+      theme: "turquoise-dark",
       includes: [
         t("exp_inc_4jetski"),
         t("exp_inc_1hour"),
@@ -146,7 +159,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   onClick={() => setActiveTab(tab.id)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className={`relative px-6 py-3 rounded-full font-display font-600 text-sm transition-all duration-300 ${
+                  className={`relative px-3 sm:px-6 py-2.5 sm:py-3 rounded-full font-display font-600 text-[11px] sm:text-sm transition-all duration-300 ${
                     activeTab === tab.id
                       ? "ocean-gradient text-primary-foreground shadow-ocean"
                       : "bg-card text-muted-foreground hover:text-foreground shadow-card"
@@ -202,30 +215,59 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: i * 0.1 }}
-                        className={`group relative bg-card rounded-[2rem] p-1 shadow-2xl transition-all duration-500 hover:-translate-y-3 ${
-                          pack.popular ? "ring-2 ring-coral/50 shadow-coral/20" : "hover:ring-2 hover:ring-ocean/30 shadow-ocean/5"
-                        }`}
+                        className={cn(
+                          "group relative bg-card rounded-[2rem] p-1 shadow-2xl transition-all duration-500 hover:-translate-y-3",
+                          pack.theme === "turquoise-light" && "hover:ring-2 hover:ring-turquoise-light/30",
+                          pack.theme === "coral" && "ring-2 ring-coral/50 shadow-coral/20",
+                          pack.theme === "ocean" && "hover:ring-2 hover:ring-ocean/30",
+                          pack.theme === "turquoise-dark" && "hover:ring-2 hover:ring-turquoise/30"
+                        )}
                       >
                         <div className="bg-card rounded-[1.9rem] p-8 h-full flex flex-col relative overflow-hidden">
                           {/* Decorative Background Element */}
-                          <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-10 transition-all duration-500 group-hover:scale-150 ${pack.popular ? "bg-coral" : "bg-ocean"}`} />
+                          <div className={cn(
+                            "absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-10 transition-all duration-500 group-hover:scale-150",
+                            pack.theme === "turquoise-light" && "bg-turquoise-light",
+                            pack.theme === "coral" && "bg-coral",
+                            pack.theme === "ocean" && "bg-ocean",
+                            pack.theme === "turquoise-dark" && "bg-turquoise"
+                          )} />
                           
-                          {pack.popular && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 sunset-gradient text-white text-[10px] uppercase font-900 px-6 py-1.5 rounded-b-2xl shadow-lg z-10 tracking-widest">
-                              {t("exp_most_popular")}
-                            </div>
-                          )}
+                          <div className={cn(
+                            "absolute top-0 left-1/2 -translate-x-1/2 text-white text-[10px] uppercase font-900 px-6 py-1.5 rounded-b-2xl shadow-lg z-10 tracking-widest",
+                            pack.theme === "turquoise-light" && "bg-turquoise-light",
+                            pack.theme === "coral" && "sunset-gradient",
+                            pack.theme === "ocean" && "ocean-gradient",
+                            pack.theme === "turquoise-dark" && "turquoise-gradient"
+                          )}>
+                            {(pack as any).label}
+                          </div>
 
-                          <div className="mb-8 flex justify-center mt-2">
+                          <div className="mb-8 flex justify-center mt-6">
                             <motion.div 
                               whileHover={{ rotate: 5, scale: 1.1 }}
-                              className={`p-5 rounded-3xl shadow-inner ${pack.popular ? "bg-coral/10 text-coral" : "bg-ocean/10 text-ocean"}`}
+                              className={cn(
+                                "p-5 rounded-3xl shadow-inner",
+                                pack.theme === "turquoise-light" && "bg-turquoise-light/10 text-turquoise-light",
+                                pack.theme === "coral" && "bg-coral/10 text-coral",
+                                pack.theme === "ocean" && "bg-ocean/10 text-ocean",
+                                pack.theme === "turquoise-dark" && "bg-turquoise/10 text-turquoise"
+                              )}
                             >
                               <pack.icon size={36} strokeWidth={2.5} />
                             </motion.div>
                           </div>
 
                           <div className="text-center mb-8">
+                            <span className={cn(
+                              "text-[10px] font-900 uppercase tracking-[0.2em] mb-2 block",
+                              pack.theme === "turquoise-light" && "text-turquoise-light/60",
+                              pack.theme === "coral" && "text-coral/60",
+                              pack.theme === "ocean" && "text-ocean/60",
+                              pack.theme === "turquoise-dark" && "text-turquoise/60"
+                            )}>
+                              {(pack as any).tag}
+                            </span>
                             <h3 className="text-lg font-display font-800 text-foreground/80 mb-1 uppercase tracking-tight">{pack.name}</h3>
                             <div className="flex items-center justify-center gap-1">
                               <span className="text-4xl sm:text-5xl font-display font-900 text-foreground tracking-tighter">
@@ -238,7 +280,13 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                           <ul className="space-y-4 mb-10 flex-1">
                             {pack.includes.map((item, idx) => (
                               <li key={idx} className="flex items-start gap-3 text-sm text-foreground/70 font-medium">
-                                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${pack.popular ? "bg-coral shadow-[0_0_8px_rgba(255,107,107,0.5)]" : "bg-primary/40"}`} />
+                                <div className={cn(
+                                  "mt-1.5 w-1.5 h-1.5 rounded-full shrink-0",
+                                  pack.theme === "turquoise-light" && "bg-turquoise-light shadow-[0_0_8px_rgba(103,232,249,0.5)]",
+                                  pack.theme === "coral" && "bg-coral shadow-[0_0_8px_rgba(255,107,107,0.5)]",
+                                  pack.theme === "ocean" && "bg-ocean shadow-[0_0_8px_rgba(14,165,233,0.5)]",
+                                  pack.theme === "turquoise-dark" && "bg-turquoise shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                                )} />
                                 {item}
                               </li>
                             ))}
@@ -251,12 +299,14 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                           </div>
 
                           <Button 
-                            onClick={() => navigate(`/reservar?item=${pack.slug}${referralCode ? `&ref=${referralCode}` : ''}`)}
-                            className={`w-full rounded-2xl py-7 font-display font-900 uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl ${
-                              pack.popular 
-                                ? "sunset-gradient text-white hover:shadow-coral/30" 
-                                : "ocean-gradient text-white hover:shadow-ocean/30"
-                            }`}
+                            onClick={() => navigate(`/reservar?pack=${pack.slug}${referralCode ? `&ref=${referralCode}` : ''}`)}
+                            className={cn(
+                              "w-full rounded-2xl py-7 font-display font-900 uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl text-white",
+                              pack.theme === "turquoise-light" && "bg-turquoise-light hover:bg-turquoise-light/90 hover:shadow-turquoise-light/30",
+                              pack.theme === "coral" && "sunset-gradient hover:shadow-coral/30",
+                              pack.theme === "ocean" && "ocean-gradient hover:shadow-ocean/30",
+                              pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30"
+                            )}
                           >
                             {t("exp_book_now")}
                           </Button>
