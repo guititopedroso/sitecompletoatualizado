@@ -2,12 +2,15 @@ import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge, Info, ChevronRight, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import emailjs from "@emailjs/browser";
@@ -33,6 +36,7 @@ type PackInfo = {
   maxPeople?: number;
   theme?: "turquoise-light" | "coral" | "ocean" | "turquoise-dark";
   tourPacks?: { duration: string; price: string }[];
+  extraOptions?: { name: string; price: number; perPerson: boolean; perHour: boolean; details?: string[] }[];
 };
 
 const allPacks: Record<string, PackInfo> = {
@@ -40,7 +44,17 @@ const allPacks: Record<string, PackInfo> = {
   "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 80, price: "80€", duration: "30 min", isJetski: true, theme: "coral" },
   "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 120, price: "120€", duration: "1h", isJetski: true, theme: "ocean" },
   "pack-grupo": { name: "Jet Ski – Pack Grupo", basePrice: 400, price: "400€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
-  "experiencia-sunset": { name: "Experiência Sunset", basePrice: 150, price: "150€", duration: "1h", theme: "coral" },
+  "experiencia-sunset": { 
+    name: "Experiência Sunset", 
+    basePrice: 150, 
+    price: "150€", 
+    duration: "1h", 
+    theme: "coral",
+    extraOptions: [
+      { name: "Catering Premium", price: 45, perPerson: true, perHour: false, details: ["Sushi", "Espumante", "Frutas Tropicais"] },
+      { name: "DJ Privado", price: 150, perPerson: false, perHour: true, details: ["Sound System", "Deep House Mix", "Set de 2 horas"] }
+    ]
+  },
   // Boats
   "kelt-azura": { name: "Kelt Azura – 5 mts", basePrice: 190, price: "190€", duration: "4h", isBoat: true, price4h: 190, price8h: 230, maxPeople: 5 },
   "cap-camarat": { name: "Cap Camarat – 5,15 mts", basePrice: 200, price: "200€", duration: "4h", isBoat: true, price4h: 200, price8h: 285, maxPeople: 6 },
@@ -107,7 +121,10 @@ const Booking = () => {
   ];
 
   const [step, setStep] = useState(1);
-  const [date, setDate] = useState<Date>();
+  const [selectedInfoOption, setSelectedInfoOption] = useState<{name: string, details: string[]} | null>(null);
+  const [extraPreferences, setExtraPreferences] = useState<Record<string, string>>({});
+
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState<string>();
   const [people, setPeople] = useState(1);
   const [firstName, setFirstName] = useState("");
@@ -121,8 +138,7 @@ const Booking = () => {
   const [legalDialog, setLegalDialog] = useState<{ open: boolean; type: "terms" | "privacy" }>({ open: false, type: "terms" });
   const [boatDuration, setBoatDuration] = useState<"4h" | "8h">("4h");
   const [tourDurationIdx, setTourDurationIdx] = useState(0);
-  const [packFotos, setPackFotos] = useState(false);
-  const [packCatering, setPackCatering] = useState(false);
+  const [selectedExtras, setSelectedExtras] = useState<Record<string, boolean>>({});
   const [numMotas, setNumMotas] = useState(1);
   const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
 
@@ -131,41 +147,65 @@ const Booking = () => {
 
   useEffect(() => {
     if (!initialPack) {
-      const fetchTour = async () => {
-        try {
-          const q = query(collection(db, "tours"), where("slug", "==", packId));
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const data = snapshot.docs[0].data();
-            const rawPacks = data.packs || [];
-            const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
-            const firstPack = tPacks.length > 0 ? tPacks[0] : { duration: "Personalizado", price: "0€" };
-            const bPrice = parseInt(firstPack.price.replace("€", "")) || 0;
-            
-            setDynamicPack({
-              name: data.name,
-              basePrice: bPrice,
-              price: firstPack.price,
-              duration: firstPack.duration,
-              isTour: true,
-              maxPeople: data.capacity || 10,
-              tourPacks: tPacks
-            });
-          } else {
-             setDynamicPack(allPacks["30-minutos"]);
-          }
-        } catch (e) {
-          console.error(e);
-          setDynamicPack(allPacks["30-minutos"]);
-        } finally {
+      const qTours = query(collection(db, "tours"), where("slug", "==", packId));
+      const unsubscribe = onSnapshot(qTours, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          const rawPacks = data.packs || [];
+          const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
+          const firstPack = tPacks.length > 0 ? tPacks[0] : { duration: "Personalizado", price: "0€" };
+          const bPrice = parseInt(firstPack.price.replace("€", "")) || 0;
+          
+          setDynamicPack({
+            name: data.name,
+            basePrice: bPrice,
+            price: firstPack.price,
+            duration: firstPack.duration,
+            isTour: true,
+            maxPeople: data.capacity || 10,
+            tourPacks: tPacks,
+            price4h: data.price4h ? parseInt(data.price4h.replace('€', '')) : undefined,
+            price8h: data.price8h ? parseInt(data.price8h.replace('€', '')) : undefined,
+            extraOptions: data.extraOptions || [],
+            theme: data.theme || "ocean"
+          });
           setLoadingDynamic(false);
+        } else {
+          // If not in tours, try boats
+          const qBoats = query(collection(db, "boats"), where("slug", "==", packId));
+          onSnapshot(qBoats, (sBoat) => {
+            if (!sBoat.empty) {
+              const data = sBoat.docs[0].data();
+              setDynamicPack({
+                name: data.name,
+                basePrice: parseInt(data.price4h.replace('€', '')) || 0,
+                price: data.price4h,
+                duration: "4h",
+                isBoat: true,
+                price4h: parseInt(data.price4h.replace('€', '')) || 0,
+                price8h: parseInt(data.price8h.replace('€', '')) || 0,
+                maxPeople: data.capacity,
+                extraOptions: data.extraOptions || [],
+                theme: "ocean"
+              });
+            }
+            setLoadingDynamic(false);
+          });
         }
-      };
-      fetchTour();
-    }
-  });
+      }, (error) => {
+        console.error("Error fetching pack:", error);
+        setLoadingDynamic(false);
+      });
 
-  const pack = initialPack || dynamicPack || allPacks["30-minutos"];
+      return () => unsubscribe();
+    }
+  }, [packId, initialPack]);
+
+  const pack = dynamicPack || initialPack || allPacks["30-minutos"];
+
+  const toggleExtra = (name: string) => {
+    setSelectedExtras(prev => ({ ...prev, [name]: !prev[name] }));
+  };
 
   const today = startOfToday();
 
@@ -190,7 +230,30 @@ const Booking = () => {
     : pack.isJetski
     ? (isGroupPack ? pack.basePrice : effectiveMotas * pack.basePrice)
     : pack.basePrice;
-  const totalPrice = baseTotal + (packFotos ? 15 : 0) + (packCatering ? people * 30 : 0);
+  
+  const currentDurationHours = useMemo(() => {
+    if (pack.isBoat) return parseInt(boatDuration.replace("h", "")) || 4;
+    if (pack.isTour && pack.tourPacks && pack.tourPacks[tourDurationIdx]) {
+      const dur = pack.tourPacks[tourDurationIdx].duration;
+      return parseInt(dur.replace("h", "")) || 1;
+    }
+    if (pack.duration?.includes("min")) {
+       return parseInt(pack.duration.replace(" min", "")) / 60;
+    }
+    return 1;
+  }, [pack, boatDuration, tourDurationIdx]);
+
+  const extrasTotal = (pack.extraOptions || []).reduce((acc, opt) => {
+    if (selectedExtras[opt.name]) {
+      let optPrice = opt.price;
+      if (opt.perPerson) optPrice *= people;
+      if (opt.perHour) optPrice *= currentDurationHours;
+      return acc + optPrice;
+    }
+    return acc;
+  }, 0);
+
+  const totalPrice = baseTotal + extrasTotal;
   const totalPriceStr = `${totalPrice}€`;
 
   const canNext = useMemo(() => {
@@ -212,7 +275,15 @@ const Booking = () => {
       ? ` (${effectiveMotas} Motas)` 
       : "";
     
-    const finalPackName = pack.name + durationStr + (packFotos ? " + Pack Fotos" : "") + (packCatering ? " + Catering" : "");
+    const extrasStr = Object.keys(selectedExtras)
+      .filter(name => selectedExtras[name])
+      .map(name => {
+        const pref = extraPreferences[name]?.trim();
+        return ` + ${name}${pref ? ` (${pref})` : ""}`;
+      })
+      .join("");
+    
+    const finalPackName = pack.name + durationStr + extrasStr;
 
     try {
       await addDoc(collection(db, "bookings"), {
@@ -220,6 +291,7 @@ const Booking = () => {
         client_email: email,
         client_phone: fullPhone,
         pack_name: finalPackName,
+        extra_preferences: extraPreferences,
         booking_date: date ? format(date, "yyyy-MM-dd") : null,
         booking_time: time,
         num_people: people,
@@ -713,53 +785,155 @@ const Booking = () => {
                     </div>
 
                     <div className="pt-4 space-y-4">
-                      {(pack.isTour || pack.isBoat) && (
-                        <label 
-                          className={cn(
-                            "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
-                            packCatering ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white border-border hover:border-primary/20"
-                          )}
-                        >
-                          <Checkbox
-                            checked={packCatering}
-                            onCheckedChange={(v) => setPackCatering(v === true)}
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg data-[state=checked]:bg-primary"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <span className="font-display font-800 text-sm sm:text-base text-foreground block truncate sm:whitespace-normal">{t("book_catering")}</span>
-                            <span className="text-[10px] sm:text-xs text-muted-foreground font-medium line-clamp-2 sm:line-clamp-none">{t("book_catering_desc")}</span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-display font-900 text-primary text-lg sm:text-xl">+{people * 30}€</span>
-                            <span className="block text-[8px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">30€ / pessoa</span>
-                          </div>
-                        </label>
+                      {pack.extraOptions && pack.extraOptions.length > 0 && (
+                        <div className="space-y-4">
+                          <label className="block text-[10px] font-900 text-muted-foreground uppercase tracking-[0.2em] ml-1">Extras Opcionais</label>
+                          {pack.extraOptions.map((opt, i) => (
+                            <div key={i} className="space-y-3">
+                              <label 
+                                className={cn(
+                                  "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
+                                  selectedExtras[opt.name] ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white border-border hover:border-primary/20"
+                                )}
+                              >
+                                <Checkbox
+                                  checked={selectedExtras[opt.name] || false}
+                                  onCheckedChange={() => toggleExtra(opt.name)}
+                                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg data-[state=checked]:bg-primary"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-display font-800 text-sm sm:text-base text-foreground block truncate sm:whitespace-normal">{opt.name}</span>
+                                  <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                                    {opt.perPerson && opt.perHour ? "Valor por pessoa/hora" : opt.perPerson ? "Valor por pessoa" : opt.perHour ? "Valor por hora" : "Preço fixo p/ pack"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right shrink-0">
+                                    <span className="font-display font-900 text-primary text-lg sm:text-xl">
+                                      +{
+                                        opt.perPerson && opt.perHour ? (opt.price * people * currentDurationHours) :
+                                        opt.perPerson ? (opt.price * people) :
+                                        opt.perHour ? (opt.price * currentDurationHours) :
+                                        opt.price
+                                      }€
+                                    </span>
+                                    {(opt.perPerson || opt.perHour) && (
+                                      <span className="block text-[8px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                                        {opt.price}€ {opt.perPerson ? "/ pessoa" : ""} {opt.perHour ? "/ hora" : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {opt.details && opt.details.length > 0 && (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setSelectedInfoOption({name: opt.name, details: opt.details || []});
+                                      }}
+                                      className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all transform hover:scale-110 active:scale-95"
+                                    >
+                                      <ChevronRight size={18} />
+                                    </button>
+                                  )}
+                                </div>
+                              </label>
+
+                              {selectedExtras[opt.name] && opt.details && opt.details.length > 0 && (
+                                <div className="mt-3 pl-12 pr-4 py-3 bg-white/40 rounded-xl border border-primary/5 animate-in slide-in-from-top-1 transition-all">
+                                  <span className="text-[9px] font-bold text-primary/60 uppercase tracking-widest block mb-1.5 ml-0.5">O que inclui:</span>
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                                    {opt.details.map((detail, dIdx) => (
+                                      <div key={dIdx} className="flex items-center gap-1.5">
+                                        <div className="w-1 h-1 rounded-full bg-turquoise" />
+                                        <span className="text-[10px] sm:text-xs font-semibold text-foreground/70">{detail}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
 
-                      <label 
-                        className={cn(
-                          "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
-                          packFotos ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white border-border hover:border-primary/20"
-                        )}
-                      >
-                        <Checkbox
-                          checked={packFotos}
-                          onCheckedChange={(v) => setPackFotos(v === true)}
-                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg data-[state=checked]:bg-primary"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-display font-800 text-sm sm:text-base text-foreground block">{t("exp_photos")}</span>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground font-medium line-clamp-2 sm:line-clamp-none">{t("book_pack_fotos_desc")}</span>
+                      {!pack.extraOptions || pack.extraOptions.length === 0 && (
+                        <div className="pt-2 text-center">
+                          <p className="text-xs text-muted-foreground italic">Nenhuma opção extra disponível para este pack.</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="font-display font-900 text-primary text-lg sm:text-xl">+15€</span>
-                        </div>
-                      </label>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
+            <Dialog open={!!selectedInfoOption} onOpenChange={(open) => !open && setSelectedInfoOption(null)}>
+              <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white border-none shadow-2xl rounded-[2rem]">
+                <div className="p-8">
+                  <DialogHeader className="mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4">
+                      <Info size={24} />
+                    </div>
+                    <DialogTitle className="font-display text-2xl font-800 text-foreground">
+                      {selectedInfoOption?.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">
+                      Detalhes do Serviço
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-6">
+                    <div>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest block border-b border-primary/10 pb-2 mb-3">O que está incluído:</span>
+                      <ul className="space-y-2.5">
+                        {selectedInfoOption?.details.map((detail, idx) => (
+                          <li key={idx} className="flex items-start gap-3 text-sm text-foreground/80 font-medium">
+                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-turquoise shrink-0" />
+                            {detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="pt-4 border-t border-border/50">
+                      <label className="text-[10px] font-bold text-foreground uppercase tracking-widest block mb-2">Preferências ou Pedidos Especiais:</label>
+                      <Textarea 
+                        placeholder="Ex: Alergias, bebidas preferidas, ou algum pedido em particular..."
+                        className="text-xs min-h-[80px] rounded-xl bg-muted/30 border-none focus-visible:ring-primary/20"
+                        value={selectedInfoOption ? (extraPreferences[selectedInfoOption.name] || "") : ""}
+                        onChange={(e) => {
+                          if (selectedInfoOption) {
+                            setExtraPreferences(prev => ({
+                              ...prev,
+                              [selectedInfoOption.name]: e.target.value
+                            }));
+                          }
+                        }}
+                      />
+                      <p className="mt-3 text-[9px] font-bold text-amber-600 uppercase leading-relaxed flex gap-2 items-start">
+                        <div className="w-1 h-1 rounded-full bg-amber-500 mt-1 shrink-0" />
+                        Nota: Dependendo dos artigos ou pedidos escolhidos, o preço final do serviço poderá sofrer variações.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={() => {
+                      if (selectedInfoOption) {
+                        setSelectedExtras(prev => ({ ...prev, [selectedInfoOption.name]: true }));
+                      }
+                      setSelectedInfoOption(null);
+                    }}
+                    className="w-full mt-8 h-12 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                  >
+                    Confirmar e Adicionar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             {step === 4 && (
               <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-black/5 overflow-hidden border border-border/40">
@@ -779,8 +953,13 @@ const Booking = () => {
                         <p className="text-[10px] font-900 uppercase tracking-[0.3em] text-white/60 mb-2">Voucher de Experiência</p>
                         <h2 className="font-display text-3xl font-900 tracking-tighter leading-none">{pack.name}</h2>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {packFotos && <span className="inline-block bg-white/20 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase backdrop-blur-sm">Pack Fotos</span>}
-                          {packCatering && <span className="inline-block bg-white/20 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase backdrop-blur-sm">Catering</span>}
+                          {Object.keys(selectedExtras).map(name => 
+                            selectedExtras[name] && (
+                              <span key={name} className="inline-block bg-white/20 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase backdrop-blur-sm">
+                                {name}
+                              </span>
+                            )
+                          )}
                         </div>
                       </div>
                       <div className="text-right">

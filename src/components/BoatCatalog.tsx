@@ -32,6 +32,7 @@ type Boat = {
   order?: number;
   created_at?: string;
   features?: string[];
+  extraOptions?: { name: string; price: number; perPerson: boolean; perHour: boolean; details?: string[] }[];
 };
 
 const BoatCatalog = ({ referralCode }: { referralCode?: string }) => {
@@ -249,14 +250,53 @@ const BoatCatalog = ({ referralCode }: { referralCode?: string }) => {
                 </div>
               </div>
 
-              <ul className="space-y-2 mb-6">
-                {(selectedBoat.features && selectedBoat.features.length > 0 ? selectedBoat.features : [t("boat_inc_fuel"), t("boat_inc_lifejacket"), t("boat_inc_briefing"), t("boat_inc_insurance")]).map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-foreground/70 group">
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-turquoise/40 shrink-0 group-hover:bg-turquoise transition-colors" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-6 mb-6">
+                {selectedBoat.features && selectedBoat.features.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-turquoise"/> O que inclui
+                    </h4>
+                    <ul className="grid grid-cols-1 gap-y-2.5">
+                      {selectedBoat.features.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-3 text-sm text-foreground/80 group">
+                          <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-turquoise/40 shrink-0 group-hover:bg-turquoise transition-colors" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {selectedBoat.extraOptions && selectedBoat.extraOptions.length > 0 && (
+                  <div className="animate-in fade-in slide-in-from-top-2">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-coral"/> Opções Opcionais
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {selectedBoat.extraOptions.map((opt, idx) => (
+                        <div key={idx} className="bg-primary/5 border border-primary/10 px-4 py-3 rounded-2xl flex items-center justify-between group hover:bg-primary/10 transition-colors">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-foreground">{opt.name}</span>
+                            <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
+                              {opt.perPerson && opt.perHour ? `${opt.price}€ / pessoa / hora` : opt.perPerson ? `${opt.price}€ / pessoa` : opt.perHour ? `${opt.price}€ / hora` : `Preço Fixo: ${opt.price}€`}
+                            </span>
+                            {opt.details && opt.details.length > 0 && (
+                               <div className="flex flex-wrap gap-x-2 mt-1">
+                                  {opt.details.map((d, di) => (
+                                    <span key={di} className="text-[8px] text-sky-600/70 font-bold uppercase tracking-tight flex items-center gap-1">
+                                      <div className="w-0.5 h-0.5 rounded-full bg-sky-400" /> {d}
+                                    </span>
+                                  ))}
+                               </div>
+                            )}
+                          </div>
+                          <span className="bg-white/50 text-sky-600 text-[10px] font-900 px-2.5 py-1 rounded-lg border border-sky-200">+{opt.price}€</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => navigate(`/reservar?pack=${selectedBoat.slug}${referralCode ? `&ref=${referralCode}` : ""}`)}

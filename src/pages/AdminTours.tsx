@@ -34,12 +34,15 @@ type TourPack = {
   price: string;
   cost?: string;
   useMarkup?: boolean;
+  deliveryCost?: string;
+  useDelivery?: boolean;
 };
 
 type Tour = {
   id: string;
   name: string;
   images: string[];
+  image?: string;
   slug: string;
   popular: boolean;
   includes: string[];
@@ -47,6 +50,15 @@ type Tour = {
   created_at: string;
   order: number;
   capacity?: number;
+  extraOptions?: ExtraOption[];
+};
+
+type ExtraOption = {
+  name: string;
+  price: number;
+  perPerson: boolean;
+  perHour: boolean;
+  details?: string[];
 };
 
 // Sortable Item Component
@@ -163,31 +175,23 @@ const AdminTours = () => {
     popular: false,
     includes: [],
     packs: [
-      { duration: "2h", price: "", cost: "", useMarkup: false },
-      { duration: "3h", price: "", cost: "", useMarkup: false },
-      { duration: "4h", price: "", cost: "", useMarkup: false },
-      { duration: "5h", price: "", cost: "", useMarkup: false },
-      { duration: "6h", price: "", cost: "", useMarkup: false },
-      { duration: "7h", price: "", cost: "", useMarkup: false },
-      { duration: "8h", price: "", cost: "", useMarkup: false },
+      { duration: "2h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "3h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "4h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "5h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "6h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "7h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+      { duration: "8h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
     ],
     capacity: 10,
+    extraOptions: [
+      { name: "DJ (Opcional)", price: 150, perPerson: false, perHour: false },
+      { name: "Catering (Opcional)", price: 30, perPerson: true, perHour: false },
+      { name: "Pack Fotos (Opcional)", price: 15, perPerson: false, perHour: false }
+    ]
   });
 
   const [inclusionInput, setInclusionInput] = useState("");
-
-  const PRESET_INCLUDES = [
-    "Passeio de veleiro em exclusivo, um barco só para si e a sua família e/ou amigos.",
-    "Veleje e sinta a brisa, e apenas o barulho do mar, é super relaxante.",
-    "Conheça uma das mais belas baías do mundo, com um guia local, passe pela Arrábida, Tróia e Setúbal.",
-    "Pode velejar e se quiser também parar para banhos.",
-    "Durante o passeio passará pela Costa da Arrábida e Costa de Tróia, são feitas paragens para banhos.",
-    "Será acompanhado por um guia local que lhe irá mostrar os sítios mais belos da nossa zona, e explicando um pouco da nossa cultura.",
-    "Esta é a embarcação ideal para reunir amigos e/ou família, com capacidade para 14 pessoas mais tripulação.",
-    "Pode realizar vários tipos de eventos: Despedidas de solteira, Festas de Aniversário, Refeições a bordo, Festas sunset, Festas surpresa.",
-    "Todas as experiências são personalizáveis, para tornar o momento único e inesquecível.",
-    "Ou apenas aproveitar para relaxar."
-  ];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -270,7 +274,9 @@ const AdminTours = () => {
         duration: p.duration.includes('h') ? p.duration : `${p.duration}h`,
         price: p.price.includes('€') ? p.price : `${p.price}€`,
         cost: p.cost ? (p.cost.includes('€') ? p.cost : `${p.cost}€`) : "",
-        useMarkup: p.useMarkup || false
+        deliveryCost: p.deliveryCost ? (p.deliveryCost.includes('€') ? p.deliveryCost : `${p.deliveryCost}€`) : "",
+        useMarkup: p.useMarkup || false,
+        useDelivery: p.useDelivery || false
       })),
       images: saveData.images || [],
       image: (saveData.images && saveData.images.length > 0) ? saveData.images[0] : "", // Sincroniza foto de capa legacy
@@ -335,15 +341,20 @@ const AdminTours = () => {
       popular: false, 
       includes: [], 
       packs: [
-        { duration: "2h", price: "", cost: "", useMarkup: false },
-        { duration: "3h", price: "", cost: "", useMarkup: false },
-        { duration: "4h", price: "", cost: "", useMarkup: false },
-        { duration: "5h", price: "", cost: "", useMarkup: false },
-        { duration: "6h", price: "", cost: "", useMarkup: false },
-        { duration: "7h", price: "", cost: "", useMarkup: false },
-        { duration: "8h", price: "", cost: "", useMarkup: false },
+        { duration: "2h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "3h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "4h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "5h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "6h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "7h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
+        { duration: "8h", price: "", cost: "", useMarkup: false, deliveryCost: "", useDelivery: false },
       ],
-      capacity: 10
+      capacity: 10,
+      extraOptions: [
+        { name: "DJ (Opcional)", price: 150, perPerson: false, perHour: false },
+        { name: "Catering (Opcional)", price: 30, perPerson: true, perHour: false },
+        { name: "Pack Fotos (Opcional)", price: 15, perPerson: false, perHour: false }
+      ]
     });
     setInclusionInput("");
     setEditingTour(null);
@@ -402,16 +413,44 @@ const AdminTours = () => {
     setFormData(prev => ({ ...prev, packs: (prev.packs || []).filter((_, i) => i !== index) }));
   };
 
+  const addExtraOption = () => {
+    setFormData(prev => ({ ...prev, extraOptions: [...(prev.extraOptions || []), { name: "", price: 0, perPerson: false, perHour: false, details: [] }] }));
+  };
+
+  const updateExtraOption = (index: number, field: keyof ExtraOption, value: any) => {
+    const newOptions = [...(formData.extraOptions || [])];
+    (newOptions[index] as any)[field] = value;
+    setFormData(prev => ({ ...prev, extraOptions: newOptions }));
+  };
+
+  const addOptionDetail = (optIdx: number, detail: string) => {
+    if (!detail.trim()) return;
+    const newOptions = [...(formData.extraOptions || [])];
+    newOptions[optIdx].details = [...(newOptions[optIdx].details || []), detail];
+    setFormData(prev => ({ ...prev, extraOptions: newOptions }));
+  };
+
+  const removeOptionDetail = (optIdx: number, detailIdx: number) => {
+    const newOptions = [...(formData.extraOptions || [])];
+    newOptions[optIdx].details = newOptions[optIdx].details?.filter((_, i) => i !== detailIdx);
+    setFormData(prev => ({ ...prev, extraOptions: newOptions }));
+  };
+
+  const removeExtraOption = (index: number) => {
+    setFormData(prev => ({ ...prev, extraOptions: (prev.extraOptions || []).filter((_, i) => i !== index) }));
+  };
+
   const updatePack = (index: number, field: keyof TourPack, value: any) => {
     const newPacks = [...(formData.packs || [])];
     (newPacks[index] as any)[field] = value;
     
     // Auto calculate markup if enabled
-    if (field === 'cost' || field === 'useMarkup') {
+    if (field === 'cost' || field === 'useMarkup' || field === 'deliveryCost' || field === 'useDelivery') {
       const currentPack = newPacks[index];
       if (currentPack.useMarkup && currentPack.cost) {
         const costVal = parseFloat(currentPack.cost.replace('€', '')) || 0;
-        const finalPrice = Math.ceil(costVal * 1.15);
+        const deliveryVal = (currentPack.useDelivery && currentPack.deliveryCost) ? (parseFloat(currentPack.deliveryCost.replace('€', '')) || 0) : 0;
+        const finalPrice = Math.ceil(costVal * 1.15) + deliveryVal;
         currentPack.price = `${finalPrice}€`;
       }
     }
@@ -466,15 +505,16 @@ const AdminTours = () => {
               </div>
               <div className="space-y-4">
                 <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-[10px] uppercase font-900 text-muted-foreground tracking-widest">
-                  <div className="col-span-3">Duração</div>
-                  <div className="col-span-3">Custo (Base)</div>
-                  <div className="col-span-2 text-center">Markup +15%</div>
+                  <div className="col-span-2">Duração</div>
+                  <div className="col-span-2">Custo (Base)</div>
+                  <div className="col-span-1 text-center">Markup</div>
+                  <div className="col-span-3">Deslocação</div>
                   <div className="col-span-3">Preço Final (Cliente)</div>
                   <div className="col-span-1"></div>
                 </div>
                 {formData.packs?.map((pack, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-background p-3 rounded-xl border border-border/50 shadow-sm">
-                    <div className="col-span-3">
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-background p-3 rounded-xl border border-border/50 shadow-sm transition-all hover:border-primary/30">
+                    <div className="col-span-2">
                       <select 
                         value={pack.duration.replace('h', '')} 
                         onChange={e => updatePack(idx, 'duration', `${e.target.value}h`)}
@@ -487,27 +527,49 @@ const AdminTours = () => {
                       </select>
                     </div>
                     
-                    <div className="col-span-3 relative">
+                    <div className="col-span-2 relative">
                       <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Custo (Base)</span>
                       <Input 
                         type="number"
                         placeholder="0.00" 
                         value={(pack.cost || "").replace('€', '')} 
                         onChange={e => updatePack(idx, 'cost', `${e.target.value}€`)} 
-                        className="pr-8 text-xs font-bold bg-muted/20"
+                        className="pr-8 text-xs font-bold bg-muted/10 border-dashed"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 md:mt-0 text-muted-foreground text-[10px]">€</span>
                     </div>
 
-                    <div className="col-span-2 flex justify-center">
-                      <div className="flex items-center gap-2">
-                        <input 
+                    <div className="col-span-1 flex flex-col items-center justify-center gap-1">
+                      <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground">Markup</span>
+                      <input 
+                        type="checkbox" 
+                        checked={pack.useMarkup} 
+                        onChange={e => updatePack(idx, 'useMarkup', e.target.checked)}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                        title="Ativar Markup +15%"
+                      />
+                    </div>
+
+                    <div className="col-span-3 flex items-center gap-2">
+                      <div className="flex flex-col items-center gap-1">
+                         <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground">Ativar</span>
+                         <input 
                           type="checkbox" 
-                          checked={pack.useMarkup} 
-                          onChange={e => updatePack(idx, 'useMarkup', e.target.checked)}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                          checked={pack.useDelivery} 
+                          onChange={e => updatePack(idx, 'useDelivery', e.target.checked)}
+                          className="w-4 h-4 rounded border-border text-secondary focus:ring-secondary"
                         />
-                        <span className="md:hidden text-xs">Calcular +15%</span>
+                      </div>
+                      <div className="flex-1 relative">
+                        <span className="md:hidden text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Deslocação</span>
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={(pack.deliveryCost || "").replace('€', '')} 
+                          onChange={e => updatePack(idx, 'deliveryCost', `${e.target.value}€`)} 
+                          className={cn("pr-8 text-xs bg-muted/10", !pack.useDelivery && "opacity-40 grayscale translate-x-0 cursor-not-allowed")}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 mt-3 md:mt-0 text-muted-foreground text-[10px]">€</span>
                       </div>
                     </div>
 
@@ -536,8 +598,96 @@ const AdminTours = () => {
               </div>
             </div>
             
+            <div className="space-y-4 md:col-span-2 bg-muted/30 p-4 rounded-xl">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-bold flex items-center gap-2"><Info size={16}/> Opções Extra / Opcionais</label>
+                <Button type="button" variant="outline" size="sm" onClick={addExtraOption} className="h-7 text-xs">
+                  <Plus size={12} className="mr-1"/> Adicionar Opção
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {formData.extraOptions?.map((opt, idx) => (
+                  <div key={idx} className="bg-background p-4 rounded-xl border border-border/50 shadow-sm space-y-3 relative group">
+                    <button 
+                      onClick={() => removeExtraOption(idx)}
+                      className="absolute top-2 right-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={14} />
+                    </button>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Nome do Bloco</label>
+                      <Input 
+                        placeholder="Ex: DJ (Opcional)" 
+                        value={opt.name} 
+                        onChange={e => updateExtraOption(idx, 'name', e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground">Preço (€)</label>
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={opt.price} 
+                          onChange={e => updateExtraOption(idx, 'price', parseFloat(e.target.value) || 0)}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-4">
+                        <input 
+                          type="checkbox" 
+                          checked={opt.perPerson} 
+                          onChange={e => updateExtraOption(idx, 'perPerson', e.target.checked)}
+                          className="w-4 h-4 rounded border-border"
+                        />
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground">P/ Pessoa</label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-4">
+                        <input 
+                          type="checkbox" 
+                          checked={opt.perHour} 
+                          onChange={e => updateExtraOption(idx, 'perHour', e.target.checked)}
+                          className="w-4 h-4 rounded border-border"
+                        />
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground">P/ Hora</label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-border/30">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground">Detalhes/Menu (Opcional)</label>
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="Ex: Sushi, Bebidas, Sobremesa..." 
+                          className="text-xs h-8"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addOptionDetail(idx, (e.target as HTMLInputElement).value);
+                              (e.target as HTMLInputElement).value = "";
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {opt.details?.map((detail, dIdx) => (
+                          <span key={dIdx} className="bg-muted px-2 py-0.5 rounded-md text-[10px] flex items-center gap-1 font-semibold">
+                            {detail}
+                            <button onClick={() => removeOptionDetail(idx, dIdx)} className="hover:text-destructive"><X size={10}/></button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">O que inclui</label>
+              <label className="text-sm font-medium">O que inclui (No preço base)</label>
               <div className="flex gap-2">
                 <Input 
                   placeholder="Ex: Colete salva-vidas incluído" 
@@ -548,20 +698,6 @@ const AdminTours = () => {
                 <Button type="button" onClick={addInclusion} variant="outline" size="icon"><Plus size={16}/></Button>
               </div>
               
-              <div className="flex flex-wrap gap-2 mt-3 p-3 bg-muted/20 rounded-xl border border-dashed border-border">
-                <p className="w-full text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Sugestões rápidas (clica para adicionar):</p>
-                {PRESET_INCLUDES.filter(s => !formData.includes?.includes(s)).map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, includes: [...(prev.includes || []), suggestion] }))}
-                    className="text-[11px] bg-background hover:bg-primary/10 hover:text-primary border border-border px-2 py-1 rounded-lg transition-colors text-left"
-                  >
-                    + {suggestion}
-                  </button>
-                ))}
-              </div>
-
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.includes?.map((item, idx) => (
                   <span key={idx} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs flex items-center gap-2">
