@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, CreditCard, Banknote, CheckCircle2 } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, CreditCard, Banknote, CheckCircle2, Link2, DollarSign, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -14,18 +15,26 @@ const STAFF_PACKS = [
   { value: "Jet Ski – 30 Minutos", label: "Jet Ski – 30 min", category: "Jet Ski" },
   { value: "Jet Ski – 1 Hora", label: "Jet Ski – 1 hora", category: "Jet Ski" },
   { value: "Jet Ski – Pack Grupo", label: "Jet Ski – Pack Grupo", category: "Jet Ski" },
-  { value: "Experiência Sunset", label: "Experiência Sunset", category: "Experiência" },
-  { value: "Kelt Azura – 5 mts", label: "Kelt Azura – 5 mts", category: "Barcos" },
-  { value: "Cap Camarat – 5,15 mts", label: "Cap Camarat – 5,15 mts", category: "Barcos" },
-  { value: "San Remo – 5,65 mts", label: "San Remo – 5,65 mts", category: "Barcos" },
-  { value: "Saver – 5,80 mts", label: "Saver – 5,80 mts", category: "Barcos" },
-  { value: "Selva – 5,80 mts", label: "Selva – 5,80 mts", category: "Barcos" },
-  { value: "Bayliner – 5,70 mts", label: "Bayliner – 5,70 mts", category: "Barcos" },
-  { value: "Nireus – 5,70 mts", label: "Nireus – 5,70 mts", category: "Barcos" },
-  { value: "Sacs – 6 mts", label: "Sacs – 6 mts", category: "Barcos" },
-  { value: "BWA – 6,50 mts", label: "BWA – 6,50 mts", category: "Barcos" },
-  { value: "Silver Marine – 6,60 mts", label: "Silver Marine – 6,60 mts", category: "Barcos" },
 ];
+
+const fallbackPriceMap: { [key: string]: number } = {
+  "Jet Ski – 15 Minutos": 50, "Jet Ski – 30 Minutos": 80, "Jet Ski – 1 Hora": 120,
+  "Jet Ski – Pack Grupo": 400, "Experiência Sunset": 150,
+  "Kelt Azura – 5 mts": 190, "Cap Camarat – 5,15 mts": 200, "San Remo – 5,65 mts": 200,
+  "Saver – 5,80 mts": 210, "Selva – 5,80 mts": 220, "Bayliner – 5,70 mts": 220,
+  "Nireus – 5,70 mts": 230, "Sacs – 6 mts": 250, "BWA – 6,50 mts": 285, "Silver Marine – 6,60 mts": 330,
+};
+
+const PHOTO_PACK_PRICE = 15;
+
+const getPriceFallback = (packName: string): number => {
+  if (!packName) return 0;
+  const hasPhotoPack = packName.includes(" + Pack Fotos");
+  let mainPackName = packName.replace(" + Pack Fotos", "").trim();
+  mainPackName = mainPackName.replace(/\s*\([^)]*\)/g, "").trim();
+  const basePrice = fallbackPriceMap[mainPackName] || 0;
+  return basePrice + (hasPhotoPack ? PHOTO_PACK_PRICE : 0);
+};
 
 const STAFF_ACCOUNTS = [
   { name: "Martim Paulino", password: "mprc2026" },
@@ -46,6 +55,10 @@ type Booking = {
   created_by: string | null;
   payment_method: string | null;
   confirmed: boolean | null;
+  price?: number;
+  referralCode?: string;
+  extras?: Record<string, boolean>;
+  notes?: string;
 };
 
 const months = [
@@ -70,15 +83,36 @@ const Staff = () => {
   const [error, setError] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [tours, setTours] = useState<any[]>([]);
+  const [boats, setBoats] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
-  const [newBooking, setNewBooking] = useState({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, pack_fotos: false, location: "Porto de Setúbal" });
+  const [newBooking, setNewBooking] = useState({ 
+    client_name: "", 
+    pack_name: "", 
+    booking_time: "10:00", 
+    num_people: 2, 
+    pack_fotos: false, 
+    location: "Porto de Setúbal", 
+    price: 0,
+    referralCode: "",
+    extras: {} as Record<string, boolean>,
+    notes: "",
+    duration: ""
+  });
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; confirmLabel?: string; variant?: "destructive" | "confirm" } | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  useEffect(() => {
+    const savedStaff = sessionStorage.getItem("royal_staff_name");
+    if (savedStaff) {
+      setStaffName(savedStaff);
+    }
+  }, []);
 
   useEffect(() => {
     if (staffName) {
@@ -92,12 +126,28 @@ const Staff = () => {
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Booking[];
+        const data = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+        })) as Booking[];
         setBookings(data.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
         setLoading(false);
       });
 
-      return () => unsubscribe();
+      const unsubTours = onSnapshot(collection(db, "tours"), (snap) => {
+        setTours(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      const unsubBoats = onSnapshot(collection(db, "boats"), (snap) => {
+        setBoats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      return () => {
+        unsubscribe();
+        unsubTours();
+        unsubBoats();
+      };
     }
   }, [staffName, year, month]);
 
@@ -106,6 +156,7 @@ const Staff = () => {
     const account = STAFF_ACCOUNTS.find((a) => a.password === password);
     if (account) {
       setStaffName(account.name);
+      sessionStorage.setItem("royal_staff_name", account.name);
       setError(false);
     } else {
       setError(true);
@@ -118,7 +169,8 @@ const Staff = () => {
 
   const addBooking = async () => {
     if (!selectedDate || !newBooking.client_name || !newBooking.pack_name) return;
-    const finalPackName = newBooking.pack_fotos ? `${newBooking.pack_name} + Pack Fotos` : newBooking.pack_name;
+    const durationStr = newBooking.duration ? ` (${newBooking.duration})` : "";
+    const finalPackName = (newBooking.pack_fotos ? `${newBooking.pack_name}${durationStr} + Pack Fotos` : `${newBooking.pack_name}${durationStr}`);
     try {
       await addDoc(collection(db, "bookings"), {
         client_name: newBooking.client_name,
@@ -127,10 +179,26 @@ const Staff = () => {
         booking_time: newBooking.booking_time,
         num_people: newBooking.num_people,
         location: newBooking.location,
+        price: newBooking.price || getPriceFallback(finalPackName),
+        referralCode: newBooking.referralCode || null,
+        extras: newBooking.extras,
+        notes: newBooking.notes || null,
         created_by: staffName,
         created_at: new Date().toISOString()
       });
-      setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, pack_fotos: false, location: "Porto de Setúbal" });
+      setNewBooking({ 
+        client_name: "", 
+        pack_name: "", 
+        booking_time: "10:00", 
+        num_people: 2, 
+        pack_fotos: false, 
+        location: "Porto de Setúbal", 
+        price: 0,
+        referralCode: "",
+        extras: {},
+        notes: "",
+        duration: ""
+      });
       setShowAddForm(false);
     } catch (error: any) {
       console.error("Error adding booking:", error);
@@ -226,6 +294,15 @@ const Staff = () => {
                 Entrar
               </Button>
             </form>
+            <div className="mt-6 pt-6 border-t border-primary-foreground/10">
+              <button 
+                onClick={() => window.location.href = "/"}
+                className="text-primary-foreground/40 hover:text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 mx-auto transition-colors"
+              >
+                <Home size={14} />
+                Voltar ao site principal
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -249,15 +326,30 @@ const Staff = () => {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setStaffName(null); setPassword(""); }}
-            className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-          >
-            <LogOut size={16} />
-            <span className="hidden sm:inline ml-1">Sair</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.href = "/"}
+              className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Home size={16} />
+              <span className="hidden sm:inline ml-1">Voltar ao site</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { 
+                setStaffName(null); 
+                setPassword(""); 
+                sessionStorage.removeItem("royal_staff_name");
+              }}
+              className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline ml-1">Sair</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -396,7 +488,24 @@ const Staff = () => {
                         />
                         <Select
                           value={newBooking.pack_name}
-                          onValueChange={(val) => setNewBooking({ ...newBooking, pack_name: val })}
+                          onValueChange={(val) => {
+                            const boat = boats.find(b => b.name === val);
+                            const tour = tours.find(t => t.name === val);
+                            let duration = "";
+                            let price = 0;
+
+                            if (boat) {
+                              duration = "4h";
+                              price = parseInt(boat.price4h?.replace('€', '') || '0');
+                            } else if (tour && tour.packs?.length > 0) {
+                              duration = tour.packs[0].duration;
+                              price = parseInt(tour.packs[0].price?.replace('€', '') || '0');
+                            } else {
+                              price = getPriceFallback(val);
+                            }
+
+                            setNewBooking({ ...newBooking, pack_name: val, duration, price });
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecionar pack" />
@@ -406,32 +515,126 @@ const Staff = () => {
                             {STAFF_PACKS.filter(p => p.category === "Jet Ski").map(p => (
                               <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                             ))}
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Experiência</div>
-                            {STAFF_PACKS.filter(p => p.category === "Experiência").map(p => (
-                              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                            
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Passeios</div>
+                            {tours.map(t => (
+                              <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
                             ))}
+
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Barcos</div>
-                            {STAFF_PACKS.filter(p => p.category === "Barcos").map(p => (
+                            {boats.map(b => (
+                              <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
+                            ))}
+
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Outros</div>
+                            {STAFF_PACKS.filter(p => p.category === "Experiência").map(p => (
                               <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        
                         <div className="flex gap-2">
-                          <Input
-                            type="time"
-                            value={newBooking.booking_time}
-                            onChange={(e) => setNewBooking({ ...newBooking, booking_time: e.target.value })}
-                            className="flex-1"
-                          />
-                          <Input
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={newBooking.num_people}
-                            onChange={(e) => setNewBooking({ ...newBooking, num_people: parseInt(e.target.value) || 1 })}
-                            className="w-20"
-                            placeholder="Pessoas"
-                          />
+                          <div className="flex-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 mb-1 block">Hora</label>
+                            <Input
+                              type="time"
+                              value={newBooking.booking_time}
+                              onChange={(e) => setNewBooking({ ...newBooking, booking_time: e.target.value })}
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 mb-1 block">Pax</label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={newBooking.num_people}
+                              onChange={(e) => setNewBooking({ ...newBooking, num_people: parseInt(e.target.value) || 1 })}
+                              placeholder="Pessoas"
+                            />
+                          </div>
+                        </div>
+
+                        {(() => {
+                          const boat = boats.find(b => b.name === newBooking.pack_name);
+                          const tour = tours.find(t => t.name === newBooking.pack_name);
+                          
+                          if (boat) {
+                            return (
+                              <div className="space-y-2">
+                                <label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                                  <Clock size={12} /> Duração (Barco)
+                                </label>
+                                <Select 
+                                  value={newBooking.duration || "4h"} 
+                                  onValueChange={(v) => {
+                                    const price = v === "8h" ? parseInt(boat.price8h?.replace('€', '') || '0') : parseInt(boat.price4h?.replace('€', '') || '0');
+                                    setNewBooking({ ...newBooking, duration: v, price });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-9 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="4h">Meio Dia (4h) — {boat.price4h}</SelectItem>
+                                    <SelectItem value="8h">Dia Inteiro (8h) — {boat.price8h}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
+                          }
+                          
+                          if (tour && tour.packs?.length > 0) {
+                            return (
+                              <div className="space-y-2">
+                                <label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                                  <Clock size={12} /> Duração (Passeio)
+                                </label>
+                                <Select 
+                                  value={newBooking.duration || tour.packs[0].duration} 
+                                  onValueChange={(v) => {
+                                    const pack = tour.packs.find((p: any) => p.duration === v);
+                                    const price = parseInt(pack?.price?.replace('€', '') || '0');
+                                    setNewBooking({ ...newBooking, duration: v, price });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-9 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {tour.packs.map((p: any) => (
+                                      <SelectItem key={p.duration} value={p.duration}>
+                                        {p.duration} — {p.price}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <Banknote size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              placeholder="Preço €"
+                              value={newBooking.price || ''}
+                              onChange={(e) => setNewBooking({ ...newBooking, price: parseFloat(e.target.value) || 0 })}
+                              className="pl-8"
+                            />
+                          </div>
+                          <div className="relative">
+                            <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Referral"
+                              value={newBooking.referralCode}
+                              onChange={(e) => setNewBooking({ ...newBooking, referralCode: e.target.value })}
+                              className="pl-8"
+                            />
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Checkbox
@@ -439,11 +642,41 @@ const Staff = () => {
                             checked={newBooking.pack_fotos}
                             onCheckedChange={(checked) => setNewBooking({ ...newBooking, pack_fotos: !!checked })}
                           />
-                          <label htmlFor="staff-pack-fotos" className="text-sm text-foreground flex items-center gap-1.5 cursor-pointer">
+                          <label htmlFor="staff-pack-fotos" className="text-sm text-foreground flex items-center gap-1.5 cursor-pointer font-medium">
                             <Camera size={14} className="text-coral" />
-                            Pack Fotos
+                            Pack Fotos (+15€)
                           </label>
                         </div>
+
+                        {(() => {
+                          const pack = tours.find(t => t.name === newBooking.pack_name) || boats.find(b => b.name === newBooking.pack_name);
+                          if (!pack?.extraOptions?.length) return null;
+                          return (
+                            <div className="space-y-2 pt-1 border-t border-border/30">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Extras Disponíveis</p>
+                              <div className="grid grid-cols-1 gap-2">
+                                {pack.extraOptions.map((opt: any) => (
+                                  <div key={opt.name} className="flex items-center gap-2 bg-background/50 p-2 rounded-lg border border-border/30">
+                                    <Checkbox
+                                      id={`extra-${opt.name}`}
+                                      checked={!!newBooking.extras[opt.name]}
+                                      onCheckedChange={(checked) => setNewBooking({ 
+                                        ...newBooking, 
+                                        extras: { ...newBooking.extras, [opt.name]: !!checked } 
+                                      })}
+                                    />
+                                    <label htmlFor={`extra-${opt.name}`} className="text-sm text-foreground flex-1 cursor-pointer">
+                                      {opt.name}
+                                      <span className="text-xs text-muted-foreground ml-1.5 font-medium">
+                                        (+{opt.price}€{opt.perPerson ? '/pax' : ''}{opt.perHour ? '/h' : ''})
+                                      </span>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div>
                           <label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                             <MapPin size={12} />
@@ -458,6 +691,17 @@ const Staff = () => {
                               <SelectItem value="Tróia">Tróia</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                            Notas / Comentários
+                          </label>
+                          <Textarea
+                            placeholder="Notas adicionais sobre a reserva..."
+                            value={newBooking.notes}
+                            onChange={(e) => setNewBooking({ ...newBooking, notes: e.target.value })}
+                            className="text-sm bg-background/50 border-border/30 resize-none h-20"
+                          />
                         </div>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <UserCircle size={12} />
@@ -563,6 +807,34 @@ const Staff = () => {
                                       <a href={`tel:${b.client_phone}`} className="text-xs font-medium text-primary hover:underline">{b.client_phone}</a>
                                     </div>
                                   )}
+                                  {b.price && (
+                                    <div className="flex items-center gap-2">
+                                      <DollarSign size={14} className="text-secondary shrink-0" />
+                                      <span className="text-xs text-muted-foreground">Preço Total:</span>
+                                      <span className="text-xs font-medium text-foreground">{b.price}€</span>
+                                    </div>
+                                  )}
+                                  {b.extras && Object.entries(b.extras).filter(([_, val]) => val).length > 0 && (
+                                    <div className="flex flex-col gap-1.5 pt-1">
+                                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Extras Selecionados:</p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {Object.entries(b.extras)
+                                          .filter(([_, val]) => val)
+                                          .map(([name]) => (
+                                            <span key={name} className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold border border-secondary/20">
+                                              {name}
+                                            </span>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {b.referralCode && (
+                                    <div className="flex items-center gap-2">
+                                      <Link2 size={14} className="text-secondary shrink-0" />
+                                      <span className="text-xs text-muted-foreground">Referral:</span>
+                                      <span className="text-xs font-medium text-foreground">{b.referralCode}</span>
+                                    </div>
+                                  )}
                                   {b.created_by && (
                                     <div className="flex items-center gap-2">
                                       <UserCircle size={14} className="text-accent shrink-0" />
@@ -576,6 +848,13 @@ const Staff = () => {
                                       <span className="text-xs text-muted-foreground">
                                         Reservado em: {new Date(b.created_at).toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                       </span>
+                                    </div>
+                                  )}
+
+                                  {b.notes && (
+                                    <div className="pt-2 border-t border-border/30">
+                                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Notas:</p>
+                                      <p className="text-xs text-foreground italic bg-secondary/5 p-2 rounded-lg border border-secondary/10">"{b.notes}"</p>
                                     </div>
                                   )}
 
