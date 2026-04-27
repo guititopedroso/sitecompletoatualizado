@@ -12,7 +12,7 @@ import {
 } from "firebase/auth";
 import { auth, db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, deleteDoc, getDoc } from "firebase/firestore";
 
 interface AuthContextType {
   user: User | null;
@@ -39,7 +39,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     // Check if user already exists to preserve referralCode
     try {
-      const { getDoc } = await import("firebase/firestore");
       const userDoc = await getDoc(userRef);
       let referralCode = "";
 
