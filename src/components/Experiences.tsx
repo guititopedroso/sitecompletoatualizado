@@ -64,7 +64,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Express",
       label: "Rápido & Intenso",
       slug: "15-minutos",
-      price: "50€",
+      price: "60€",
       popular: false,
       theme: "turquoise-light",
       includes: [
@@ -80,7 +80,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Exploração",
       label: "Mais Popular",
       slug: "30-minutos",
-      price: "80€",
+      price: "90€",
       popular: true,
       theme: "coral",
       includes: [
@@ -96,7 +96,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Aventura",
       label: "Recomendado",
       slug: "1-hora",
-      price: "120€",
+      price: "150€",
       popular: false,
       theme: "ocean",
       includes: [
@@ -112,7 +112,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Equipa",
       label: "Melhor Valor",
       slug: "pack-grupo",
-      price: "400€",
+      price: "550€",
       popular: false,
       theme: "turquoise-dark",
       includes: [
@@ -121,6 +121,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
         t("exp_inc_guide"),
         t("exp_inc_briefing"),
         t("exp_inc_insurance"),
+        t("exp_inc_photos_included"),
       ],
     },
   ];

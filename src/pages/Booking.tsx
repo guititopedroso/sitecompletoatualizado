@@ -41,10 +41,10 @@ type PackInfo = {
 };
 
 const allPacks: Record<string, PackInfo> = {
-  "15-minutos": { name: "Jet Ski – 15 Minutos", basePrice: 50, price: "50€", duration: "15 min", isJetski: true, theme: "turquoise-light" },
-  "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 80, price: "80€", duration: "30 min", isJetski: true, theme: "coral" },
-  "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 120, price: "120€", duration: "1h", isJetski: true, theme: "ocean" },
-  "pack-grupo": { name: "Jet Ski – Pack Grupo", basePrice: 400, price: "400€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
+  "15-minutos": { name: "Jet Ski – 15 Minutos", basePrice: 60, price: "60€", duration: "15 min", isJetski: true, theme: "turquoise-light" },
+  "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 90, price: "90€", duration: "30 min", isJetski: true, theme: "coral" },
+  "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 150, price: "150€", duration: "1h", isJetski: true, theme: "ocean" },
+  "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 550, price: "550€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
   "experiencia-sunset": { 
     name: "Experiência Sunset", 
     basePrice: 150, 

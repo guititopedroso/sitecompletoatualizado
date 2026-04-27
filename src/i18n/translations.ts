@@ -108,6 +108,7 @@ type TranslationKeys = {
   exp_inc_24h: string;
   exp_inc_highres: string;
   exp_inc_towable_ride: string;
+  exp_inc_photos_included: string;
 
   // Boats
   boat_people: string;
@@ -330,6 +331,7 @@ export const translations: Translations = {
     exp_inc_24h: "Entrega digital em 24h",
     exp_inc_highres: "Alta resolução",
     exp_inc_towable_ride: "1 passeio de boia rebocável",
+    exp_inc_photos_included: "Pack Fotos Incluído",
     boat_people: "pessoas",
     boat_half_day: "Meio dia (4h)",
     boat_full_day: "Dia inteiro (8h)",
@@ -540,6 +542,7 @@ export const translations: Translations = {
     exp_inc_24h: "Digital delivery in 24h",
     exp_inc_highres: "High resolution",
     exp_inc_towable_ride: "1 towable buoy ride",
+    exp_inc_photos_included: "Photo Pack Included",
     boat_people: "people",
     boat_half_day: "Half day (4h)",
     boat_full_day: "Full day (8h)",
@@ -750,6 +753,7 @@ export const translations: Translations = {
     exp_inc_24h: "Digitale Lieferung in 24h",
     exp_inc_highres: "Hohe Auflösung",
     exp_inc_towable_ride: "1 Schlauchboot-Fahrt",
+    exp_inc_photos_included: "Fotopaket Inbegriffen",
     boat_people: "Personen",
     boat_half_day: "Halber Tag (4h)",
     boat_full_day: "Ganzer Tag (8h)",
@@ -960,6 +964,7 @@ export const translations: Translations = {
     exp_inc_24h: "Entrega digital en 24h",
     exp_inc_highres: "Alta resolución",
     exp_inc_towable_ride: "1 paseo de boya remolcable",
+    exp_inc_photos_included: "Pack de Fotos Incluido",
     boat_people: "personas",
     boat_half_day: "Medio día (4h)",
     boat_full_day: "Día completo (8h)",
@@ -1170,6 +1175,7 @@ export const translations: Translations = {
     exp_inc_24h: "Livraison numérique en 24h",
     exp_inc_highres: "Haute résolution",
     exp_inc_towable_ride: "1 tour de bouée tractée",
+    exp_inc_photos_included: "Pack Photos Inclus",
     boat_people: "personnes",
     boat_half_day: "Demi-journée (4h)",
     boat_full_day: "Journée complète (8h)",
@@ -1380,6 +1386,7 @@ export const translations: Translations = {
     exp_inc_24h: "24小时内数字交付",
     exp_inc_highres: "高分辨率",
     exp_inc_towable_ride: "1次拖拽浮标体验",
+    exp_inc_photos_included: "包含照片包",
     boat_people: "人",
     boat_half_day: "半天 (4小时)",
     boat_full_day: "全天 (8小时)",

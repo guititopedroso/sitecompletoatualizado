@@ -21,8 +21,8 @@ const AUTH_KEY = "rc-admin-auth";
 
 const PHOTO_PACK_PRICE = 15;
 const fallbackPriceMap: { [key: string]: number } = {
-  "Jet Ski – 15 Minutos": 50, "Jet Ski – 30 Minutos": 80, "Jet Ski – 1 Hora": 120,
-  "Jet Ski – Pack Grupo": 400, "Experiência Sunset": 150,
+  "Jet Ski – 15 Minutos": 60, "Jet Ski – 30 Minutos": 90, "Jet Ski – 1 Hora": 150,
+  "Jet Ski – Pack Grupo": 550, "Experiência Sunset": 150,
   "Kelt Azura – 5 mts": 190, "Cap Camarat – 5,15 mts": 200, "San Remo – 5,65 mts": 200,
   "Saver – 5,80 mts": 210, "Selva – 5,80 mts": 220, "Bayliner – 5,70 mts": 220,
   "Nireus – 5,70 mts": 230, "Sacs – 6 mts": 250, "BWA – 6,50 mts": 285, "Silver Marine – 6,60 mts": 330,
@@ -32,8 +32,14 @@ const getPriceFallback = (packName: string): number => {
   if (!packName) return 0;
   const hasPhotoPack = packName.includes(" + Pack Fotos");
   let mainPackName = packName.replace(" + Pack Fotos", "").trim();
-  // Strip anything in parentheses like (4h) or (2 Motas)
+  // Strip anything in parentheses like (4h) or (2 Motas) or (Fotos Incluídas)
   mainPackName = mainPackName.replace(/\s*\([^)]*\)/g, "").trim();
+  
+  // Special case: Pack Grupo now includes photos in its base price of 550
+  if (mainPackName === "Jet Ski – Pack Grupo") {
+    return 550;
+  }
+  
   const basePrice = fallbackPriceMap[mainPackName] || 0;
   return basePrice + (hasPhotoPack ? PHOTO_PACK_PRICE : 0);
 };
