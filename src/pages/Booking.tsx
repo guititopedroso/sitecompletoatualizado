@@ -41,9 +41,33 @@ type PackInfo = {
 };
 
 const allPacks: Record<string, PackInfo> = {
-  "15-minutos": { name: "Jet Ski – 15 Minutos", basePrice: 60, price: "60€", duration: "15 min", isJetski: true, theme: "turquoise-light" },
-  "30-minutos": { name: "Jet Ski – 30 Minutos", basePrice: 90, price: "90€", duration: "30 min", isJetski: true, theme: "coral" },
-  "1-hora": { name: "Jet Ski – 1 Hora", basePrice: 150, price: "150€", duration: "1h", isJetski: true, theme: "ocean" },
+  "15-minutos": { 
+    name: "Jet Ski – 15 Minutos", 
+    basePrice: 60, 
+    price: "60€", 
+    duration: "15 min", 
+    isJetski: true, 
+    theme: "turquoise-light",
+    extraOptions: [{ name: "Pack Fotos", price: 15, perPerson: false, perHour: false, details: ["15 fotos profissionais", "Edição profissional", "Entrega digital em 24h"] }]
+  },
+  "30-minutos": { 
+    name: "Jet Ski – 30 Minutos", 
+    basePrice: 90, 
+    price: "90€", 
+    duration: "30 min", 
+    isJetski: true, 
+    theme: "coral",
+    extraOptions: [{ name: "Pack Fotos", price: 15, perPerson: false, perHour: false, details: ["15 fotos profissionais", "Edição profissional", "Entrega digital em 24h"] }]
+  },
+  "1-hora": { 
+    name: "Jet Ski – 1 Hora", 
+    basePrice: 150, 
+    price: "150€", 
+    duration: "1h", 
+    isJetski: true, 
+    theme: "ocean",
+    extraOptions: [{ name: "Pack Fotos", price: 15, perPerson: false, perHour: false, details: ["15 fotos profissionais", "Edição profissional", "Entrega digital em 24h"] }]
+  },
   "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 550, price: "550€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
   "experiencia-sunset": { 
     name: "Experiência Sunset", 
@@ -311,13 +335,21 @@ const Booking = () => {
     const extrasStr = Object.keys(selectedExtras)
       .filter(name => selectedExtras[name])
       .map(name => {
+        const opt = pack.extraOptions?.find(o => o.name === name);
+        let optPrice = opt?.price || 0;
+        if (opt?.perPerson) optPrice *= people;
+        if (opt?.perHour) {
+          const duration = extraDurations[name] || currentDurationHours;
+          optPrice *= duration;
+        }
+        
         const pref = extraPreferences[name]?.trim();
         const start = extraStartTimes[name];
         const dur = extraDurations[name];
         let info = "";
         if (start && dur) info = ` (${start} @ ${dur}H)`;
         else if (dur) info = ` (${dur}H)`;
-        return ` + ${name}${info}${pref ? ` [${pref}]` : ""}`;
+        return ` + ${name}${info} (${optPrice}€)${pref ? ` [${pref}]` : ""}`;
       })
       .join("");
     
@@ -346,12 +378,17 @@ const Booking = () => {
         to_email: email,
         pack_name: finalPackName,
         pack_price: totalPriceStr,
+        price: totalPriceStr,
+        total_price: totalPriceStr,
+        base_price: `${baseTotal}€`,
+        extras_price: `${extrasTotal}€`,
         booking_date: date ? format(date, "dd/MM/yyyy") : "",
         booking_time: time,
         num_people: people,
         phone: fullPhone,
         location: location,
         extras: extrasStr || "Nenhum",
+        referral_code: referralCode || "Nenhum",
       };
 
       await Promise.all([
