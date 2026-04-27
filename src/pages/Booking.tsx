@@ -68,7 +68,7 @@ const allPacks: Record<string, PackInfo> = {
     theme: "ocean",
     extraOptions: [{ name: "Pack Fotos", price: 15, perPerson: false, perHour: false, details: ["15 fotos profissionais", "Edição profissional", "Entrega digital em 24h"] }]
   },
-  "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 550, price: "550€", duration: "1h", isJetski: true, theme: "turquoise-dark" },
+  "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 550, price: "550€", duration: "1h", isJetski: true, maxPeople: 8, theme: "turquoise-dark" },
   "experiencia-sunset": { 
     name: "Experiência Sunset", 
     basePrice: 150, 
@@ -264,7 +264,7 @@ const Booking = () => {
   const today = startOfToday();
 
   const isGroupPack = packId === "pack-grupo";
-  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : (pack.isTour ? (pack.maxPeople || 10) : 4);
+  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : (pack.isTour ? (pack.maxPeople || 10) : (pack.maxPeople || 4));
 
   const motaOptions = useMemo(() => {
     if (!pack.isJetski) return [];
