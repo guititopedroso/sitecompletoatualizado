@@ -862,10 +862,11 @@ const Staff = () => {
                                     <span className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
                                       <CreditCard size={12} /> Método de pagamento:
                                     </span>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                       {[
                                         { value: "Dinheiro", icon: Banknote, label: "Dinheiro" },
-                                        { value: "MB/MBWay", icon: CreditCard, label: "MB / MBWay" },
+                                        { value: "MB Way", icon: Phone, label: "MB Way" },
+                                        { value: "Multibanco", icon: CreditCard, label: "Multibanco" },
                                       ].map((pm) => (
                                         <button
                                           key={pm.value}

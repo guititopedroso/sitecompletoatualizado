@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor, User, Home } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, Banknote, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor, User, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AdminGallery from "./AdminGallery";
 import AdminBoats from "./AdminBoats";
@@ -77,7 +77,7 @@ const Admin = () => {
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
   const [newBooking, setNewBooking] = useState({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, price: 0 });
   const [activePanel, setActivePanel] = useState("bookings");
-  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; confirmLabel?: string; variant?: "destructive" | "confirm" } | null>(null);
   const [expenseDialog, setExpenseDialog] = useState<{ open: boolean; type: 'gasolina' | 'manutencao' | null; amount: number }>({ open: false, type: null, amount: 0 });
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
@@ -226,6 +226,24 @@ const Admin = () => {
       toast({ title: "Despesa removida!" });
     } catch (error: any) {
       toast({ title: "Erro ao remover despesa", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const confirmBooking = async (id: string) => {
+    try {
+      await updateDoc(doc(db, "bookings", id), { confirmed: true });
+      toast({ title: "Reserva confirmada!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao confirmar reserva", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const setPaymentMethod = async (id: string, method: string) => {
+    try {
+      await updateDoc(doc(db, "bookings", id), { payment_method: method });
+      toast({ title: "Pagamento atualizado" });
+    } catch (error: any) {
+      toast({ title: "Erro ao atualizar pagamento", description: error.message, variant: "destructive" });
     }
   };
 
@@ -493,7 +511,68 @@ const Admin = () => {
                   <div className="flex items-center justify-between mb-4 border-t border-border pt-4"> <h4 className="font-display font-bold text-md text-foreground">Reservas</h4> <Button size="sm" onClick={() => setShowAddForm(!showAddForm)} className="sunset-gradient text-accent-foreground rounded-full"> <Plus size={14} /> {showAddForm ? 'Fechar' : 'Adicionar'} </Button> </div>
                   <AnimatePresence> {showAddForm&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} className="overflow-hidden mb-4"> <div className="space-y-3 p-4 bg-muted/50 rounded-xl"> <Input placeholder="Nome do cliente" value={newBooking.client_name} onChange={a=>setNewBooking({...newBooking,client_name:a.target.value})}/> <Input placeholder="Pack" value={newBooking.pack_name} onChange={a=>setNewBooking({...newBooking,pack_name:a.target.value})}/> <Input type="number" placeholder="Preço" value={newBooking.price||''} onChange={a=>setNewBooking({...newBooking,price:parseFloat(a.target.value)||0})}/> <div className="flex gap-2"> <Input type="time" value={newBooking.booking_time} onChange={a=>setNewBooking({...newBooking,booking_time:a.target.value})} className="flex-1"/> <Input type="number" min={1} value={newBooking.num_people} onChange={a=>setNewBooking({...newBooking,num_people:parseInt(a.target.value)||1})} className="w-20"/> </div> <div className="flex gap-2"> <Button onClick={addBooking} size="sm" className="flex-1">Guardar</Button> <Button onClick={()=>setShowAddForm(false)} size="sm" variant="outline">Cancelar</Button> </div> </div> </motion.div> )} </AnimatePresence>
                   
-                  {selectedBookings.length === 0 ? ( <div className="text-center py-6 text-muted-foreground text-sm"> <p>Sem reservas neste dia.</p> </div> ) : ( <div className="space-y-2"> {selectedBookings.map(a=>{const b=expandedBooking===a.id;return( <motion.div key={a.id} layout initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl bg-muted/50 overflow-hidden group"> <button onClick={()=>setExpandedBooking(b?null:a.id)} className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/80 transition-colors"> <div className="w-1 h-10 rounded-full shrink-0" style={{background:a.confirmed?"hsl(var(--secondary))":"hsl(var(--muted-foreground) / 0.3)"}}/> <div className="flex-1 min-w-0"> <div className="flex items-center justify-between"> <p className="font-semibold text-sm text-foreground truncate">{a.client_name}</p> <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${a.confirmed?"bg-secondary/20 text-secondary":"bg-amber-500/20 text-amber-600"}`}> {a.confirmed?"Confirmada":"Pendente"} </span> </div> <p className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5"> {a.pack_name.replace(" + Pack Fotos","")} · {a.booking_time||"—"} <span className="text-muted-foreground/80">· {a.num_people}p</span> {a.pack_name.includes("Pack Fotos")&&<Camera size={12} className="text-coral ml-1"/>} </p> </div> <ChevronDown size={16} className={`text-muted-foreground transition-transform shrink-0 ${b?"rotate-180":""}`}/> </button> <AnimatePresence> {b&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:.2}} className="overflow-hidden"> <div className="px-4 pb-4 pt-1 space-y-2.5 border-t border-border/50 ml-4 mr-3"> <div className="flex items-center gap-2 pt-2.5"> <Package size={14} className="text-secondary shrink-0"/> <span className="text-xs font-medium text-foreground">{a.pack_name}</span> </div> {a.price > 0 && ( <div className="flex items-center gap-2"> <DollarSign size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.price}€</span> </div> )} {a.client_email&&( <div className="flex items-center gap-2"> <Mail size={14} className="text-secondary shrink-0" /> <a href={`mailto:${a.client_email}`} className="text-xs font-medium text-primary hover:underline">{a.client_email}</a> </div> )} {a.client_phone&&( <div className="flex items-center gap-2"> <Phone size={14} className="text-secondary shrink-0" /> <a href={`tel:${a.client_phone}`} className="text-xs font-medium text-primary hover:underline">{a.client_phone}</a> </div> )} {a.location && ( <div className="flex items-center gap-2"> <MapPin size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.location}</span> </div> )} <div className="flex items-center gap-2"> <Users size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.num_people} Pessoas</span> </div> {a.referralCode && ( <div className="flex items-center gap-2 p-2 bg-secondary/5 border border-secondary/10 rounded-lg my-2"> <Link2 size={12} className="text-secondary shrink-0" /> <div className="flex-1 min-w-0"> <p className="text-[8px] font-900 uppercase text-secondary/70 leading-none mb-1">Recomendado por</p> <p className="text-[10px] font-bold text-secondary truncate"> {customers.find(c => c.referralCode === a.referralCode)?.firstName ? `${customers.find(c => c.referralCode === a.referralCode)?.firstName} ${customers.find(c => c.referralCode === a.referralCode)?.lastName || ""}` : (customers.find(c => c.referralCode === a.referralCode)?.displayName || "Código: " + a.referralCode)} </p> </div> </div> )} <div className="pt-2 flex justify-end"> <Button variant="ghost" size="sm" onClick={()=>setConfirmAction({title:"Remover reserva",description:`Tens a certeza que queres remover a reserva de ${a.client_name}?`,action:()=>removeBooking(a.id)})} className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"> <Trash2 size={12}/> Remover </Button> </div> </div> </motion.div> )} </AnimatePresence> </motion.div> )})} </div> )}
+                  {selectedBookings.length === 0 ? ( <div className="text-center py-6 text-muted-foreground text-sm"> <p>Sem reservas neste dia.</p> </div> ) : ( <div className="space-y-2"> {selectedBookings.map(a=>{const b=expandedBooking===a.id;return( <motion.div key={a.id} layout initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl bg-muted/50 overflow-hidden group"> <button onClick={()=>setExpandedBooking(b?null:a.id)} className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/80 transition-colors"> <div className="w-1 h-10 rounded-full shrink-0" style={{background:a.confirmed?"hsl(var(--secondary))":"hsl(var(--muted-foreground) / 0.3)"}}/> <div className="flex-1 min-w-0"> <div className="flex items-center justify-between"> <p className="font-semibold text-sm text-foreground truncate">{a.client_name}</p> <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full leading-none ${a.confirmed?"bg-secondary/20 text-secondary":"bg-amber-500/20 text-amber-600"}`}> {a.confirmed?"Confirmada":"Pendente"} </span> </div> <p className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5"> {a.pack_name.replace(" + Pack Fotos","")} · {a.booking_time||"—"} <span className="text-muted-foreground/80">· {a.num_people}p</span> {a.pack_name.includes("Pack Fotos")&&<Camera size={12} className="text-coral ml-1"/>} </p> </div> <ChevronDown size={16} className={`text-muted-foreground transition-transform shrink-0 ${b?"rotate-180":""}`}/> </button> <AnimatePresence> {b&&( <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:.2}} className="overflow-hidden"> <div className="px-4 pb-4 pt-1 space-y-2.5 border-t border-border/50 ml-4 mr-3"> <div className="flex items-center gap-2 pt-2.5"> <Package size={14} className="text-secondary shrink-0"/> <span className="text-xs font-medium text-foreground">{a.pack_name}</span> </div> {a.price > 0 && ( <div className="flex items-center gap-2"> <DollarSign size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.price}€</span> </div> )} {a.client_email&&( <div className="flex items-center gap-2"> <Mail size={14} className="text-secondary shrink-0" /> <a href={`mailto:${a.client_email}`} className="text-xs font-medium text-primary hover:underline">{a.client_email}</a> </div> )} {a.client_phone&&( <div className="flex items-center gap-2"> <Phone size={14} className="text-secondary shrink-0" /> <a href={`tel:${a.client_phone}`} className="text-xs font-medium text-primary hover:underline">{a.client_phone}</a> </div> )} {a.location && ( <div className="flex items-center gap-2"> <MapPin size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.location}</span> </div> )} <div className="flex items-center gap-2"> <Users size={14} className="text-secondary shrink-0" /> <span className="text-xs font-medium text-foreground">{a.num_people} Pessoas</span> </div> {a.referralCode && ( <div className="flex items-center gap-2 p-2 bg-secondary/5 border border-secondary/10 rounded-lg my-2"> <Link2 size={12} className="text-secondary shrink-0" /> <div className="flex-1 min-w-0"> <p className="text-[8px] font-900 uppercase text-secondary/70 leading-none mb-1">Recomendado por</p> <p className="text-[10px] font-bold text-secondary truncate"> {customers.find(c => c.referralCode === a.referralCode)?.firstName ? `${customers.find(c => c.referralCode === a.referralCode)?.firstName} ${customers.find(c => c.referralCode === a.referralCode)?.lastName || ""}` : (customers.find(c => c.referralCode === a.referralCode)?.displayName || "Código: " + a.referralCode)} </p> </div> </div> )}
+                                  <div className="pt-2 border-t border-border/50">
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
+                                      <CreditCard size={12} /> Método de pagamento:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {[
+                                        { value: "Dinheiro", icon: Banknote, label: "Dinheiro" },
+                                        { value: "MB Way", icon: Phone, label: "MB Way" },
+                                        { value: "Multibanco", icon: CreditCard, label: "Multibanco" },
+                                      ].map((pm) => (
+                                        <button
+                                          key={pm.value}
+                                          onClick={() => setPaymentMethod(a.id, pm.value)}
+                                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                            a.payment_method === pm.value
+                                              ? "ocean-gradient text-primary-foreground shadow-sm"
+                                              : "bg-card border border-border text-foreground hover:bg-muted"
+                                          }`}
+                                        >
+                                          <pm.icon size={13} />
+                                          {pm.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    {a.payment_method && (
+                                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                                        Pago com: <strong className="text-foreground">{a.payment_method}</strong>
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {!a.confirmed && (
+                                    <div className="pt-2 border-t border-border/50">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => setConfirmAction({
+                                          title: "Finalizar reserva",
+                                          description: `Confirmar que a reserva de ${a.client_name} foi paga e será efetuada?`,
+                                          action: () => confirmBooking(a.id),
+                                          confirmLabel: "Confirmar",
+                                          variant: "confirm",
+                                        })}
+                                        className="w-full ocean-gradient text-primary-foreground rounded-lg font-display font-600"
+                                      >
+                                        <CheckCircle2 size={14} />
+                                        Finalizar Reserva
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  <div className="pt-2 flex justify-end">
+                                    <Button variant="ghost" size="sm" onClick={()=>setConfirmAction({title:"Remover reserva",description:`Tens a certeza que queres remover a reserva de ${a.client_name}?`,action:()=>removeBooking(a.id)})} className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"> <Trash2 size={12}/> Remover </Button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      )})}
+                    </div>
+                  )}
 
                   {selectedExpenses.length > 0 && (
                     <div className="border-t border-border mt-4 pt-4">
@@ -524,7 +603,15 @@ const Admin = () => {
         </div>
       )}
 
-      <ConfirmDialog open={!!confirmAction} title={confirmAction?.title || ""} description={confirmAction?.description || ""} onConfirm={() => { confirmAction?.action(); setConfirmAction(null); }} onCancel={() => setConfirmAction(null)} />
+      <ConfirmDialog 
+        open={!!confirmAction} 
+        title={confirmAction?.title || ""} 
+        description={confirmAction?.description || ""} 
+        onConfirm={() => { confirmAction?.action(); setConfirmAction(null); }} 
+        onCancel={() => setConfirmAction(null)} 
+        confirmLabel={confirmAction?.confirmLabel}
+        variant={confirmAction?.variant}
+      />
       <Dialog open={expenseDialog.open} onOpenChange={(open) => !open && setExpenseDialog({ ...expenseDialog, open: false })}><DialogContent><DialogHeader><DialogTitle>Adicionar Despesa de {expenseDialog.type === 'gasolina' ? 'Gasolina' : 'Manutenção'}</DialogTitle></DialogHeader><div className="py-4"><label htmlFor="expenseAmount" className="text-sm font-medium">Valor (€)</label><Input id="expenseAmount" type="number" placeholder="0.00" value={expenseDialog.amount || ''} onChange={(e) => setExpenseDialog({ ...expenseDialog, amount: parseFloat(e.target.value) || 0 })} className="mt-1" autoFocus /></div><DialogFooter><Button variant="outline" onClick={() => setExpenseDialog({ open: false, type: null, amount: 0 })}>Cancelar</Button><Button onClick={addExpense}>Guardar Despesa</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
