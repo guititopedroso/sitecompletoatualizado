@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp, setDoc } from "firebase/firestore";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AdminGallery from "./AdminGallery";
 import AdminBoats from "./AdminBoats";
@@ -86,6 +86,9 @@ const Admin = () => {
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; confirmLabel?: string; variant?: "destructive" | "confirm" } | null>(null);
   const [expenseDialog, setExpenseDialog] = useState<{ open: boolean; type: 'gasolina' | 'manutencao' | null; amount: number }>({ open: false, type: null, amount: 0 });
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceDialog, setMaintenanceDialog] = useState(false);
+  const [maintenancePassword, setMaintenancePassword] = useState("");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -144,12 +147,19 @@ const Admin = () => {
       setCustomers(data);
     });
 
+    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        setMaintenanceMode(docSnap.data().maintenanceMode === true);
+      }
+    });
+
     return () => {
       unsubAllBookings();
       unsubAllExpenses();
       unsubCalendarBookings();
       unsubCalendarExpenses();
       unsubCustomers();
+      unsubSettings();
     };
   };
 
@@ -250,6 +260,21 @@ const Admin = () => {
       toast({ title: "Pagamento atualizado" });
     } catch (error: any) {
       toast({ title: "Erro ao atualizar pagamento", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const toggleMaintenance = async () => {
+    if (maintenancePassword !== ADMIN_PASSWORD) {
+      toast({ title: "Password incorreta", variant: "destructive" });
+      return;
+    }
+    try {
+      await setDoc(doc(db, "settings", "general"), { maintenanceMode: !maintenanceMode }, { merge: true });
+      toast({ title: `Modo de manutenção ${!maintenanceMode ? 'ativado' : 'desativado'}` });
+      setMaintenanceDialog(false);
+      setMaintenancePassword("");
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
 
@@ -609,6 +634,32 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Maintenance Mode Button */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-8">
+        <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${maintenanceMode ? 'bg-destructive/10 border-destructive/20' : 'bg-card border-border'}`}>
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-full ${maintenanceMode ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+              <Lock size={24} />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-lg text-foreground">Modo de Manutenção</h3>
+              <p className="text-sm text-muted-foreground">
+                {maintenanceMode 
+                  ? 'O site está atualmente em modo de manutenção. Apenas a página de login/admin está visível.' 
+                  : 'Ativa o modo de manutenção para bloquear o acesso público ao site.'}
+              </p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => setMaintenanceDialog(true)}
+            variant={maintenanceMode ? "default" : "destructive"}
+            className={`px-8 ${maintenanceMode ? '' : 'hover:bg-destructive/90'}`}
+          >
+            {maintenanceMode ? 'Desativar Manutenção' : 'Ativar Manutenção'}
+          </Button>
+        </div>
+      </div>
+
       <ConfirmDialog 
         open={!!confirmAction} 
         title={confirmAction?.title || ""} 
@@ -619,6 +670,31 @@ const Admin = () => {
         variant={confirmAction?.variant}
       />
       <Dialog open={expenseDialog.open} onOpenChange={(open) => !open && setExpenseDialog({ ...expenseDialog, open: false })}><DialogContent><DialogHeader><DialogTitle>Adicionar Despesa de {expenseDialog.type === 'gasolina' ? 'Gasolina' : 'Manutenção'}</DialogTitle></DialogHeader><div className="py-4"><label htmlFor="expenseAmount" className="text-sm font-medium">Valor (€)</label><Input id="expenseAmount" type="number" placeholder="0.00" value={expenseDialog.amount || ''} onChange={(e) => setExpenseDialog({ ...expenseDialog, amount: parseFloat(e.target.value) || 0 })} className="mt-1" autoFocus /></div><DialogFooter><Button variant="outline" onClick={() => setExpenseDialog({ open: false, type: null, amount: 0 })}>Cancelar</Button><Button onClick={addExpense}>Guardar Despesa</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={maintenanceDialog} onOpenChange={setMaintenanceDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{maintenanceMode ? 'Desativar Manutenção' : 'Ativar Manutenção'}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Insere a password de administrador para confirmar esta ação.
+            </p>
+            <Input 
+              type="password" 
+              placeholder="Password" 
+              value={maintenancePassword} 
+              onChange={(e) => setMaintenancePassword(e.target.value)} 
+              autoFocus 
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMaintenanceDialog(false); setMaintenancePassword(""); }}>Cancelar</Button>
+            <Button onClick={toggleMaintenance} variant={maintenanceMode ? "default" : "destructive"}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
