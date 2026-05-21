@@ -24,7 +24,18 @@ const Footer = () => {
             </div>
 
             <p className="text-primary-foreground/50 text-sm text-center">
-              © {new Date().getFullYear()} Royal Coast – Setúbal Jet Ski Rentals. {t("footer_rights")}
+              © {new Date().getFullYear()} Royal Coast – Setúbal Jet Ski Rentals. {t("footer_rights")}{" "}
+              <span className="block sm:inline mt-1 sm:mt-0 sm:before:content-['•'] sm:before:mx-2">
+                Powered by{" "}
+                <a
+                  href="https://azmar.pt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 hover:underline transition-colors font-medium"
+                >
+                  Azmar
+                </a>
+              </span>
             </p>
 
             <div className="flex gap-6">
