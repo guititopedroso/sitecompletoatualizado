@@ -39,7 +39,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
   const [selectedTour, setSelectedTour] = useState<DynamicTour | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   useEffect(() => {
     const q = query(collection(db, "tours"), orderBy("order", "asc"));
@@ -130,7 +130,6 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
   const tabs = [
     { id: "jetski", label: t("exp_tab_jetski") },
-    { id: "barcos", label: t("exp_tab_boats") },
     { id: "passeios", label: "Passeios Turísticos" },
   ];
 
@@ -192,23 +191,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <div className="flex justify-center mb-10">
-                    <div className="w-fit bg-sunlight/10 border border-sunlight/30 p-1 rounded-2xl">
-                      <div className="bg-white/50 backdrop-blur-sm rounded-[0.9rem] p-4 flex items-center gap-4 text-left">
-                        <div className="bg-primary text-white p-3 rounded-xl shadow-lg shrink-0">
-                          <Anchor size={20} strokeWidth={3} />
-                        </div>
-                        <div className="flex-1 whitespace-nowrap">
-                          <h3 className="text-lg font-display font-900 text-foreground leading-none uppercase tracking-tighter">
-                            Sem Licença Necessária
-                          </h3>
-                          <p className="text-muted-foreground font-medium text-[10px] mt-1">
-                            Aproveita a aventura sem preocupações.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {jetskiPacks.map((pack, i) => (
@@ -294,23 +277,22 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                             ))}
                           </ul>
 
-                          <div className="flex justify-center mb-4">
-                             <span className="bg-sunlight/10 text-sunlight text-[9px] font-800 px-3 py-1 rounded-full border border-sunlight/20 uppercase tracking-widest shadow-sm">
-                               Sem Licença Necessária
-                             </span>
-                          </div>
+
 
                           <Button 
-                            onClick={() => navigate(`/reservar?pack=${pack.slug}${referralCode ? `&ref=${referralCode}` : ''}`)}
+                            onClick={() => {
+                              const el = document.getElementById("contactos");
+                              if (el) el.scrollIntoView({ behavior: "smooth" });
+                            }}
                             className={cn(
-                              "w-full rounded-2xl py-7 font-display font-900 uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl text-white",
+                              "w-full rounded-2xl py-5 font-display font-900 uppercase tracking-wide text-[10px] xl:text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl text-white px-2",
                               pack.theme === "turquoise-light" && "bg-turquoise-light hover:bg-turquoise-light/90 hover:shadow-turquoise-light/30",
                               pack.theme === "coral" && "sunset-gradient hover:shadow-coral/30",
                               pack.theme === "ocean" && "ocean-gradient hover:shadow-ocean/30",
                               pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30"
                             )}
                           >
-                            {t("exp_book_now")}
+                            {language === "pt" ? "Contacta-nos para reservar" : language === "es" ? "Contáctanos para reservar" : language === "fr" ? "Contactez-nous pour réserver" : language === "de" ? "Kontaktiere uns zur Buchung" : language === "zh" ? "联系我们进行预订" : "Contact us to book"}
                           </Button>
                         </div>
                       </motion.div>
@@ -609,20 +591,19 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                       </ul>
 
                       <motion.button
-                        onClick={() =>
-                          navigate(
-                            `/reservar?pack=${pkg.slug}${referralCode ? `&ref=${referralCode}` : ""}`
-                          )
-                        }
+                        onClick={() => {
+                          const el = document.getElementById("contactos");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
-                        className={`w-full py-3 rounded-xl font-display font-600 text-sm transition-shadow ${
+                        className={`w-full py-3 px-2 rounded-xl font-display font-600 text-xs sm:text-sm transition-shadow ${
                           pkg.popular
                             ? "sunset-gradient text-accent-foreground shadow-coral"
                             : "ocean-gradient text-primary-foreground shadow-ocean"
                         }`}
                       >
-                        {t("exp_book")}
+                        {language === "pt" ? "Contacta-nos para reservar" : language === "es" ? "Contáctanos para reservar" : language === "fr" ? "Contactez-nous pour réserver" : language === "de" ? "Kontaktiere uns zur Buchung" : language === "zh" ? "联系我们进行预订" : "Contact us to book"}
                       </motion.button>
                     </motion.div>
                   ))}

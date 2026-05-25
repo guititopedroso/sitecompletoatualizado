@@ -24,7 +24,7 @@ const Footer = () => {
             </div>
 
             <p className="text-primary-foreground/50 text-sm text-center">
-              © {new Date().getFullYear()} Royal Coast – Setúbal Jet Ski Rentals. {t("footer_rights")}{" "}
+              © {new Date().getFullYear()} Royal Coast – Passeios de Barco & Atividades Náuticas. {t("footer_rights")}{" "}
               <span className="block sm:inline mt-1 sm:mt-0 sm:before:content-['•'] sm:before:mx-2">
                 Powered by{" "}
                 <a

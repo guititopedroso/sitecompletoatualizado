@@ -12,7 +12,6 @@ const FAQ = () => {
   const { t } = useLanguage();
 
   const faqs = [
-    { q: t("faq_q7"), a: t("faq_a7") },
     { q: t("faq_q1"), a: t("faq_a1") },
     { q: t("faq_q2"), a: t("faq_a2") },
     { q: t("faq_q3"), a: t("faq_a3") },
