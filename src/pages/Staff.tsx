@@ -18,7 +18,7 @@ const STAFF_PACKS = [
 ];
 
 const fallbackPriceMap: { [key: string]: number } = {
-  "Jet Ski – 15 Minutos": 60, "Jet Ski – 30 Minutos": 90, "Jet Ski – 1 Hora": 150,
+  "Jet Ski – 15 Minutos": 60, "Jet Ski – 30 Minutos": 100, "Jet Ski – 1 Hora": 150,
   "Jet Ski – Pack Grupo": 550, "Experiência Sunset": 150,
   "Kelt Azura – 5 mts": 190, "Cap Camarat – 5,15 mts": 200, "San Remo – 5,65 mts": 200,
   "Saver – 5,80 mts": 210, "Selva – 5,80 mts": 220, "Bayliner – 5,70 mts": 220,

@@ -298,8 +298,8 @@ const Booking = () => {
   }, [pack, boatDuration, tourDurationIdx]);
 
   const extrasTotal = (pack.extraOptions || []).reduce((acc, opt) => {
-    if (selectedExtras[opt.name]) {
-      let optPrice = opt.price;
+    if (opt && opt.name && selectedExtras[opt.name]) {
+      let optPrice = Number(opt.price) || 0;
       if (opt.perPerson) optPrice *= people;
       if (opt.perHour) {
         const duration = extraDurations[opt.name] || currentDurationHours;
@@ -335,10 +335,11 @@ const Booking = () => {
     const extrasStr = Object.keys(selectedExtras)
       .filter(name => selectedExtras[name])
       .map(name => {
-        const opt = pack.extraOptions?.find(o => o.name === name);
-        let optPrice = opt?.price || 0;
-        if (opt?.perPerson) optPrice *= people;
-        if (opt?.perHour) {
+        const opt = pack.extraOptions?.find(o => o && o.name === name);
+        if (!opt) return "";
+        let optPrice = Number(opt.price) || 0;
+        if (opt.perPerson) optPrice *= people;
+        if (opt.perHour) {
           const duration = extraDurations[name] || currentDurationHours;
           optPrice *= duration;
         }
@@ -866,8 +867,11 @@ const Booking = () => {
                       {pack.extraOptions && pack.extraOptions.length > 0 && (
                         <div className="space-y-4">
                           <label className="block text-[10px] font-900 text-muted-foreground uppercase tracking-[0.2em] ml-1">Extras Opcionais</label>
-                          {pack.extraOptions.map((opt, i) => (
-                            <div key={i} className="space-y-3">
+                          {pack.extraOptions.map((opt, i) => {
+                            if (!opt || !opt.name) return null;
+                            const priceVal = Number(opt.price) || 0;
+                            return (
+                              <div key={i} className="space-y-3">
                               <label 
                                 className={cn(
                                   "flex items-center gap-3 sm:gap-4 cursor-pointer select-none rounded-[1.5rem] p-4 sm:p-6 border-2 transition-all duration-300",
@@ -889,15 +893,15 @@ const Booking = () => {
                                   <div className="text-right shrink-0">
                                     <span className="font-display font-900 text-primary text-lg sm:text-xl">
                                       +{
-                                        opt.perPerson && opt.perHour ? (opt.price * people * (extraDurations[opt.name] || currentDurationHours)) :
-                                        opt.perPerson ? (opt.price * people) :
-                                        opt.perHour ? (opt.price * (extraDurations[opt.name] || currentDurationHours)) :
-                                        opt.price
+                                        opt.perPerson && opt.perHour ? (priceVal * people * (extraDurations[opt.name] || currentDurationHours)) :
+                                        opt.perPerson ? (priceVal * people) :
+                                        opt.perHour ? (priceVal * (extraDurations[opt.name] || currentDurationHours)) :
+                                        priceVal
                                       }€
                                     </span>
                                     {(opt.perPerson || opt.perHour) && (
                                       <span className="block text-[8px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
-                                        {opt.price}€ {opt.perPerson ? "/ pessoa" : ""} {opt.perHour ? "/ hora" : ""}
+                                        {priceVal}€ {opt.perPerson ? "/ pessoa" : ""} {opt.perHour ? "/ hora" : ""}
                                       </span>
                                     )}
                                   </div>
@@ -987,23 +991,27 @@ const Booking = () => {
                                     </div>
                                   )}
 
-                                  {opt.details && opt.details.length > 0 && (
+                                  {opt.details && Array.isArray(opt.details) && opt.details.length > 0 && (
                                     <div>
                                       <span className="text-[9px] font-bold text-primary/60 uppercase tracking-widest block mb-2 px-1">Inclui:</span>
                                       <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-1">
-                                        {opt.details.map((detail, dIdx) => (
-                                          <div key={dIdx} className="flex items-center gap-1.5">
-                                            <div className="w-1 h-1 rounded-full bg-turquoise" />
-                                            <span className="text-[10px] sm:text-xs font-semibold text-foreground/70">{detail}</span>
-                                          </div>
-                                        ))}
+                                        {opt.details.map((detail, dIdx) => {
+                                          if (!detail) return null;
+                                          return (
+                                            <div key={dIdx} className="flex items-center gap-1.5">
+                                              <div className="w-1 h-1 rounded-full bg-turquoise" />
+                                              <span className="text-[10px] sm:text-xs font-semibold text-foreground/70">{detail}</span>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   )}
                                 </div>
                               )}
                             </div>
-                          ))}
+                          );
+                        })}
                         </div>
                       )}
 

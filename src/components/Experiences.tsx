@@ -80,7 +80,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Exploração",
       label: "Mais Popular",
       slug: "30-minutos",
-      price: "90€",
+      price: "100€",
       popular: true,
       theme: "coral",
       includes: [
@@ -476,26 +476,32 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                                <div className="w-1.5 h-1.5 rounded-full bg-coral"/> Opções Opcionais
                             </h4>
                             <div className="grid grid-cols-1 gap-2">
-                              {selectedTour.extraOptions.map((opt, idx) => (
-                                <div key={idx} className="bg-primary/5 border border-primary/10 px-4 py-3 rounded-2xl flex items-center justify-between group hover:bg-primary/10 transition-colors">
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-foreground">{opt.name}</span>
-                                    <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
-                                      {opt.perPerson && opt.perHour ? `${opt.price}€ / pessoa / hora` : opt.perPerson ? `${opt.price}€ / pessoa` : opt.perHour ? `${opt.price}€ / hora` : `Preço Fixo: ${opt.price}€`}
-                                    </span>
-                                    {opt.details && opt.details.length > 0 && (
-                                       <div className="flex flex-wrap gap-x-2 mt-1">
-                                          {opt.details.map((d, di) => (
-                                            <span key={di} className="text-[8px] text-primary/60 font-bold uppercase tracking-tight flex items-center gap-1">
-                                              <div className="w-0.5 h-0.5 rounded-full bg-turquoise" /> {d}
-                                            </span>
-                                          ))}
-                                       </div>
-                                    )}
+                              {selectedTour.extraOptions.map((opt, idx) => {
+                                if (!opt || !opt.name) return null;
+                                return (
+                                  <div key={idx} className="bg-primary/5 border border-primary/10 px-4 py-3 rounded-2xl flex items-center justify-between group hover:bg-primary/10 transition-colors">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-foreground">{opt.name}</span>
+                                      <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
+                                        {opt.perPerson && opt.perHour ? `${opt.price || 0}€ / pessoa / hora` : opt.perPerson ? `${opt.price || 0}€ / pessoa` : opt.perHour ? `${opt.price || 0}€ / hora` : `Preço Fixo: ${opt.price || 0}€`}
+                                      </span>
+                                      {opt.details && Array.isArray(opt.details) && opt.details.length > 0 && (
+                                         <div className="flex flex-wrap gap-x-2 mt-1">
+                                            {opt.details.map((d, di) => {
+                                              if (!d) return null;
+                                              return (
+                                                <span key={di} className="text-[8px] text-primary/60 font-bold uppercase tracking-tight flex items-center gap-1">
+                                                  <div className="w-0.5 h-0.5 rounded-full bg-turquoise" /> {d}
+                                                </span>
+                                              );
+                                            })}
+                                         </div>
+                                      )}
+                                    </div>
+                                    <span className="bg-white/50 text-primary text-[10px] font-900 px-2.5 py-1 rounded-lg border border-primary/20">+{opt.price || 0}€</span>
                                   </div>
-                                  <span className="bg-white/50 text-primary text-[10px] font-900 px-2.5 py-1 rounded-lg border border-primary/20">+{opt.price}€</span>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

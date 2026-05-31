@@ -171,27 +171,33 @@ export default function AdminTours() {
         order: formData.order ?? (tours.length > 0 ? Math.max(...tours.map(t => t.order || 0)) + 1 : 0)
       };
 
+      // Strip undefined fields to prevent Firestore serialization errors
+      const cleanedData = JSON.parse(JSON.stringify(finalData));
+
       let tourId = editingTour?.id;
-      if (editingTour) await updateDoc(doc(db, "tours", editingTour.id), finalData);
-      else {
-        const ref = await addDoc(collection(db, "tours"), finalData);
+      if (editingTour) {
+        await updateDoc(doc(db, "tours", editingTour.id), cleanedData);
+      } else {
+        const ref = await addDoc(collection(db, "tours"), cleanedData);
         tourId = ref.id;
       }
 
       // SINCRONIZAÇÃO MÁGICA
       const batch = writeBatch(db);
-      for (const opt of (finalData.extraOptions || [])) {
+      for (const opt of (cleanedData.extraOptions || [])) {
         if (!opt.name) continue;
         tours.filter(t => t.id !== tourId).forEach(t => {
-           if (t.extraOptions?.some(e => e.name === opt.name)) {
-             batch.update(doc(db, "tours", t.id), { extraOptions: t.extraOptions.map(e => e.name === opt.name ? {...opt} : e) });
+           if (t.extraOptions && Array.isArray(t.extraOptions) && t.extraOptions.some(e => e && e.name === opt.name)) {
+             const updated = t.extraOptions.map(e => e && e.name === opt.name ? {...opt} : e);
+             batch.update(doc(db, "tours", t.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
            }
         });
         const bSnap = await getDocs(collection(db, "boats"));
         bSnap.forEach(bDoc => {
            const bExtras = bDoc.data().extraOptions as any[] || [];
-           if (bExtras.some(e => e.name === opt.name)) {
-             batch.update(doc(db, "boats", bDoc.id), { extraOptions: bExtras.map(e => e.name === opt.name ? {...opt} : e) });
+           if (bExtras.some(e => e && e.name === opt.name)) {
+             const updated = bExtras.map(e => e && e.name === opt.name ? {...opt} : e);
+             batch.update(doc(db, "boats", bDoc.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
            }
         });
       }

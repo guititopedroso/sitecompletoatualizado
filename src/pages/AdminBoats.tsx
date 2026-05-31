@@ -177,30 +177,34 @@ export default function AdminBoats() {
         image: formData.images?.[0] || ""
       };
 
+      // Strip undefined fields to prevent Firestore serialization errors
+      const cleanedData = JSON.parse(JSON.stringify(finalData));
+
       let boatId = editingBoat?.id;
-      if (editingBoat) await updateDoc(doc(db, "boats", editingBoat.id), finalData);
-      else {
-        const ref = await addDoc(collection(db, "boats"), finalData);
+      if (editingBoat) {
+        await updateDoc(doc(db, "boats", editingBoat.id), cleanedData);
+      } else {
+        const ref = await addDoc(collection(db, "boats"), cleanedData);
         boatId = ref.id;
       }
 
       // SINCRONIZAÇÃO MÁGICA
       const batch = writeBatch(db);
-      for (const opt of (finalData.extraOptions || [])) {
+      for (const opt of (cleanedData.extraOptions || [])) {
         if (!opt.name) continue;
         const otherBoats = boats.filter(b => b.id !== boatId);
         otherBoats.forEach(b => {
-          if (b.extraOptions?.some(e => e.name === opt.name)) {
-            const updated = b.extraOptions.map(e => e.name === opt.name ? { ...opt } : e);
-            batch.update(doc(db, "boats", b.id), { extraOptions: updated });
+          if (b.extraOptions && Array.isArray(b.extraOptions) && b.extraOptions.some(e => e && e.name === opt.name)) {
+            const updated = b.extraOptions.map(e => e && e.name === opt.name ? { ...opt } : e);
+            batch.update(doc(db, "boats", b.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
           }
         });
         const toursSnap = await getDocs(collection(db, "tours"));
         toursSnap.forEach(tDoc => {
           const tExtras = tDoc.data().extraOptions as any[] || [];
-          if (tExtras.some(e => e.name === opt.name)) {
-            const updated = tExtras.map(e => e.name === opt.name ? { ...opt } : e);
-            batch.update(doc(db, "tours", tDoc.id), { extraOptions: updated });
+          if (tExtras.some(e => e && e.name === opt.name)) {
+            const updated = tExtras.map(e => e && e.name === opt.name ? { ...opt } : e);
+            batch.update(doc(db, "tours", tDoc.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
           }
         });
       }
