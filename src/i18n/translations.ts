@@ -98,6 +98,7 @@ type TranslationKeys = {
   exp_inc_briefing: string;
   exp_inc_insurance: string;
   exp_inc_4jetski: string;
+  exp_inc_45min: string;
   exp_inc_1hour: string;
   exp_inc_guide: string;
   exp_inc_sunset_1h: string;
@@ -320,7 +321,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "Colete salva-vidas",
     exp_inc_briefing: "Briefing de segurança",
     exp_inc_insurance: "Seguro incluído",
-    exp_inc_4jetski: "4 motas de água (Até 8 pessoas)",
+    exp_inc_4jetski: "2 motas de água (Até 4 pessoas)",
+    exp_inc_45min: "45 minutos",
     exp_inc_1hour: "1 hora completa",
     exp_inc_guide: "Guia dedicado",
     exp_inc_sunset_1h: "1 hora ao pôr do sol",
@@ -531,7 +533,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "Life jacket",
     exp_inc_briefing: "Safety briefing",
     exp_inc_insurance: "Insurance included",
-    exp_inc_4jetski: "4 jet skis (Up to 8 people)",
+    exp_inc_4jetski: "2 jet skis (Up to 4 people)",
+    exp_inc_45min: "45 minutes",
     exp_inc_1hour: "1 full hour",
     exp_inc_guide: "Dedicated guide",
     exp_inc_sunset_1h: "1 hour at sunset",
@@ -742,7 +745,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "Schwimmweste",
     exp_inc_briefing: "Sicherheitsbriefing",
     exp_inc_insurance: "Versicherung inklusive",
-    exp_inc_4jetski: "4 Jetskis (Bis zu 8 Personen)",
+    exp_inc_4jetski: "2 Jetskis (Bis zu 4 Personen)",
+    exp_inc_45min: "45 Minuten",
     exp_inc_1hour: "1 volle Stunde",
     exp_inc_guide: "Persönlicher Guide",
     exp_inc_sunset_1h: "1 Stunde bei Sonnenuntergang",
@@ -953,7 +957,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "Chaleco salvavidas",
     exp_inc_briefing: "Briefing de seguridad",
     exp_inc_insurance: "Seguro incluido",
-    exp_inc_4jetski: "4 motos de agua (Hasta 8 personas)",
+    exp_inc_4jetski: "2 motos de agua (Hasta 4 personas)",
+    exp_inc_45min: "45 minutos",
     exp_inc_1hour: "1 hora completa",
     exp_inc_guide: "Guía dedicado",
     exp_inc_sunset_1h: "1 hora al atardecer",
@@ -1164,7 +1169,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "Gilet de sauvetage",
     exp_inc_briefing: "Briefing de sécurité",
     exp_inc_insurance: "Assurance incluse",
-    exp_inc_4jetski: "4 jet skis (Jusqu'à 8 personnes)",
+    exp_inc_4jetski: "2 jet skis (Jusqu'à 4 personnes)",
+    exp_inc_45min: "45 minutes",
     exp_inc_1hour: "1 heure complète",
     exp_inc_guide: "Guide dédié",
     exp_inc_sunset_1h: "1 heure au coucher du soleil",
@@ -1375,7 +1381,8 @@ export const translations: Translations = {
     exp_inc_lifejacket: "救生衣",
     exp_inc_briefing: "安全讲解",
     exp_inc_insurance: "包含保险",
-    exp_inc_4jetski: "4辆水上摩托 (最多8人)",
+    exp_inc_4jetski: "2辆水上摩托 (最多4人)",
+    exp_inc_45min: "45分钟",
     exp_inc_1hour: "完整1小时",
     exp_inc_guide: "专属向导",
     exp_inc_sunset_1h: "日落时分1小时",

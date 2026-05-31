@@ -64,7 +64,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Express",
       label: "Rápido & Intenso",
       slug: "15-minutos",
-      price: "60€",
+      price: "80€",
       popular: false,
       theme: "turquoise-light",
       includes: [
@@ -96,7 +96,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Aventura",
       label: "Recomendado",
       slug: "1-hora",
-      price: "150€",
+      price: "180€",
       popular: false,
       theme: "ocean",
       includes: [
@@ -112,12 +112,12 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
       tag: "Equipa",
       label: "Melhor Valor",
       slug: "pack-grupo",
-      price: "550€",
+      price: "320€",
       popular: false,
       theme: "turquoise-dark",
       includes: [
         t("exp_inc_4jetski"),
-        t("exp_inc_1hour"),
+        t("exp_inc_45min"),
         t("exp_inc_guide"),
         t("exp_inc_briefing"),
         t("exp_inc_insurance"),

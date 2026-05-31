@@ -43,8 +43,8 @@ type PackInfo = {
 const allPacks: Record<string, PackInfo> = {
   "15-minutos": { 
     name: "Jet Ski – 15 Minutos", 
-    basePrice: 60, 
-    price: "60€", 
+    basePrice: 80, 
+    price: "80€", 
     duration: "15 min", 
     isJetski: true, 
     theme: "turquoise-light",
@@ -61,18 +61,18 @@ const allPacks: Record<string, PackInfo> = {
   },
   "1-hora": { 
     name: "Jet Ski – 1 Hora", 
-    basePrice: 150, 
-    price: "150€", 
+    basePrice: 180, 
+    price: "180€", 
     duration: "1h", 
     isJetski: true, 
     theme: "ocean",
     extraOptions: [{ name: "Pack Fotos", price: 15, perPerson: false, perHour: false, details: ["15 fotos profissionais", "Edição profissional", "Entrega digital em 24h"] }]
   },
-  "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 550, price: "550€", duration: "1h", isJetski: true, maxPeople: 8, theme: "turquoise-dark" },
+  "pack-grupo": { name: "Jet Ski – Pack Grupo (Fotos Incluídas)", basePrice: 320, price: "320€", duration: "45 min", isJetski: true, maxPeople: 4, theme: "turquoise-dark" },
   "experiencia-sunset": { 
     name: "Experiência Sunset", 
-    basePrice: 150, 
-    price: "150€", 
+    basePrice: 180, 
+    price: "180€", 
     duration: "1h", 
     theme: "coral",
     extraOptions: [
@@ -268,7 +268,7 @@ const Booking = () => {
 
   const motaOptions = useMemo(() => {
     if (!pack.isJetski) return [];
-    if (isGroupPack) return [4];
+    if (isGroupPack) return [2];
     if (people === 1) return [1];
     if (people === 2) return [1, 2];
     if (people === 3) return [2, 3];
@@ -276,7 +276,7 @@ const Booking = () => {
     return [1];
   }, [pack.isJetski, isGroupPack, people]);
 
-  const effectiveMotas = pack.isJetski ? (isGroupPack ? 4 : numMotas) : 1;
+  const effectiveMotas = pack.isJetski ? (isGroupPack ? 2 : numMotas) : 1;
   const baseTotal = pack.isBoat
     ? (boatDuration === "8h" ? pack.price8h! : pack.price4h!)
     : pack.isTour && pack.tourPacks && pack.tourPacks.length > 0
@@ -641,7 +641,7 @@ const Booking = () => {
                         const match = pack.tourPacks[tourDurationIdx]?.duration.match(/(\d+)/);
                         durationInMinutes = match ? parseInt(match[0]) * 60 : 120;
                       } else {
-                        durationInMinutes = (packId === "1-hora" || packId === "pack-grupo" || packId === "experiencia-sunset" ? 60 : packId === "30-minutos" ? 30 : 15);
+                        durationInMinutes = (packId === "1-hora" || packId === "experiencia-sunset" ? 60 : packId === "pack-grupo" ? 45 : packId === "30-minutos" ? 30 : 15);
                       }
                       
                       let isInRange = false;
