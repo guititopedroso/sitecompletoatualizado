@@ -1,7 +1,10 @@
 // Custom API layer for Royal Coast to interact with the local Express / MySQL backend.
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || ''; // Allows defining a custom backend URL in production (e.g. https://api.royalcoast.pt)
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+export async function fetchApi(
+  endpoint: string,
+  options: Omit<RequestInit, 'body'> & { body?: any } = {}
+) {
   const token = localStorage.getItem('rc_token');
   const headers = new Headers(options.headers || {});
 
