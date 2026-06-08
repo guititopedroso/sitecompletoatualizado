@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve static files directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # PHP API - serve by Apache (nao redirecionar para index.html)
+    RewriteRule ^api/ - [L]
+
+    # React Router - tudo o resto vai para index.html
+    RewriteRule ^ index.html [L]
+</IfModule>
