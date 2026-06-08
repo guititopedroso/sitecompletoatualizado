@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Redirecionar pedidos da API e Uploads para o servidor Express (Porta 3001 por padrão)
+  # Nota: Ajuste a porta 3001 se o seu servidor Express estiver a correr noutra porta no Hostinger
+  RewriteRule ^api/(.*)$ http://localhost:3001/api/$1 [P,L]
+  RewriteRule ^uploads/(.*)$ http://localhost:3001/uploads/$1 [P,L]
+
+  # Suporte para rotas do React Router (evita erros 404 ao atualizar a página)
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

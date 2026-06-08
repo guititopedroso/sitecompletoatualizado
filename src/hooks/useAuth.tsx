@@ -1,21 +1,22 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { 
-  onAuthStateChanged, 
-  User, 
-  signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  updatePassword as firebaseUpdatePassword
-} from "firebase/auth";
-import { auth, db, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, serverTimestamp, deleteDoc, getDoc } from "firebase/firestore";
+import { fetchApi } from "@/lib/api";
+
+interface UserType {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  provider: string;
+  referralCode: string;
+  firstName?: string;
+  lastName?: string;
+  phonePrefix?: string;
+  phoneNumber?: string;
+  birthDate?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: UserType | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
@@ -31,72 +32,49 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const syncUserToFirestore = async (user: User, providerId: string) => {
-    const userRef = doc(db, "users", user.uid);
-    
-    // Check if user already exists to preserve referralCode
+  const checkUserSession = async () => {
+    const token = localStorage.getItem("rc_token");
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
     try {
-      const userDoc = await getDoc(userRef);
-      let referralCode = "";
-
-      if (userDoc.exists() && userDoc.data().referralCode) {
-        referralCode = userDoc.data().referralCode;
-      } else {
-        // Generate a new one if not exists
-        const namePart = (user.displayName || "user").trim().toLowerCase().replace(/\s+/g, "").slice(0, 5);
-        const randomPart = Math.random().toString(36).substring(2, 6);
-        referralCode = `${namePart}-${randomPart}`;
-      }
-
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        provider: providerId,
-        referralCode,
-        lastLogin: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      const data = await fetchApi("/api/auth/me");
+      setUser(data);
     } catch (err) {
-      console.error("Error syncing user:", err);
+      console.error("Session check failed:", err);
+      localStorage.removeItem("rc_token");
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      if (user) {
-        // Just as backup, sync on auth state change too
-        syncUserToFirestore(user, user.providerData[0]?.providerId || "unknown");
-      }
-    });
-
-    return () => unsubscribe();
+    checkUserSession();
   }, []);
 
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const res = await signInWithPopup(auth, provider);
-      await syncUserToFirestore(res.user, "google.com");
-    } catch (error) {
-      console.error("Error signing in with Google:", error);
-      throw error;
-    }
+    throw new Error(
+      "O início de sessão com o Google requer a configuração de OAuth 2.0 no backend MySQL. Por favor, registe-se ou inicie sessão com Email e Password."
+    );
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
     try {
-      const res = await signInWithEmailAndPassword(auth, email, pass);
-      await syncUserToFirestore(res.user, "password");
+      const res = await fetchApi("/api/auth/login", {
+        method: "POST",
+        body: { email, password: pass }
+      });
+      localStorage.setItem("rc_token", res.token);
+      setUser(res.user);
     } catch (error) {
-       console.error("Error signing in with email:", error);
-       throw error;
+      console.error("Error signing in with email:", error);
+      throw error;
     }
   };
 
@@ -106,9 +84,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       ).join(" ");
       
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(res.user, { displayName: formattedName });
-      await syncUserToFirestore(res.user, "password");
+      const res = await fetchApi("/api/auth/register", {
+        method: "POST",
+        body: { email, password: pass, displayName: formattedName }
+      });
+      localStorage.setItem("rc_token", res.token);
+      setUser(res.user);
     } catch (error) {
       console.error("Error signing up with email:", error);
       throw error;
@@ -116,22 +97,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updatePhoto = async (file: File) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("No user logged in");
-    
     try {
-      const fileRef = ref(storage, `avatars/${currentUser.uid}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      await updateProfile(currentUser, { photoURL: url });
+      const formData = new FormData();
+      formData.append("avatar", file);
       
-      // Force update Firestore
-      await setDoc(doc(db, "users", currentUser.uid), { photoURL: url, updatedAt: serverTimestamp() }, { merge: true });
+      const res = await fetchApi("/api/auth/avatar", {
+        method: "POST",
+        body: formData
+      });
       
-      // Update local state without losing methods
-      setUser({ ...currentUser } as any); // Re-setting from currentUser to trigger re-render
-      
-      return url;
+      if (user) {
+        setUser({ ...user, photoURL: res.photoURL });
+      }
+      return res.photoURL;
     } catch (error) {
       console.error("Error updating photo:", error);
       throw error;
@@ -139,68 +117,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateDisplayName = async (name: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("No user logged in");
     try {
-      await updateProfile(currentUser, { displayName: name });
-      
-      // Update Firestore
-      await setDoc(doc(db, "users", currentUser.uid), { displayName: name, updatedAt: serverTimestamp() }, { merge: true });
-      
-      // Trigger a re-render
-      setUser({ ...currentUser } as any);
+      await fetchApi("/api/auth/profile", {
+        method: "PUT",
+        body: { displayName: name }
+      });
+      if (user) {
+        setUser({ ...user, displayName: name });
+      }
     } catch (error) {
-       console.error("Error updating name:", error);
-       throw error;
+      console.error("Error updating name:", error);
+      throw error;
     }
   };
 
   const updateUserPassword = async (newPassword: string) => {
-    if (!user) throw new Error("No user logged in");
     try {
-      await firebaseUpdatePassword(user, newPassword);
+      await fetchApi("/api/auth/change-password", {
+        method: "PUT",
+        body: { newPassword }
+      });
     } catch (error) {
-       console.error("Error updating password:", error);
-       throw error;
+      console.error("Error updating password:", error);
+      throw error;
     }
   };
 
   const updateUserData = async (data: { firstName?: string; lastName?: string; phonePrefix?: string; phoneNumber?: string; birthDate?: string }) => {
-    if (!user) throw new Error("No user logged in");
     try {
-      const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, { 
-        ...data, 
-        updatedAt: serverTimestamp() 
-      }, { merge: true });
+      await fetchApi("/api/auth/profile", {
+        method: "PUT",
+        body: data
+      });
+      if (user) {
+        setUser({ ...user, ...data });
+      }
     } catch (error) {
-       console.error("Error updating user data:", error);
-       throw error;
+      console.error("Error updating user data:", error);
+      throw error;
     }
   };
 
   const deleteUserAccount = async () => {
-    if (!user) throw new Error("No user logged in");
-    const uid = user.uid;
     try {
-      // 1. Delete Firestore data
-      await deleteDoc(doc(db, "users", uid));
-      // 2. Delete Auth record
-      await user.delete();
+      await fetchApi("/api/auth/account", {
+        method: "DELETE"
+      });
+      localStorage.removeItem("rc_token");
+      setUser(null);
       return true;
     } catch (error) {
-       console.error("Error deleting account:", error);
-       throw error;
+      console.error("Error deleting account:", error);
+      throw error;
     }
   };
 
   const logout = async () => {
-    try {
-      await firebaseSignOut(auth);
-    } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
-    }
+    localStorage.removeItem("rc_token");
+    setUser(null);
   };
 
   return (

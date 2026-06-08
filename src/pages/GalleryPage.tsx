@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { api } from "@/lib/api";
 
 type GalleryImage = {
   id: string;
@@ -27,12 +26,7 @@ const GalleryPage = () => {
     const fetchImages = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "gallery"), orderBy("created_at", "desc"));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as any[];
+        const data = await api.gallery.getAll();
 
         if (data) {
           // Assign spans dynamically for layout purposes

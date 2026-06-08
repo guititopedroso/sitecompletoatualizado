@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Users, Anchor, Gauge, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { db } from "@/lib/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { api } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -52,15 +51,8 @@ const BoatCatalog = ({ referralCode }: { referralCode?: string }) => {
     });
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "boats"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Boat[];
+    const unsubscribe = api.boats.subscribe((data) => {
       setBoats(clientSort(data));
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching boats:", error);
       setLoading(false);
     });
 

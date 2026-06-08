@@ -10,8 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { api } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import emailjs from "@emailjs/browser";
@@ -173,57 +172,58 @@ const Booking = () => {
   const [loadingDynamic, setLoadingDynamic] = useState(!initialPack);
 
   useEffect(() => {
-    const qTours = query(collection(db, "tours"), where("slug", "==", packId));
-    const unsubscribe = onSnapshot(qTours, (snapshot) => {
-      if (!snapshot.empty) {
-        const data = snapshot.docs[0].data();
-        const rawPacks = data.packs || [];
+    let unsubTours = () => {};
+    let unsubBoats = () => {};
+
+    unsubTours = api.tours.subscribe((toursList) => {
+      const tour = toursList.find(t => t.slug === packId);
+      if (tour) {
+        const rawPacks = tour.packs || [];
         const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
         const firstPack = tPacks.length > 0 ? tPacks[0] : { duration: "Personalizado", price: "0€" };
         const bPrice = parseInt(firstPack.price.replace("€", "")) || 0;
         
         setDynamicPack({
-          name: data.name,
+          name: tour.name,
           basePrice: bPrice,
           price: firstPack.price,
           duration: firstPack.duration,
           isTour: true,
-          maxPeople: data.capacity || 10,
+          maxPeople: tour.capacity || 10,
           tourPacks: tPacks,
-          price4h: data.price4h ? parseInt(data.price4h.replace('€', '')) : undefined,
-          price8h: data.price8h ? parseInt(data.price8h.replace('€', '')) : undefined,
-          extraOptions: data.extraOptions || [],
-          theme: data.theme || "ocean"
+          price4h: tour.price4h ? parseInt(tour.price4h.replace('€', '')) : undefined,
+          price8h: tour.price8h ? parseInt(tour.price8h.replace('€', '')) : undefined,
+          extraOptions: tour.extraOptions || [],
+          theme: tour.theme || "ocean"
         });
         setLoadingDynamic(false);
       } else {
-        // If not in tours, try boats
-        const qBoats = query(collection(db, "boats"), where("slug", "==", packId));
-        onSnapshot(qBoats, (sBoat) => {
-          if (!sBoat.empty) {
-            const data = sBoat.docs[0].data();
+        // If not found in tours, check boats
+        unsubBoats = api.boats.subscribe((boatsList) => {
+          const boat = boatsList.find(b => b.slug === packId);
+          if (boat) {
             setDynamicPack({
-              name: data.name,
-              basePrice: parseInt(data.price4h.replace('€', '')) || 0,
-              price: data.price4h,
+              name: boat.name,
+              basePrice: parseInt(boat.price4h.replace('€', '')) || 0,
+              price: boat.price4h,
               duration: "4h",
               isBoat: true,
-              price4h: parseInt(data.price4h.replace('€', '')) || 0,
-              price8h: parseInt(data.price8h.replace('€', '')) || 0,
-              maxPeople: data.capacity,
-              extraOptions: data.extraOptions || [],
+              price4h: parseInt(boat.price4h.replace('€', '')) || 0,
+              price8h: parseInt(boat.price8h.replace('€', '')) || 0,
+              maxPeople: boat.capacity,
+              extraOptions: boat.extraOptions || [],
               theme: "ocean"
             });
           }
           setLoadingDynamic(false);
         });
       }
-    }, (error) => {
-      console.error("Error fetching pack:", error);
-      setLoadingDynamic(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubTours();
+      unsubBoats();
+    };
   }, [packId]);
 
   const pack = dynamicPack || initialPack || allPacks["30-minutos"];
@@ -355,9 +355,8 @@ const Booking = () => {
       .join("");
     
     const finalPackName = pack.name + durationStr + extrasStr;
-
     try {
-      await addDoc(collection(db, "bookings"), {
+      await api.bookings.create({
         client_name: fullName,
         client_email: email,
         client_phone: fullPhone,
@@ -371,7 +370,6 @@ const Booking = () => {
         location: location,
         referralCode: referralCode,
         price: totalPrice,
-        created_at: new Date().toISOString(),
       });
 
       const templateParams = {

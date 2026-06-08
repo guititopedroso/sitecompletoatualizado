@@ -26,8 +26,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy, doc, getDoc, deleteDoc } from "firebase/firestore";
+import { api } from "@/lib/api";
 import { format, isAfter, isBefore, parseISO, startOfToday } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -99,25 +98,12 @@ const Profile = () => {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) return;
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setFirstName(data.firstName || user.displayName?.split(" ")[0] || "");
-          setLastName(data.lastName || user.displayName?.split(" ").slice(1).join(" ") || "");
-          setBirthDate(data.birthDate || "");
-          setPhonePrefix(data.phonePrefix || "+351");
-          setPhoneNumber(data.phoneNumber || "");
-        }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
-      }
-    };
-
     if (user) {
-      fetchUserData();
+      setFirstName(user.firstName || user.displayName?.split(" ")[0] || "");
+      setLastName(user.lastName || user.displayName?.split(" ").slice(1).join(" ") || "");
+      setBirthDate(user.birthDate || "");
+      setPhonePrefix(user.phonePrefix || "+351");
+      setPhoneNumber(user.phoneNumber || "");
     }
   }, [user]);
 
@@ -212,19 +198,9 @@ const Profile = () => {
       if (!user?.email) return;
 
       try {
-        const q = query(
-          collection(db, "bookings"),
-          where("client_email", "==", user.email),
-          orderBy("booking_date", "desc")
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Booking[];
-        
-        setBookings(data);
+        const data = await api.bookings.getAll();
+        const myBookings = data.filter((b: any) => b.client_email === user.email);
+        setBookings(myBookings);
       } catch (error) {
         console.error("Error fetching bookings:", error);
       } finally {

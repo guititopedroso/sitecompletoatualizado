@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link2, Copy, Check, Users, ArrowLeft, Crown, Loader2, Gem, Sparkles, Trophy, Zap, Gift, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,19 +27,12 @@ const Referral = () => {
     const fetchReferralData = async () => {
       if (!user) return;
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const code = userDoc.data().referralCode;
-          setReferralCode(code);
-          if (code) {
-            const q = query(
-              collection(db, "bookings"), 
-              where("referralCode", "==", code),
-              where("confirmed", "==", true)
-            );
-            const snap = await getDocs(q);
-            setReferralCount(snap.size);
-          }
+        const code = user.referralCode;
+        setReferralCode(code);
+        if (code) {
+          const bookings = await api.bookings.getAll({ confirmed: true });
+          const myReferrals = bookings.filter((b: any) => b.referralCode === code);
+          setReferralCount(myReferrals.length);
         }
       } catch (err) {
         console.error("Error fetching referral data:", err);

@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, writeBatch } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { api } from "@/lib/api";
 import { Trash2, Loader2, Plus, X, Save, Edit2, GripVertical, ArrowUp, ArrowDown, Sparkles, Wand2, Anchor, Clock, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,9 +118,8 @@ export default function AdminBoats() {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "boats"), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Boat[];
-      setBoats(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
+    const unsub = api.boats.subscribe((data) => {
+      setBoats(data);
       setLoading(false);
     });
     return () => unsub();
@@ -177,38 +174,39 @@ export default function AdminBoats() {
         image: formData.images?.[0] || ""
       };
 
-      // Strip undefined fields to prevent Firestore serialization errors
       const cleanedData = JSON.parse(JSON.stringify(finalData));
 
       let boatId = editingBoat?.id;
       if (editingBoat) {
-        await updateDoc(doc(db, "boats", editingBoat.id), cleanedData);
+        await api.boats.update(editingBoat.id, cleanedData);
       } else {
-        const ref = await addDoc(collection(db, "boats"), cleanedData);
+        const ref = await api.boats.create(cleanedData);
         boatId = ref.id;
       }
 
       // SINCRONIZAÇÃO MÁGICA
-      const batch = writeBatch(db);
       for (const opt of (cleanedData.extraOptions || [])) {
         if (!opt.name) continue;
         const otherBoats = boats.filter(b => b.id !== boatId);
-        otherBoats.forEach(b => {
+        for (const b of otherBoats) {
           if (b.extraOptions && Array.isArray(b.extraOptions) && b.extraOptions.some(e => e && e.name === opt.name)) {
             const updated = b.extraOptions.map(e => e && e.name === opt.name ? { ...opt } : e);
-            batch.update(doc(db, "boats", b.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
+            await api.boats.update(b.id, { ...b, extraOptions: updated });
           }
-        });
-        const toursSnap = await getDocs(collection(db, "tours"));
-        toursSnap.forEach(tDoc => {
-          const tExtras = tDoc.data().extraOptions as any[] || [];
-          if (tExtras.some(e => e && e.name === opt.name)) {
-            const updated = tExtras.map(e => e && e.name === opt.name ? { ...opt } : e);
-            batch.update(doc(db, "tours", tDoc.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
+        }
+        try {
+          const toursSnap = await api.tours.getAll();
+          for (const t of toursSnap) {
+            const tExtras = t.extraOptions || [];
+            if (tExtras.some((e: any) => e && e.name === opt.name)) {
+              const updated = tExtras.map((e: any) => e && e.name === opt.name ? { ...opt } : e);
+              await api.tours.update(t.id, { ...t, extraOptions: updated });
+            }
           }
-        });
+        } catch (tourErr) {
+          console.error("Error syncing with tours:", tourErr);
+        }
       }
-      await batch.commit();
 
       toast({ title: "✨ Guardado e Sincronizado!" });
       resetForm();
@@ -240,7 +238,7 @@ export default function AdminBoats() {
       title: "Eliminar Barco",
       description: `Tens a certeza que queres eliminar o barco "${b.name}"?`,
       action: async () => {
-        await deleteDoc(doc(db, "boats", b.id));
+        await api.boats.delete(b.id);
         toast({ title: "Barco Removido" });
       },
     });
@@ -249,18 +247,15 @@ export default function AdminBoats() {
   const processFile = async (file: File) => {
     setUploading(true);
     try {
-      const storageRef = ref(storage, `boats/${Date.now()}-${file.name}`);
-      const snap = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snap.ref);
-      setFormData(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+      const res = await api.boats.uploadImage(file);
+      setFormData(prev => ({ ...prev, images: [...(prev.images || []), res.url] }));
     } catch (e) {}
     setUploading(false);
   };
 
   const updateBoatsOrder = async (newBoats: Boat[]) => {
-    const batch = writeBatch(db);
-    newBoats.forEach((b, i) => batch.update(doc(db, "boats", b.id), { order: i }));
-    await batch.commit();
+    const orders = newBoats.map((b, i) => ({ id: b.id, order: i }));
+    await api.boats.updateOrder(orders);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -305,9 +300,9 @@ export default function AdminBoats() {
                    <p className="text-xs font-black uppercase tracking-widest text-primary border-b pb-2">Período de 4 Horas</p>
                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2"><label className="text-[11px] font-black uppercase text-muted-foreground">Custo Base (€)</label><Input type="number" value={(formData.cost4h || "").replace('€','')} onChange={e => {
-                        const cost = Number(e.target.value);
-                        const deliverCost = formData.useDelivery4h ? Number((formData.deliveryCost4h || "").replace('€', '')) : 0;
-                        setFormData({...formData, cost4h: `${cost}€`, price4h: formData.useMarkup4h ? `${Math.ceil(cost*1.15) + deliverCost}€` : formData.price4h});
+                         const cost = Number(e.target.value);
+                         const deliverCost = formData.useDelivery4h ? Number((formData.deliveryCost4h || "").replace('€', '')) : 0;
+                         setFormData({...formData, cost4h: `${cost}€`, price4h: formData.useMarkup4h ? `${Math.ceil(cost*1.15) + deliverCost}€` : formData.price4h});
                       }} className="h-11 text-base font-bold text-muted-foreground" /></div>
                       <div className="space-y-2"><label className="text-[11px] font-black uppercase text-primary">Preço de Venda (€)</label><Input value={formData.price4h} onChange={e => setFormData({...formData, price4h: e.target.value})} className="h-11 text-lg font-black text-primary bg-primary/5 border-primary/20" /></div>
                    </div>
@@ -337,9 +332,9 @@ export default function AdminBoats() {
                    <p className="text-xs font-black uppercase tracking-widest text-secondary border-b pb-2">Período de 8 Horas</p>
                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2"><label className="text-[11px] font-black uppercase text-muted-foreground">Custo Base (€)</label><Input type="number" value={(formData.cost8h || "").replace('€','')} onChange={e => {
-                        const cost = Number(e.target.value);
-                        const deliverCost = formData.useDelivery8h ? Number((formData.deliveryCost8h || "").replace('€', '')) : 0;
-                        setFormData({...formData, cost8h: `${cost}€`, price8h: formData.useMarkup8h ? `${Math.ceil(cost*1.15) + deliverCost}€` : formData.price8h});
+                         const cost = Number(e.target.value);
+                         const deliverCost = formData.useDelivery8h ? Number((formData.deliveryCost8h || "").replace('€', '')) : 0;
+                         setFormData({...formData, cost8h: `${cost}€`, price8h: formData.useMarkup8h ? `${Math.ceil(cost*1.15) + deliverCost}€` : formData.price8h});
                       }} className="h-11 text-base font-bold text-muted-foreground" /></div>
                       <div className="space-y-2"><label className="text-[11px] font-black uppercase text-secondary">Preço de Venda (€)</label><Input value={formData.price8h} onChange={e => setFormData({...formData, price8h: e.target.value})} className="h-11 text-lg font-black text-secondary bg-secondary/5 border-secondary/20" /></div>
                    </div>
@@ -367,33 +362,32 @@ export default function AdminBoats() {
              </div>
           </div>
 
-          {/* ... resto do ficheiro mantido ... */}
           <div className="bg-muted/30 p-8 rounded-3xl border border-border/50 space-y-6">
              <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-display font-bold uppercase tracking-widest flex items-center gap-3"><Sparkles size={24} className="text-secondary"/> Opções Extra (Sincronizadas)</h3><Button type="button" variant="outline" size="sm" onClick={() => setFormData(p => ({ ...p, extraOptions: [...(p.extraOptions || []), { name: "", price: 0, perPerson: false, perHour: false, details: [] }] }))} className="h-11 px-6 text-xs font-black uppercase rounded-xl border-secondary text-secondary shadow-sm transition-all hover:bg-secondary/10 hover:text-secondary shadow-sm transition-all"><Plus size={16} className="mr-2"/> Adicionar Opcional</Button></div>
              <p className="text-xs text-muted-foreground font-medium italic mb-6 flex items-center gap-2 px-1"><Info size={14} className="text-secondary"/> Royal Sync Ativo.</p>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {formData.extraOptions?.map((opt, idx) => (
-                  <div key={idx} className="bg-background p-6 rounded-2xl border border-border/50 shadow-md relative group space-y-6 transition-all hover:shadow-lg">
-                     <button type="button" onClick={() => setFormData(p => ({ ...p, extraOptions: p.extraOptions?.filter((_, i) => i !== idx) }))} className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-40 group-hover:opacity-100 transition-all"><X size={20}/></button>
-                     <div className="space-y-4">
-                        <div className="space-y-2"><label className="text-[10px] font-black uppercase text-muted-foreground px-1">Nome da Opção</label><Input placeholder="Ex: DJ Profissional" value={opt.name} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].name = e.target.value; setFormData({ ...formData, extraOptions: o }); }} className="h-11 text-base font-bold" /></div>
-                        <div className="grid grid-cols-2 gap-6">
-                           <div className="space-y-2"><label className="text-[10px] font-black uppercase text-muted-foreground px-1">Preço (€)</label><Input type="number" value={opt.price} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].price = Number(e.target.value); setFormData({ ...formData, extraOptions: o }); }} className="h-11 text-base font-black text-secondary bg-secondary/5" /></div>
-                           <div className="flex flex-col gap-2 justify-center pt-5">
-                              <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={opt.perPerson} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].perPerson = e.target.checked; setFormData({ ...formData, extraOptions: o }); }} className="w-5 h-5 rounded border-border text-secondary" /><span className="text-[11px] font-black uppercase text-muted-foreground">P/ Pessoa</span></label>
-                              <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={opt.perHour} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].perHour = e.target.checked; setFormData({ ...formData, extraOptions: o }); }} className="w-5 h-5 rounded border-border text-secondary" /><span className="text-[11px] font-black uppercase text-muted-foreground">P/ Hora</span></label>
-                           </div>
-                        </div>
-                     </div>
-                     <div className="pt-6 border-t border-border flex items-center justify-between">
-                        <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">{opt.details?.length || 0} Detalhes</span>
-                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-secondary hover:bg-secondary/10" onClick={() => generateOptionDetailsAI(idx)} disabled={!!generatingAI}>{generatingAI === `opt-${idx}` ? <Loader2 size={20} className="animate-spin"/> : <Wand2 size={20}/>}</Button>
-                     </div>
-                     <div className="space-y-4">
-                        <Input placeholder="Detalhe + Enter..." className="h-10 text-sm bg-muted/10 border-dashed" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), (setFormData(p => { const o = [...(p.extraOptions || [])]; o[idx].details = [...(o[idx].details || []), e.currentTarget.value]; e.currentTarget.value = ""; return { ...p, extraOptions: o }; })))} />
-                        <div className="flex flex-wrap gap-2">{opt.details?.map((d, di) => <span key={di} className="bg-muted px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-border/40 shrink-0">{d}<button type="button" onClick={() => setFormData(p => { const o = [...(p.extraOptions || [])]; o[idx].details = o[idx].details?.filter((_, idx2) => idx2 !== di); return { ...p, extraOptions: o }; })} className="hover:text-destructive"><X size={12}/></button></span>)}</div>
-                     </div>
-                  </div>
+                   <div key={idx} className="bg-background p-6 rounded-2xl border border-border/50 shadow-md relative group space-y-6 transition-all hover:shadow-lg">
+                      <button type="button" onClick={() => setFormData(p => ({ ...p, extraOptions: p.extraOptions?.filter((_, i) => i !== idx) }))} className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-40 group-hover:opacity-100 transition-all"><X size={20}/></button>
+                      <div className="space-y-4">
+                         <div className="space-y-2"><label className="text-[10px] font-black uppercase text-muted-foreground px-1">Nome da Opção</label><Input placeholder="Ex: DJ Profissional" value={opt.name} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].name = e.target.value; setFormData({ ...formData, extraOptions: o }); }} className="h-11 text-base font-bold" /></div>
+                         <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-muted-foreground px-1">Preço (€)</label><Input type="number" value={opt.price} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].price = Number(e.target.value); setFormData({ ...formData, extraOptions: o }); }} className="h-11 text-base font-black text-secondary bg-secondary/5" /></div>
+                            <div className="flex flex-col gap-2 justify-center pt-5">
+                               <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={opt.perPerson} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].perPerson = e.target.checked; setFormData({ ...formData, extraOptions: o }); }} className="w-5 h-5 rounded border-border text-secondary" /><span className="text-[11px] font-black uppercase text-muted-foreground">P/ Pessoa</span></label>
+                               <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={opt.perHour} onChange={e => { const o = [...(formData.extraOptions || [])]; o[idx].perHour = e.target.checked; setFormData({ ...formData, extraOptions: o }); }} className="w-5 h-5 rounded border-border text-secondary" /><span className="text-[11px] font-black uppercase text-muted-foreground">P/ Hora</span></label>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="pt-6 border-t border-border flex items-center justify-between">
+                         <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">{opt.details?.length || 0} Detalhes</span>
+                         <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-secondary hover:bg-secondary/10" onClick={() => generateOptionDetailsAI(idx)} disabled={!!generatingAI}>{generatingAI === `opt-${idx}` ? <Loader2 size={20} className="animate-spin"/> : <Wand2 size={20}/>}</Button>
+                      </div>
+                      <div className="space-y-4">
+                         <Input placeholder="Detalhe + Enter..." className="h-10 text-sm bg-muted/10 border-dashed" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), (setFormData(p => { const o = [...(p.extraOptions || [])]; o[idx].details = [...(o[idx].details || []), e.currentTarget.value]; e.currentTarget.value = ""; return { ...p, extraOptions: o }; })))} />
+                         <div className="flex flex-wrap gap-2">{opt.details?.map((d, di) => <span key={di} className="bg-muted px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-border/40 shrink-0">{d}<button type="button" onClick={() => setFormData(p => { const o = [...(p.extraOptions || [])]; o[idx].details = o[idx].details?.filter((_, idx2) => idx2 !== di); return { ...p, extraOptions: o }; })} className="hover:text-destructive"><X size={12}/></button></span>)}</div>
+                      </div>
+                   </div>
                 ))}
              </div>
           </div>

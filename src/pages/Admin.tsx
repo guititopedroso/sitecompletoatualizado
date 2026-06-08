@@ -4,8 +4,7 @@ import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Lo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp, setDoc } from "firebase/firestore";
+import { api } from "@/lib/api";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AdminGallery from "./AdminGallery";
 import AdminTours from "./AdminTours";
@@ -96,19 +95,16 @@ const Admin = () => {
 
   const fetchAllData = () => {
     // For statistical earnings
-    const qConfirmed = query(collection(db, "bookings"), where("confirmed", "==", true));
-    const unsubAllBookings = onSnapshot(qConfirmed, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+    const unsubAllBookings = api.bookings.subscribe({ confirmed: true }, (data) => {
+      const parsed = data.map(b => ({ 
+        id: b.id, 
+        ...b,
+        price: b.price ?? getPriceFallback(b.pack_name)
       })) as Booking[];
-      setAllBookings(data);
+      setAllBookings(parsed);
     });
 
-    const qAllExpenses = query(collection(db, "expenses"));
-    const unsubAllExpenses = onSnapshot(qAllExpenses, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+    const unsubAllExpenses = api.expenses.subscribe({}, (data) => {
       setAllExpenses(data);
     });
 
@@ -116,39 +112,26 @@ const Admin = () => {
     const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
 
-    const qCalendarBookings = query(
-      collection(db, "bookings"), 
-      where("booking_date", ">=", startDate), 
-      where("booking_date", "<=", endDate)
-    );
-    const unsubCalendarBookings = onSnapshot(qCalendarBookings, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+    const unsubCalendarBookings = api.bookings.subscribe({ date_start: startDate, date_end: endDate }, (data) => {
+      const parsed = data.map(b => ({ 
+        id: b.id, 
+        ...b,
+        price: b.price ?? getPriceFallback(b.pack_name)
       })) as Booking[];
-      setBookings(data.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
+      setBookings(parsed.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
     });
 
-    const qCalendarExpenses = query(
-      collection(db, "expenses"),
-      where("date", ">=", startDate),
-      where("date", "<=", endDate)
-    );
-    const unsubCalendarExpenses = onSnapshot(qCalendarExpenses, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+    const unsubCalendarExpenses = api.expenses.subscribe({ date_start: startDate, date_end: endDate }, (data) => {
       setMonthlyExpenses(data);
     });
 
-    const qCustomers = query(collection(db, "users"), orderBy("updatedAt", "desc"));
-    const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data() })) as Customer[];
+    const unsubCustomers = api.users.subscribe((data) => {
       setCustomers(data);
     });
 
-    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        setMaintenanceMode(docSnap.data().maintenanceMode === true);
+    const unsubSettings = api.settings.subscribe("general", (data) => {
+      if (data) {
+        setMaintenanceMode(data.maintenanceMode === true);
       }
     });
 
@@ -179,11 +162,10 @@ const Admin = () => {
   const addBooking = async () => {
     if (!selectedDate || !newBooking.client_name || !newBooking.pack_name) return;
     try {
-      await addDoc(collection(db, "bookings"), { 
+      await api.bookings.create({ 
         ...newBooking, 
         booking_date: selectedDate, 
         created_by: "Admin",
-        created_at: new Date().toISOString(),
         confirmed: true
       });
       setNewBooking({ client_name: "", pack_name: "", booking_time: "10:00", num_people: 2, price: 0 }); 
@@ -199,11 +181,10 @@ const Admin = () => {
       toast({ title: "Valor inválido", description: "Por favor, insira um valor maior que zero.", variant: "destructive" }); return;
     }
     try {
-      await addDoc(collection(db, "expenses"), { 
+      await api.expenses.create({ 
         date: selectedDate, 
         type: expenseDialog.type, 
-        amount: expenseDialog.amount,
-        created_at: new Date().toISOString()
+        amount: expenseDialog.amount
       });
       toast({ title: "Despesa guardada!" }); 
       setExpenseDialog({ open: false, type: null, amount: 0 });
@@ -214,7 +195,7 @@ const Admin = () => {
 
   const removeBooking = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "bookings", id));
+      await api.bookings.delete(id);
       toast({ title: "Reserva removida", description: "A reserva foi eliminada com sucesso.", });
     } catch (e) {
       toast({ variant: "destructive", title: "Erro ao remover", description: "Não foi possível remover a reserva." });
@@ -223,7 +204,7 @@ const Admin = () => {
 
   const removeCustomer = async (uid: string) => {
     try {
-      await deleteDoc(doc(db, "users", uid));
+      await api.users.delete(uid);
       setSelectedCustomer(null);
       toast({ title: "Cliente removido", description: "O perfil do cliente foi eliminado com sucesso.", });
     } catch (e) {
@@ -237,7 +218,7 @@ const Admin = () => {
         return;
     }
     try {
-      await deleteDoc(doc(db, "expenses", id));
+      await api.expenses.delete(id);
       toast({ title: "Despesa removida!" });
     } catch (error: any) {
       toast({ title: "Erro ao remover despesa", description: error.message, variant: "destructive" });
@@ -246,7 +227,7 @@ const Admin = () => {
 
   const confirmBooking = async (id: string) => {
     try {
-      await updateDoc(doc(db, "bookings", id), { confirmed: true });
+      await api.bookings.update(id, { confirmed: true });
       toast({ title: "Reserva confirmada!" });
     } catch (error: any) {
       toast({ title: "Erro ao confirmar reserva", description: error.message, variant: "destructive" });
@@ -255,7 +236,7 @@ const Admin = () => {
 
   const setPaymentMethod = async (id: string, method: string) => {
     try {
-      await updateDoc(doc(db, "bookings", id), { payment_method: method });
+      await api.bookings.update(id, { payment_method: method });
       toast({ title: "Pagamento atualizado" });
     } catch (error: any) {
       toast({ title: "Erro ao atualizar pagamento", description: error.message, variant: "destructive" });
@@ -268,7 +249,7 @@ const Admin = () => {
       return;
     }
     try {
-      await setDoc(doc(db, "settings", "general"), { maintenanceMode: !maintenanceMode }, { merge: true });
+      await api.settings.save("general", { maintenanceMode: !maintenanceMode });
       toast({ title: `Modo de manutenção ${!maintenanceMode ? 'ativado' : 'desativado'}` });
       setMaintenanceDialog(false);
       setMaintenancePassword("");

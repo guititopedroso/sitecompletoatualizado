@@ -7,8 +7,7 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import BoatCatalog from "./BoatCatalog";
 import SectionWrapper from "./ui/section-wrapper";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { api } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -42,16 +41,8 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
   const { language, t } = useLanguage();
 
   useEffect(() => {
-    const q = query(collection(db, "tours"), orderBy("order", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as DynamicTour[];
+    const unsubscribe = api.tours.subscribe((data) => {
       setDynamicTours(data);
-      setLoadingTours(false);
-    }, (error) => {
-      console.error("Error fetching tours:", error);
       setLoadingTours(false);
     });
     return () => unsubscribe();

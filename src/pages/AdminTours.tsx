@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, writeBatch } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { api } from "@/lib/api";
 import { Trash2, Loader2, Plus, X, Save, Edit2, GripVertical, MapPin, Clock, Sparkles, Wand2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,9 +114,8 @@ export default function AdminTours() {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "tours"), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Tour[];
-      setTours(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
+    const unsub = api.tours.subscribe((data) => {
+      setTours(data);
       setLoading(false);
     });
     return () => unsub();
@@ -171,37 +168,43 @@ export default function AdminTours() {
         order: formData.order ?? (tours.length > 0 ? Math.max(...tours.map(t => t.order || 0)) + 1 : 0)
       };
 
-      // Strip undefined fields to prevent Firestore serialization errors
       const cleanedData = JSON.parse(JSON.stringify(finalData));
 
       let tourId = editingTour?.id;
       if (editingTour) {
-        await updateDoc(doc(db, "tours", editingTour.id), cleanedData);
+        await api.tours.update(editingTour.id, cleanedData);
       } else {
-        const ref = await addDoc(collection(db, "tours"), cleanedData);
+        const ref = await api.tours.create(cleanedData);
         tourId = ref.id;
       }
 
       // SINCRONIZAÇÃO MÁGICA
-      const batch = writeBatch(db);
       for (const opt of (cleanedData.extraOptions || [])) {
         if (!opt.name) continue;
-        tours.filter(t => t.id !== tourId).forEach(t => {
-           if (t.extraOptions && Array.isArray(t.extraOptions) && t.extraOptions.some(e => e && e.name === opt.name)) {
-             const updated = t.extraOptions.map(e => e && e.name === opt.name ? {...opt} : e);
-             batch.update(doc(db, "tours", t.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
-           }
-        });
-        const bSnap = await getDocs(collection(db, "boats"));
-        bSnap.forEach(bDoc => {
-           const bExtras = bDoc.data().extraOptions as any[] || [];
-           if (bExtras.some(e => e && e.name === opt.name)) {
-             const updated = bExtras.map(e => e && e.name === opt.name ? {...opt} : e);
-             batch.update(doc(db, "boats", bDoc.id), { extraOptions: JSON.parse(JSON.stringify(updated)) });
-           }
-        });
+        
+        // Sync in other tours
+        const otherTours = tours.filter(t => t.id !== tourId);
+        for (const t of otherTours) {
+          if (t.extraOptions && Array.isArray(t.extraOptions) && t.extraOptions.some(e => e && e.name === opt.name)) {
+            const updated = t.extraOptions.map(e => e && e.name === opt.name ? {...opt} : e);
+            await api.tours.update(t.id, { ...t, extraOptions: updated });
+          }
+        }
+
+        // Sync in boats
+        try {
+          const boatsList = await api.boats.getAll();
+          for (const b of boatsList) {
+            const bExtras = b.extraOptions || [];
+            if (bExtras.some((e: any) => e && e.name === opt.name)) {
+              const updated = bExtras.map((e: any) => e && e.name === opt.name ? {...opt} : e);
+              await api.boats.update(b.id, { ...b, extraOptions: updated });
+            }
+          }
+        } catch (boatErr) {
+          console.error("Error syncing with boats:", boatErr);
+        }
       }
-      await batch.commit();
 
       toast({ title: "✨ Experiência Publicada com Sucesso!" });
       resetForm();
@@ -216,7 +219,7 @@ export default function AdminTours() {
     setConfirmAction({
       title: "Confirmar Eliminação",
       description: `Tens a certeza que queres eliminar permanentemente o passeio "${t.name}"?`,
-      action: async () => { await deleteDoc(doc(db, "tours", t.id)); toast({ title: "Passeio Eliminado" }); },
+      action: async () => { await api.tours.delete(t.id); toast({ title: "Passeio Eliminado" }); },
     });
   };
 
@@ -225,18 +228,16 @@ export default function AdminTours() {
   const processFile = async (file: File) => {
     setUploading(true);
     try {
-      const storageRef = ref(storage, `tours/${Date.now()}-${file.name}`);
-      const snap = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snap.ref);
+      const res = await api.boats.uploadImage(file);
+      const url = res.url;
       setFormData(prev => ({ ...prev, images: [...(prev.images || []), url] }));
     } catch (e) {}
     setUploading(false);
   };
 
   const updateOrderInDb = async (list: Tour[]) => {
-    const batch = writeBatch(db);
-    list.forEach((t, i) => batch.update(doc(db, "tours", t.id), { order: i }));
-    await batch.commit();
+    const orders = list.map((t, i) => ({ id: t.id, order: i }));
+    await api.tours.updateOrder(orders);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {

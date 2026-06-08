@@ -4,8 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { api } from "@/lib/api";
 
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -31,14 +30,12 @@ const AppContent = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        setMaintenanceMode(docSnap.data().maintenanceMode === true);
+    const unsub = api.settings.subscribe("general", (data) => {
+      if (data && data.maintenanceMode !== undefined) {
+        setMaintenanceMode(data.maintenanceMode === true);
       } else {
         setMaintenanceMode(false);
       }
-    }, (err) => {
-      console.error("Error fetching maintenance state:", err);
     });
     return unsub;
   }, []);

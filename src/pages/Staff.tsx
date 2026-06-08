@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
+import { api } from "@/lib/api";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 const STAFF_PACKS = [
@@ -125,28 +124,21 @@ const Staff = () => {
       const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
       const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${getDaysInMonth(year, month)}`;
       
-      const q = query(
-        collection(db, "bookings"),
-        where("booking_date", ">=", startDate),
-        where("booking_date", "<=", endDate)
-      );
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ 
-          id: doc.id, 
-          ...doc.data(),
-          price: doc.data().price ?? getPriceFallback(doc.data().pack_name)
+      const unsubscribe = api.bookings.subscribe({ date_start: startDate, date_end: endDate }, (data) => {
+        const parsed = data.map(b => ({
+          ...b,
+          price: b.price ?? getPriceFallback(b.pack_name)
         })) as Booking[];
-        setBookings(data.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
+        setBookings(parsed.sort((a,b) => (a.booking_time || "").localeCompare(b.booking_time || "")));
         setLoading(false);
       });
 
-      const unsubTours = onSnapshot(collection(db, "tours"), (snap) => {
-        setTours(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const unsubTours = api.tours.subscribe((data) => {
+        setTours(data);
       });
 
-      const unsubBoats = onSnapshot(collection(db, "boats"), (snap) => {
-        setBoats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const unsubBoats = api.boats.subscribe((data) => {
+        setBoats(data);
       });
 
       return () => {
@@ -178,7 +170,7 @@ const Staff = () => {
     const durationStr = newBooking.duration ? ` (${newBooking.duration})` : "";
     const finalPackName = (newBooking.pack_fotos ? `${newBooking.pack_name}${durationStr} + Pack Fotos` : `${newBooking.pack_name}${durationStr}`);
     try {
-      await addDoc(collection(db, "bookings"), {
+      await api.bookings.create({
         client_name: newBooking.client_name,
         pack_name: finalPackName,
         booking_date: selectedDate,
@@ -189,8 +181,7 @@ const Staff = () => {
         referralCode: newBooking.referralCode || null,
         extras: newBooking.extras,
         notes: newBooking.notes || null,
-        created_by: staffName,
-        created_at: new Date().toISOString()
+        created_by: staffName
       });
       setNewBooking({ 
         client_name: "", 
@@ -213,7 +204,7 @@ const Staff = () => {
 
   const removeBooking = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "bookings", id));
+      await api.bookings.delete(id);
     } catch (error: any) {
       console.error("Error removing booking:", error);
     }
@@ -221,7 +212,7 @@ const Staff = () => {
 
   const setPaymentMethod = async (id: string, method: string) => {
     try {
-      await updateDoc(doc(db, "bookings", id), { payment_method: method });
+      await api.bookings.update(id, { payment_method: method });
     } catch (error: any) {
       console.error("Error setting payment method:", error);
     }
@@ -229,7 +220,7 @@ const Staff = () => {
 
   const confirmBooking = async (id: string) => {
     try {
-      await updateDoc(doc(db, "bookings", id), { confirmed: true });
+      await api.bookings.update(id, { confirmed: true });
     } catch (error: any) {
       console.error("Error confirming booking:", error);
     }
@@ -237,16 +228,8 @@ const Staff = () => {
 
   // Auto-delete unconfirmed past bookings
   const cleanupUnconfirmed = async () => {
-    const todayStr = new Date().toISOString().split("T")[0];
     try {
-      const q = query(
-        collection(db, "bookings"),
-        where("booking_date", "<", todayStr),
-        where("confirmed", "==", false)
-      );
-      const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(document => deleteDoc(doc(db, "bookings", document.id)));
-      await Promise.all(deletePromises);
+      await api.bookings.cleanupPastUnconfirmed();
     } catch (error: any) {
       console.error("Error cleaning up:", error);
     }

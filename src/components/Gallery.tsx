@@ -3,8 +3,7 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { motion } from "framer-motion";
 import SectionWrapper from "./ui/section-wrapper";
 import { Link } from "react-router-dom";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { api } from "@/lib/api";
 import { Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AnimatePresence } from "framer-motion";
@@ -26,16 +25,12 @@ const Gallery = () => {
     const fetchImages = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "gallery"), orderBy("created_at", "desc"), limit(4));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as any[];
+        const data = await api.gallery.getAll();
+        const limitedData = data.slice(0, 4);
 
-        if (data) {
+        if (limitedData) {
           const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
-          const formattedImages = data.map((img, i) => ({
+          const formattedImages = limitedData.map((img, i) => ({
               ...img,
               span: spans[i % spans.length],
           }));
