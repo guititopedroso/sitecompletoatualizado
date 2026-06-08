@@ -2,14 +2,14 @@
     RewriteEngine On
     RewriteBase /
 
-    # Serve static files directly
+    # Servir ficheiros e diretorias reais directamente (ex: /uploads/, /assets/)
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # PHP API - serve by Apache (nao redirecionar para index.html)
-    RewriteRule ^api/ - [L]
+    # API PHP — tratado pelo api/.htaccess
+    RewriteRule ^api(/|$) - [L]
 
-    # React Router - tudo o resto vai para index.html
+    # React Router SPA — tudo o resto vai para index.html
     RewriteRule ^ index.html [L]
 </IfModule>

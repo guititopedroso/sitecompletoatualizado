@@ -165,7 +165,8 @@ export default function AdminTours() {
         ...formData,
         slug: formData.slug || (formData.name ? formData.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') : ""),
         created_at: formData.created_at || new Date().toISOString(),
-        order: formData.order ?? (tours.length > 0 ? Math.max(...tours.map(t => t.order || 0)) + 1 : 0)
+        order: formData.order ?? (tours.length > 0 ? Math.max(...tours.map(t => t.order || 0)) + 1 : 0),
+        image: formData.images?.[0] || formData.image || ""
       };
 
       const cleanedData = JSON.parse(JSON.stringify(finalData));
