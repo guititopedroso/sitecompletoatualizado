@@ -13,9 +13,8 @@ define('DB_USER', 'u236076924_royalcoast');
 define('DB_PASS', 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
-// Pasta de uploads (relativa a public_html/)
-$uploadsDir = realpath(__DIR__ . '/..') . '/uploads/';
-define('UPLOADS_DIR', $uploadsDir);
+// Pasta de uploads — dirname() é mais fiável que realpath() em alguns servidores
+define('UPLOADS_DIR', dirname(__DIR__) . '/uploads/');
 define('UPLOADS_URL', '/uploads/');
 
 // --- Cabeçalhos CORS e Content-Type ---
@@ -74,8 +73,11 @@ function initTables() {
         slug VARCHAR(255) UNIQUE, packs TEXT, capacity INT,
         price4h VARCHAR(50), price8h VARCHAR(50), extraOptions TEXT,
         theme VARCHAR(50), tour_order INT DEFAULT 0, image VARCHAR(512),
+        images TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+    // Migração: adicionar coluna images se não existir
+    try { $pdo->exec('ALTER TABLE tours ADD COLUMN images TEXT'); } catch (Exception $e) {}
     $pdo->exec("CREATE TABLE IF NOT EXISTS gallery (
         id VARCHAR(128) PRIMARY KEY, url VARCHAR(512) NOT NULL,
         alt VARCHAR(255) DEFAULT 'Imagem da galeria',
@@ -317,6 +319,12 @@ if ($method === 'POST' && $seg === ['boats','upload']) {
 function parseTour($t) {
     $t['packs']       = $t['packs']       ? json_decode($t['packs'],true)       : [];
     $t['extraOptions']= $t['extraOptions']? json_decode($t['extraOptions'],true) : [];
+    // Decode images array; fallback to [image] so the frontend always gets an array
+    if ($t['images']) {
+        $t['images'] = json_decode($t['images'], true) ?: [];
+    } else {
+        $t['images'] = $t['image'] ? [$t['image']] : [];
+    }
     return $t;
 }
 
@@ -329,9 +337,11 @@ if ($method === 'GET' && $seg === ['tours']) {
 // POST /api/tours
 if ($method === 'POST' && $seg === ['tours']) {
     $d = getBody();
-    $id=genId('t-');
-    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$d['image']??'']);
+    $id = genId('t-');
+    $imgs = $d['images'] ?? [];
+    $img  = $d['image'] ?? ($imgs[0] ?? '');
+    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image,images) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs)]);
     respond(array_merge(['id'=>$id],$d));
 }
 
@@ -344,9 +354,11 @@ if ($method === 'PUT' && count($seg)===3 && $seg[0]==='tours' && $seg[1]==='orde
 
 // PUT /api/tours/:id
 if ($method === 'PUT' && count($seg)===2 && $seg[0]==='tours') {
-    $id=$seg[1]; $d=getBody();
-    getDB()->prepare('UPDATE tours SET name=?,slug=?,packs=?,capacity=?,price4h=?,price8h=?,extraOptions=?,theme=?,tour_order=?,image=? WHERE id=?')
-        ->execute([$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$d['image']??'',$id]);
+    $id  = $seg[1]; $d = getBody();
+    $imgs = $d['images'] ?? [];
+    $img  = $d['image'] ?? ($imgs[0] ?? '');
+    getDB()->prepare('UPDATE tours SET name=?,slug=?,packs=?,capacity=?,price4h=?,price8h=?,extraOptions=?,theme=?,tour_order=?,image=?,images=? WHERE id=?')
+        ->execute([$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs),$id]);
     respond(array_merge(['id'=>$id],$d));
 }
 
