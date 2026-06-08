@@ -674,6 +674,16 @@ app.delete('/api/users/:uid', async (req, res) => {
   }
 });
 
+// Serve static frontend files in production (React build)
+const distDir = path.join(__dirname, '../dist');
+app.use(express.static(distDir));
+
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+    res.sendFile(path.join(distDir, 'index.html'));
+  }
+});
+
 // Start Server
 app.listen(PORT, async () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
