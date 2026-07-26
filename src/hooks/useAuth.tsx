@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     return new Promise<void>((resolve, reject) => {
-      const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
+      const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "340938308657-ipo3qfp2ieka9o65nvj67f91uemvivcl.apps.googleusercontent.com";
       if (!clientId) {
         reject(new Error("VITE_GOOGLE_CLIENT_ID não está configurado no ficheiro .env. Por favor adicione o seu Client ID da consola Google Cloud no .env."));
         return;
