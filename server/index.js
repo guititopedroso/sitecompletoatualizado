@@ -651,6 +651,32 @@ async function sendWhatsAppMessage(to, body) {
   const metaPhoneId = process.env.META_WA_PHONE_ID || '1239529775907696';
   if (metaToken && metaPhoneId) {
     try {
+      if (templateParams && Array.isArray(templateParams)) {
+        const components = [{
+          type: 'body',
+          parameters: templateParams.map(val => ({ type: 'text', text: String(val) }))
+        }];
+        const respT = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${metaToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: cleanPhone,
+            type: 'template',
+            template: {
+              name: 'reserva_confirmada',
+              language: { code: 'pt_PT' },
+              components
+            }
+          })
+        });
+        const dataT = await respT.json();
+        if (dataT.messages && dataT.messages.length > 0) return true;
+      }
+
       const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
         method: 'POST',
         headers: {

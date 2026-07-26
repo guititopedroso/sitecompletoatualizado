@@ -443,7 +443,16 @@ const Booking = () => {
         body: {
           to: cleanClientPhone,
           message: clientWhatsAppMsg,
-          adminMessage: adminWhatsAppMsg
+          adminMessage: adminWhatsAppMsg,
+          templateParams: [
+            firstName.trim(),
+            finalPackName,
+            dateFormatted,
+            time || "",
+            location,
+            people,
+            totalPriceStr
+          ]
         }
       }).catch(() => null);
 
