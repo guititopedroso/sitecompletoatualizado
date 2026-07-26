@@ -396,11 +396,13 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $to = $b['to'] ?? '';
     $message = $b['message'] ?? '';
 
-    $sentClient = sendWhatsAppMessage($to, $message);
+    $metaResult = sendWhatsAppMessage($to, $message);
+    $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
 
     respond([
         'success' => true,
-        'clientSent' => (bool)$sentClient
+        'clientSent' => !empty($parsed['messages']),
+        'raw' => $parsed ?: $metaResult
     ]);
 }
 

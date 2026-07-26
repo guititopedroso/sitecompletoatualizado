@@ -651,7 +651,7 @@ async function sendWhatsAppMessage(to, body) {
   const metaPhoneId = process.env.META_WA_PHONE_ID || '1239529775907696';
   if (metaToken && metaPhoneId) {
     try {
-      await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+      const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${metaToken}`,
@@ -664,7 +664,10 @@ async function sendWhatsAppMessage(to, body) {
           text: { body }
         })
       });
-      return true;
+      const data = await resp.json();
+      console.log('📱 Meta WA API Response:', JSON.stringify(data));
+      if (data.messages && data.messages.length > 0) return true;
+      if (data.error) console.error('📱 Meta WA API Error:', data.error.message);
     } catch (e) {
       console.error('Meta WA API Error:', e.message);
     }
