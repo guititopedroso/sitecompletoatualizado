@@ -1,0 +1,100 @@
+{
+  "users": [],
+  "boats": [
+    {
+      "id": "b-1",
+      "name": "Sea-Doo GTI 130",
+      "size": "3.3m",
+      "engine": "130 HP Rotax",
+      "capacity": 3,
+      "price4h": "180€",
+      "price8h": "280€",
+      "images": "[\"https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80\"]",
+      "slug": "sea-doo-gti-130",
+      "range_type": "mid",
+      "boat_order": 1,
+      "image": "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80",
+      "features": "[\"Coletes de Salvação\",\"Sistema de Áudio Bluetooth\",\"Modo Eco/Sport\"]",
+      "cost4h": "100€",
+      "cost8h": "150€",
+      "useMarkup4h": 0,
+      "useMarkup8h": 0,
+      "deliveryCost4h": "",
+      "deliveryCost8h": "",
+      "useDelivery4h": 0,
+      "useDelivery8h": 0,
+      "extraOptions": "[]"
+    },
+    {
+      "id": "b-2",
+      "name": "Yamaha FX Cruiser SVHO",
+      "size": "3.58m",
+      "engine": "250 HP Supercharged",
+      "capacity": 3,
+      "price4h": "230€",
+      "price8h": "350€",
+      "images": "[\"https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80\"]",
+      "slug": "yamaha-fx-cruiser",
+      "range_type": "high",
+      "boat_order": 2,
+      "image": "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80",
+      "features": "[\"Ecran Tátil 7\\\"\",\"Som ConnecTV\",\"Cruise Control\"]",
+      "cost4h": "140€",
+      "cost8h": "200€",
+      "useMarkup4h": 0,
+      "useMarkup8h": 0,
+      "deliveryCost4h": "",
+      "deliveryCost8h": "",
+      "useDelivery4h": 0,
+      "useDelivery8h": 0,
+      "extraOptions": "[]"
+    }
+  ],
+  "tours": [
+    {
+      "id": "t-1",
+      "name": "Passeio Arrábida & Tróia",
+      "slug": "passeio-arrabida",
+      "packs": "[{\"name\":\"Pack Básico\",\"price\":150}]",
+      "capacity": 6,
+      "price4h": "200€",
+      "price8h": "350€",
+      "extraOptions": "[]",
+      "theme": "ocean",
+      "tour_order": 1,
+      "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "gallery": [],
+  "bookings": [
+    {
+      "id": "bk-kjlu2dq61wc",
+      "client_name": "Teste Localhost",
+      "client_email": null,
+      "client_phone": null,
+      "pack_name": "Pack Básico",
+      "extra_preferences": "{}",
+      "extra_durations": "{}",
+      "extra_start_times": "{}",
+      "booking_date": "2026-08-01",
+      "booking_time": null,
+      "num_people": 1,
+      "location": null,
+      "referralCode": null,
+      "price": 150,
+      "confirmed": 0,
+      "payment_method": null,
+      "created_by": null,
+      "extras": "{}",
+      "notes": null,
+      "created_at": "2026-07-25T14:07:07.531Z"
+    }
+  ],
+  "expenses": [],
+  "settings": [
+    {
+      "key_name": "general",
+      "val_data": "{\"maintenanceMode\":false}"
+    }
+  ]
+}

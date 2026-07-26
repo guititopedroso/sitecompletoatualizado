@@ -6,7 +6,15 @@ const Maintenance = () => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
       {/* Background Video */}
       <motion.div className="absolute inset-0 z-0">
-        <video autoPlay loop muted playsInline className="w-full h-[120%] object-cover">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster="/hero-poster.jpg"
+          preload="auto"
+          className="w-full h-[120%] object-cover"
+        >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
       </motion.div>

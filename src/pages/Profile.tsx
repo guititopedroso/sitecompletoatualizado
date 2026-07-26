@@ -22,15 +22,17 @@ import {
   Phone,
   Baby,
   AlertTriangle,
-  Trash2
+  Trash2,
+  XCircle
 } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { api } from "@/lib/api";
+import { api, fetchApi } from "@/lib/api";
 import { format, isAfter, isBefore, parseISO, startOfToday } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +75,8 @@ const Profile = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
+  const [cancellingLoading, setCancellingLoading] = useState(false);
 
   // Settings state
   const [firstName, setFirstName] = useState("");
@@ -220,6 +224,40 @@ const Profile = () => {
       toast({ title: "Até breve!", description: "Sessão terminada." });
     } catch (e) {
       toast({ title: "Erro ao sair", variant: "destructive" });
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelModalBooking) return;
+    setCancellingLoading(true);
+    try {
+      await api.bookings.delete(cancelModalBooking.id);
+
+      // Notify via WhatsApp (fails silently if API not configured)
+      if (cancelModalBooking.client_phone) {
+        const cleanPhone = cancelModalBooking.client_phone.replace(/\D/g, "");
+        const cancelMsg = `⚠️ *ROYALCOAST - RESERVA CANCELADA* ⚠️\n\nA tua reserva para *${cancelModalBooking.pack_name}* do dia *${cancelModalBooking.booking_date}* foi cancelada com sucesso.`;
+        fetchApi("/api/notify/whatsapp", {
+          method: "POST",
+          body: { to: cleanPhone, message: cancelMsg }
+        }).catch(() => null);
+      }
+
+      setBookings(prev => prev.filter(b => b.id !== cancelModalBooking.id));
+      toast({
+        title: "Reserva Cancelada",
+        description: "A tua reserva foi cancelada com sucesso.",
+      });
+      setCancelModalBooking(null);
+    } catch (err) {
+      console.error("Cancel booking error:", err);
+      toast({
+        title: "Erro ao cancelar",
+        description: "Ocorreu um problema ao cancelar a reserva. Tenta novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setCancellingLoading(false);
     }
   };
 
@@ -642,14 +680,20 @@ const Profile = () => {
                                  </div>
                               </div>
 
-                              <div className="px-8 pb-8 flex items-center justify-between">
+                              <div className="px-8 pb-8 flex items-center justify-between border-t border-border/40 pt-4">
                                  <div className="flex items-center gap-3 bg-primary/5 px-4 py-2 rounded-xl border border-primary/10">
                                     <ShieldCheck size={14} className="text-primary" />
                                     <span className="text-[10px] font-900 text-primary uppercase tracking-widest">Reserva Validada</span>
                                  </div>
-                                 <button className="text-primary text-xs font-bold uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
-                                    Ver Detalhes <ChevronRight size={14} />
-                                 </button>
+                                 {activeTab === "active" && (
+                                    <Button
+                                       variant="ghost"
+                                       onClick={() => setCancelModalBooking(booking)}
+                                       className="text-destructive hover:bg-destructive/10 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 rounded-xl h-10 px-3"
+                                    >
+                                       <XCircle size={15} /> Cancelar Reserva
+                                    </Button>
+                                 )}
                               </div>
                            </div>
                         ))
@@ -684,6 +728,39 @@ const Profile = () => {
             </p>
          </div>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={!!cancelModalBooking} onOpenChange={(open) => !open && setCancelModalBooking(null)}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-2">
+              <AlertTriangle size={24} />
+            </div>
+            <DialogTitle className="font-display text-2xl font-900 text-foreground">Cancelar Reserva?</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground font-medium leading-relaxed pt-2">
+              Tens a certeza de que pretendes cancelar a tua reserva de <strong className="text-foreground">{cancelModalBooking?.pack_name}</strong> agendada para o dia <strong className="text-foreground">{cancelModalBooking?.booking_date}</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setCancelModalBooking(null)}
+              disabled={cancellingLoading}
+              className="flex-1 rounded-xl h-12 font-display font-800 text-xs uppercase tracking-wider"
+            >
+              Manter Reserva
+            </Button>
+            <Button
+              onClick={handleConfirmCancel}
+              disabled={cancellingLoading}
+              className="flex-1 bg-destructive hover:bg-destructive/90 text-white rounded-xl h-12 font-display font-800 text-xs uppercase tracking-wider shadow-lg shadow-destructive/20"
+            >
+              {cancellingLoading ? <Loader2 size={16} className="animate-spin" /> : "Sim, Cancelar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

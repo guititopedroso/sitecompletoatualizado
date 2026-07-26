@@ -15,7 +15,15 @@ const Hero = () => {
   return (
     <section id="hero" ref={ref} className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
       <motion.div className="absolute inset-0">
-        <video autoPlay loop muted playsInline className="w-full h-[120%] object-cover">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster="/hero-poster.jpg"
+          preload="auto"
+          className="w-full h-[120%] object-cover"
+        >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
       </motion.div>

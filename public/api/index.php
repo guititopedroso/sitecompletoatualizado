@@ -13,6 +13,43 @@ define('DB_USER', 'u236076924_royalcoast');
 define('DB_PASS', 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
+define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSA8ZCX1sTY2ZBLgmjSzxpLUm0fl9uIj4OCQX8bVB4dlZBfqYF1gBWOErJGzu4w0hMJunHMZA7NokYzumaxcGB0ZCzbq1pSMyZB1RxZAFJ2rqBwaZCLFJMZCS7Jeh4twpmUkeREQT5jE20CbsFZBwEE36mvK2hR8ZAugmEHZAhupZCZAz257nm57izLQPkA5AZDZD');
+define('META_WA_PHONE_ID_DEFAULT', '1239529775907696');
+
+// --- Carregar variáveis do ficheiro .env ---
+function loadEnv() {
+    static $envLoaded = false;
+    if ($envLoaded) return;
+    $envLoaded = true;
+
+    $possiblePaths = [
+        dirname(__DIR__) . '/.env',
+        dirname(__DIR__, 2) . '/.env',
+        $_SERVER['DOCUMENT_ROOT'] . '/.env'
+    ];
+
+    foreach ($possiblePaths as $envPath) {
+        if (file_exists($envPath)) {
+            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || strpos($line, '#') === 0) continue;
+                if (strpos($line, '=') !== false) {
+                    list($key, $value) = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value);
+                    if (!getenv($key)) {
+                        putenv("{$key}={$value}");
+                        $_ENV[$key] = $value;
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+loadEnv();
+
 // Pasta de uploads — dirname() é mais fiável que realpath() em alguns servidores
 define('UPLOADS_DIR', dirname(__DIR__) . '/uploads/');
 define('UPLOADS_URL', '/uploads/');
@@ -211,6 +248,160 @@ if ($method === 'POST' && $seg === ['auth','register']) {
     getDB()->prepare('INSERT INTO users (uid,email,displayName,password_hash,referralCode) VALUES (?,?,?,?,?)')->execute([$uid,$b['email'],$name,$hash,$ref]);
     $token = jwtEncode(['uid'=>$uid,'email'=>$b['email'],'exp'=>time()+30*86400]);
     respond(['token'=>$token,'user'=>['uid'=>$uid,'email'=>$b['email'],'displayName'=>$name,'referralCode'=>$ref]]);
+}
+
+// POST /api/auth/google
+if ($method === 'POST' && $seg === ['auth','google']) {
+    $b = getBody();
+    $email = $b['email'] ?? '';
+    $name  = trim($b['displayName'] ?? $b['name'] ?? 'Utilizador Google');
+    $photo = $b['photoURL'] ?? $b['picture'] ?? null;
+    $gId   = $b['sub'] ?? $b['googleId'] ?? bin2hex(random_bytes(6));
+
+    if (empty($email)) respond(['error' => 'Email do Google em falta'], 400);
+
+    $stmt = getDB()->prepare('SELECT * FROM users WHERE email = ?');
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        $uid  = 'g-' . $gId;
+        $ref  = strtolower(substr(preg_replace('/\s+/','',$name),0,5)) . '-' . substr(md5(rand()),0,4);
+        $hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+        getDB()->prepare('INSERT INTO users (uid,email,displayName,photoURL,provider,referralCode,password_hash) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$uid, $email, $name, $photo, 'google.com', $ref, $hash]);
+
+        $user = [
+            'uid' => $uid, 'email' => $email, 'displayName' => $name,
+            'photoURL' => $photo, 'provider' => 'google.com', 'referralCode' => $ref,
+            'firstName' => null, 'lastName' => null, 'phonePrefix' => null,
+            'phoneNumber' => null, 'birthDate' => null
+        ];
+    } else {
+        if ($photo && $photo !== $user['photoURL']) {
+            getDB()->prepare('UPDATE users SET photoURL = ?, updatedAt = NOW() WHERE uid = ?')->execute([$photo, $user['uid']]);
+            $user['photoURL'] = $photo;
+        }
+        getDB()->prepare('UPDATE users SET lastLogin = NOW() WHERE uid = ?')->execute([$user['uid']]);
+    }
+
+    $token = jwtEncode(['uid' => $user['uid'], 'email' => $user['email'], 'exp' => time() + 30 * 86400]);
+    respond(['token' => $token, 'user' => [
+        'uid' => $user['uid'], 'email' => $user['email'], 'displayName' => $user['displayName'],
+        'photoURL' => $user['photoURL'], 'provider' => $user['provider'] ?? 'google.com', 'referralCode' => $user['referralCode'],
+        'firstName' => $user['firstName'] ?? null, 'lastName' => $user['lastName'] ?? null,
+        'phonePrefix' => $user['phonePrefix'] ?? null, 'phoneNumber' => $user['phoneNumber'] ?? null, 'birthDate' => $user['birthDate'] ?? null
+    ]]);
+}
+
+function sendWhatsAppMessage($to, $body) {
+    $cleanPhone = preg_replace('/\D/', '', $to);
+    if (empty($cleanPhone) || empty($body)) return false;
+
+    // 1. Green API (100% Gratuito - Developer Plan)
+    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: '';
+    $greenToken    = getenv('GREEN_API_TOKEN') ?: '';
+    if ($greenInstance && $greenToken) {
+        $url = "https://api.green-api.com/waInstance{$greenInstance}/sendMessage/{$greenToken}";
+        $chatId = $cleanPhone . "@c.us";
+        $data = json_encode([
+            'chatId' => $chatId,
+            'message' => $body
+        ]);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        $res = curl_exec($ch);
+        curl_close($ch);
+        return $res;
+    }
+
+    // 1. CallMeBot (100% Gratuito)
+    $callMeBotKey = getenv('CALLMEBOT_API_KEY') ?: '';
+    if ($callMeBotKey) {
+        $url = "https://api.callmebot.com/whatsapp.php?phone=" . urlencode($cleanPhone) . "&text=" . urlencode($body) . "&apikey=" . urlencode($callMeBotKey);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $res = curl_exec($ch);
+        curl_close($ch);
+        return $res;
+    }
+
+    // 2. Meta WhatsApp Cloud API (Oficial - 1.000 Mensagens Grátis / mês)
+    $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
+    $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
+    if ($metaToken && $metaPhoneId) {
+        $url = "https://graph.facebook.com/v19.0/{$metaPhoneId}/messages";
+        $data = json_encode([
+            'messaging_product' => 'whatsapp',
+            'to' => $cleanPhone,
+            'type' => 'text',
+            'text' => ['body' => $body]
+        ]);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "Authorization: Bearer {$metaToken}",
+            "Content-Type: application/json"
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        $res = curl_exec($ch);
+        curl_close($ch);
+        return $res;
+    }
+
+    // 3. UltraMsg / Green API
+    $instanceId = getenv('WHATSAPP_INSTANCE_ID') ?: '';
+    $token      = getenv('WHATSAPP_TOKEN') ?: getenv('WHATSAPP_API_TOKEN') ?: '';
+    $apiUrl     = getenv('WHATSAPP_API_URL') ?: '';
+
+    if ($instanceId && $token) {
+        $url = "https://api.ultramsg.com/{$instanceId}/messages/chat";
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+            'token' => $token,
+            'to'    => $cleanPhone,
+            'body'  => $body
+        ]));
+        $res = curl_exec($ch);
+        curl_close($ch);
+        return $res;
+    }
+
+    if ($apiUrl && $token) {
+        $ch = curl_init($apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+            'token' => $token,
+            'to'    => $cleanPhone,
+            'body'  => $body
+        ]));
+        $res = curl_exec($ch);
+        curl_close($ch);
+        return $res;
+    }
+
+    return false;
+}
+
+// POST /api/notify/whatsapp
+if ($method === 'POST' && $seg === ['notify','whatsapp']) {
+    $b = getBody();
+    $to = $b['to'] ?? '';
+    $message = $b['message'] ?? '';
+
+    $sentClient = sendWhatsAppMessage($to, $message);
+
+    respond([
+        'success' => true,
+        'clientSent' => (bool)$sentClient
+    ]);
 }
 
 // GET /api/auth/me

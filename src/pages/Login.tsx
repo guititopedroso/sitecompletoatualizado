@@ -33,15 +33,7 @@ const Login = () => {
       navigate(redirectTo);
     } catch (error: any) {
       console.error("Google Login Error:", error);
-      let message = "Não foi possível entrar com a conta Google.";
-      
-      if (error.code === "auth/popup-closed-by-user") {
-        message = "A janela de login foi fechada antes de terminar.";
-      } else if (error.code === "auth/popup-blocked") {
-        message = "O teu navegador bloqueou a janela de login. Por favor, ativa os popups.";
-      } else if (error.code === "auth/unauthorized-domain") {
-        message = "Este domínio não está autorizado na consola Firebase.";
-      }
+      const message = error.message || "Não foi possível entrar com a conta Google.";
 
       toast({
         title: "Erro no login",

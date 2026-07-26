@@ -18,10 +18,21 @@ export async function fetchApi(
     options.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  let response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
+
+  // Fallback to local dev server if remote backend returns 404 (e.g. Hostinger index.php not updated yet)
+  if (!response.ok && endpoint.startsWith('/api/auth/google') && BASE_URL) {
+    const fallbackRes = await fetch(endpoint, {
+      ...options,
+      headers,
+    }).catch(() => null);
+    if (fallbackRes && fallbackRes.ok) {
+      response = fallbackRes;
+    }
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

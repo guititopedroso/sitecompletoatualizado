@@ -59,9 +59,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signInWithGoogle = async () => {
-    throw new Error(
-      "O início de sessão com o Google requer a configuração de OAuth 2.0 no backend MySQL. Por favor, registe-se ou inicie sessão com Email e Password."
-    );
+    return new Promise<void>((resolve, reject) => {
+      const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
+      if (!clientId) {
+        reject(new Error("VITE_GOOGLE_CLIENT_ID não está configurado no ficheiro .env. Por favor adicione o seu Client ID da consola Google Cloud no .env."));
+        return;
+      }
+
+      const loadGsiScript = () => {
+        if ((window as any).google?.accounts?.oauth2) {
+          return Promise.resolve();
+        }
+        return new Promise<void>((res, rej) => {
+          const script = document.createElement("script");
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.defer = true;
+          script.onload = () => res();
+          script.onerror = () => rej(new Error("Erro ao carregar Google Identity Services SDK"));
+          document.head.appendChild(script);
+        });
+      };
+
+      loadGsiScript().then(() => {
+        const client = (window as any).google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "email profile openid",
+          error_callback: (err: any) => {
+            console.error("Google GIS Error Callback:", err);
+            reject(new Error(err.message || "A janela do Google foi fechada ou o domínio não está autorizado nas credenciais da Google."));
+          },
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse.error) {
+              reject(new Error(tokenResponse.error_description || tokenResponse.error || "Erro no login Google"));
+              return;
+            }
+            try {
+              const userInfo = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+              }).then(r => r.json());
+
+              if (!userInfo.email) {
+                throw new Error("Não foi possível obter o email da conta Google.");
+              }
+
+              const res = await fetchApi("/api/auth/google", {
+                method: "POST",
+                body: {
+                  email: userInfo.email,
+                  displayName: userInfo.name || userInfo.email.split("@")[0],
+                  photoURL: userInfo.picture,
+                  sub: userInfo.sub
+                }
+              });
+
+              localStorage.setItem("rc_token", res.token);
+              setUser(res.user);
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }
+        });
+        client.requestAccessToken();
+      }).catch(reject);
+    });
   };
 
   const signInWithEmail = async (email: string, pass: string) => {

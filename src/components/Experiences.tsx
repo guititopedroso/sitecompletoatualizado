@@ -121,6 +121,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
   const tabs = [
     { id: "jetski", label: t("exp_tab_jetski") },
+    { id: "barcos", label: t("exp_tab_boats") },
     { id: "passeios", label: "Passeios Turísticos" },
   ];
 
@@ -272,8 +273,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
                           <Button 
                             onClick={() => {
-                              const el = document.getElementById("contactos");
-                              if (el) el.scrollIntoView({ behavior: "smooth" });
+                              navigate(`/reservar?pack=${pack.slug}${referralCode ? `&ref=${referralCode}` : ""}`);
                             }}
                             className={cn(
                               "w-full rounded-2xl py-5 font-display font-900 uppercase tracking-wide text-[10px] xl:text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl text-white px-2",
@@ -283,7 +283,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                               pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30"
                             )}
                           >
-                            {language === "pt" ? "Contacta-nos para reservar" : language === "es" ? "Contáctanos para reservar" : language === "fr" ? "Contactez-nous pour réserver" : language === "de" ? "Kontaktiere uns zur Buchung" : language === "zh" ? "联系我们进行预订" : "Contact us to book"}
+                            {t("exp_book_now")}
                           </Button>
                         </div>
                       </motion.div>
@@ -589,8 +589,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
                       <motion.button
                         onClick={() => {
-                          const el = document.getElementById("contactos");
-                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                          navigate(`/reservar?pack=${pkg.slug}${referralCode ? `&ref=${referralCode}` : ""}`);
                         }}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
@@ -600,7 +599,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                             : "ocean-gradient text-primary-foreground shadow-ocean"
                         }`}
                       >
-                        {language === "pt" ? "Contacta-nos para reservar" : language === "es" ? "Contáctanos para reservar" : language === "fr" ? "Contactez-nous pour réserver" : language === "de" ? "Kontaktiere uns zur Buchung" : language === "zh" ? "联系我们进行预订" : "Contact us to book"}
+                        {t("exp_book_now")}
                       </motion.button>
                     </motion.div>
                   ))}

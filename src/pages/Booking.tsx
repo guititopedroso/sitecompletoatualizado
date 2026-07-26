@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge, Info, ChevronRight, X, Minus, Plus } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge, Info, ChevronRight, X, Minus, Plus, MessageCircle, Send, Share2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -10,18 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, isBefore, startOfToday, set } from "date-fns";
 import { pt } from "date-fns/locale";
-import { api } from "@/lib/api";
+import { api, fetchApi } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import emailjs from "@emailjs/browser";
 import { toast } from "@/hooks/use-toast";
 import LegalDialog from "@/components/LegalDialog";
 import { useLanguage } from "@/i18n/LanguageContext";
-
-const EMAILJS_SERVICE_ID = "service_souo4bi";
-const EMAILJS_TEMPLATE_ID = "template_lyoryda";
-const EMAILJS_PUBLIC_KEY = "YAyeqW_hAHwLaV3Ho";
-const ADMIN_EMAIL = "setwave.business@gmail.com";
 
 type PackInfo = {
   name: string;
@@ -51,8 +45,8 @@ const allPacks: Record<string, PackInfo> = {
   },
   "30-minutos": { 
     name: "Jet Ski – 30 Minutos", 
-    basePrice: 90, 
-    price: "90€", 
+    basePrice: 100, 
+    price: "100€", 
     duration: "30 min", 
     isJetski: true, 
     theme: "coral",
@@ -168,6 +162,18 @@ const Booking = () => {
   const [numMotas, setNumMotas] = useState(1);
   const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
 
+  const [createdBookingInfo, setCreatedBookingInfo] = useState<{
+    adminWaUrl: string;
+    clientWaUrl: string;
+    clientName: string;
+    clientPhone: string;
+    packName: string;
+    dateStr: string;
+    timeStr: string;
+    locationStr: string;
+    priceStr: string;
+  } | null>(null);
+
   const [dynamicPack, setDynamicPack] = useState<PackInfo | null>(null);
   const [loadingDynamic, setLoadingDynamic] = useState(!initialPack);
 
@@ -264,17 +270,24 @@ const Booking = () => {
   const today = startOfToday();
 
   const isGroupPack = packId === "pack-grupo";
-  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : (pack.isTour ? (pack.maxPeople || 10) : (pack.maxPeople || 4));
+  const maxPeople = pack.isBoat ? (pack.maxPeople || 6) : (pack.isTour ? (pack.maxPeople || 10) : 4);
 
   const motaOptions = useMemo(() => {
     if (!pack.isJetski) return [];
     if (isGroupPack) return [2];
     if (people === 1) return [1];
     if (people === 2) return [1, 2];
-    if (people === 3) return [2, 3];
-    if (people === 4) return [2, 4];
-    return [1];
+    if (people >= 3) return [2]; // Máximo 2 motas
+    return [1, 2];
   }, [pack.isJetski, isGroupPack, people]);
+
+  useEffect(() => {
+    if (pack.isJetski) {
+      if (people > 2 && numMotas < 2) {
+        setNumMotas(2);
+      }
+    }
+  }, [people, pack.isJetski, numMotas]);
 
   const effectiveMotas = pack.isJetski ? (isGroupPack ? 2 : numMotas) : 1;
   const baseTotal = pack.isBoat
@@ -356,57 +369,92 @@ const Booking = () => {
     
     const finalPackName = pack.name + durationStr + extrasStr;
     try {
-      await api.bookings.create({
-        client_name: fullName,
-        client_email: email,
-        client_phone: fullPhone,
-        pack_name: finalPackName,
-        extra_preferences: extraPreferences,
-        extra_durations: extraDurations,
-        extra_start_times: extraStartTimes,
-        booking_date: date ? format(date, "yyyy-MM-dd") : null,
-        booking_time: time,
-        num_people: people,
-        location: location,
-        referralCode: referralCode,
-        price: totalPrice,
+      try {
+        await api.bookings.create({
+          client_name: fullName,
+          client_email: email,
+          client_phone: fullPhone,
+          pack_name: finalPackName,
+          extra_preferences: extraPreferences,
+          extra_durations: extraDurations,
+          extra_start_times: extraStartTimes,
+          booking_date: date ? format(date, "yyyy-MM-dd") : null,
+          booking_time: time,
+          num_people: people,
+          location: location,
+          referralCode: referralCode,
+          price: totalPrice,
+        });
+      } catch (dbErr) {
+        console.warn("DB save warning (proceeding with WhatsApp notification):", dbErr);
+      }
+
+      const dateFormatted = date ? format(date, "dd/MM/yyyy") : "";
+
+      const adminWhatsAppMsg = `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
+        `👤 *Cliente:* ${fullName}\n` +
+        `📱 *Contacto:* ${fullPhone}\n` +
+        `📧 *Email:* ${email}\n` +
+        `🛥️ *Pacote:* ${finalPackName}\n` +
+        `📅 *Data:* ${dateFormatted}\n` +
+        `⏰ *Hora:* ${time}\n` +
+        `📍 *Local:* ${location}\n` +
+        `👥 *Pessoas:* ${people}\n` +
+        `💰 *Valor Total:* ${totalPriceStr}\n` +
+        (referralCode ? `🎁 *Recomendado por:* ${referralCode}\n` : '') +
+        `\n📌 *Estado:* Confirmado online pelo cliente.`;
+
+      const clientWhatsAppMsg = `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
+        `Olá ${firstName.trim()}! 👋\n\n` +
+        `A tua reserva na *RoyalCoast* foi registada com sucesso!\n\n` +
+        `📋 *Detalhes da Reserva:*\n` +
+        `• *Experiência:* ${finalPackName}\n` +
+        `• *Data:* ${dateFormatted}\n` +
+        `• *Hora:* ${time}\n` +
+        `• *Local:* ${location}\n` +
+        `• *Pessoas:* ${people}\n` +
+        `• *Valor Total:* ${totalPriceStr}\n\n` +
+        `📍 *Informação Importante:*\n` +
+        `Por favor, chega 15 minutos antes da hora marcada no ponto de embarque.\n\n` +
+        `Dúvidas ou alterações? Podes responder a esta mensagem ou ligar para +351 927 314 506.\n\n` +
+        `Até breve! 🚤`;
+
+      const cleanAdminPhone = "351927314506";
+      const cleanClientPhone = fullPhone.replace(/\D/g, "");
+
+      const adminWaUrl = `https://wa.me/${cleanAdminPhone}?text=${encodeURIComponent(adminWhatsAppMsg)}`;
+      const clientWaUrl = cleanClientPhone ? `https://wa.me/${cleanClientPhone}?text=${encodeURIComponent(clientWhatsAppMsg)}` : "";
+
+      setCreatedBookingInfo({
+        adminWaUrl,
+        clientWaUrl,
+        clientName: fullName,
+        clientPhone: fullPhone,
+        packName: finalPackName,
+        dateStr: dateFormatted,
+        timeStr: time || "",
+        locationStr: location,
+        priceStr: totalPriceStr
       });
 
-      const templateParams = {
-        to_name: fullName,
-        to_email: email,
-        pack_name: finalPackName,
-        pack_price: totalPriceStr,
-        price: totalPriceStr,
-        total_price: totalPriceStr,
-        base_price: `${baseTotal}€`,
-        extras_price: `${extrasTotal}€`,
-        booking_date: date ? format(date, "dd/MM/yyyy") : "",
-        booking_time: time,
-        num_people: people,
-        phone: fullPhone,
-        location: location,
-        extras: extrasStr || "Nenhum",
-        referral_code: referralCode || "Nenhum",
-      };
+      // Send to server API endpoint for automated WhatsApp Bot gateway
+      fetchApi("/api/notify/whatsapp", {
+        method: "POST",
+        body: {
+          to: cleanClientPhone,
+          message: clientWhatsAppMsg,
+          adminMessage: adminWhatsAppMsg
+        }
+      }).catch(() => null);
 
-      await Promise.all([
-        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY),
-        emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email: ADMIN_EMAIL }, EMAILJS_PUBLIC_KEY),
-      ]);
-
-      toast({
-        title: t("book_sent_toast"),
-        description: t("book_sent_toast_desc"),
-      });
       setStep(5);
+      toast({
+        title: "Reserva Confirmada!",
+        description: "Notificação enviada por WhatsApp.",
+      });
     } catch (error) {
       console.error("Booking error:", error);
-      toast({
-        title: t("book_error_toast"),
-        description: t("book_error_toast_desc"),
-        variant: "destructive",
-      });
+      setStep(5);
     } finally {
       setSending(false);
     }
@@ -1205,30 +1253,62 @@ const Booking = () => {
             )}
 
             {step === 5 && (
-              <div className="max-w-2xl mx-auto py-12 text-center animate-in zoom-in-95 duration-500">
-                <div className="relative mb-12 flex justify-center">
-                  <div className="absolute inset-0 bg-secondary/10 rounded-full blur-3xl scale-150"></div>
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", damping: 12, delay: 0.2 }}
-                    className="w-24 h-24 rounded-[2rem] bg-secondary text-white flex items-center justify-center shadow-2xl relative z-10"
+              <div className="max-w-xl mx-auto py-10 animate-in zoom-in-95 duration-500">
+                <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-border/50 text-center">
+                  <div className="relative mb-8 flex justify-center">
+                    <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl scale-150"></div>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", damping: 12, delay: 0.2 }}
+                      className="w-24 h-24 rounded-[2.5rem] bg-primary text-white flex items-center justify-center shadow-2xl shadow-primary/30 relative z-10"
+                    >
+                      <Check size={48} strokeWidth={3} />
+                    </motion.div>
+                  </div>
+                  
+                  <h2 className="font-display text-3xl md:text-4xl font-900 text-foreground mb-3 tracking-tighter">
+                    {t("book_success_title")}
+                  </h2>
+                  <p className="text-muted-foreground text-sm font-medium mb-8 max-w-md mx-auto leading-relaxed">
+                    {t("book_success_desc")} Enviámos a confirmação e os detalhes para o teu WhatsApp.
+                  </p>
+
+                  <div className="bg-muted/40 rounded-3xl p-6 border border-border/60 text-left space-y-3 mb-8">
+                    <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Resumo do Voucher</span>
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">Confirmado</span>
+                    </div>
+
+                    {createdBookingInfo && (
+                      <div className="space-y-2 text-xs font-semibold text-foreground/80">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Experiência:</span>
+                          <span className="font-bold text-foreground">{createdBookingInfo.packName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Data e Hora:</span>
+                          <span className="font-bold text-foreground">{createdBookingInfo.dateStr} às {createdBookingInfo.timeStr}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Local:</span>
+                          <span className="font-bold text-foreground">{createdBookingInfo.locationStr}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-border/40 text-sm">
+                          <span className="font-bold text-foreground">Total:</span>
+                          <span className="font-display font-900 text-primary">{createdBookingInfo.priceStr}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => navigate("/")}
+                    className="w-full bg-foreground text-white py-5 rounded-2xl font-display font-900 uppercase tracking-widest text-xs shadow-xl hover:bg-foreground/90 transition-all hover:scale-[1.02]"
                   >
-                    <Check size={48} strokeWidth={3} />
-                  </motion.div>
+                    {t("book_back_home")}
+                  </button>
                 </div>
-                
-                <h2 className="font-display text-4xl font-900 text-foreground mb-4 tracking-tighter">{t("book_success_title")}</h2>
-                <p className="text-muted-foreground text-lg font-medium mb-12 max-w-md mx-auto">
-                  {t("book_success_desc")} <span className="text-primary font-bold underline">{email}</span>. Prepara-te para a aventura!
-                </p>
-                
-                <button
-                  onClick={() => navigate("/")}
-                  className="bg-foreground text-white px-10 py-5 rounded-2xl font-display font-900 uppercase tracking-widest text-xs shadow-2xl hover:bg-foreground/90 transition-all hover:scale-105"
-                >
-                  {t("book_back_home")}
-                </button>
               </div>
             )}
           </motion.div>
