@@ -8,7 +8,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import wwebjs from 'whatsapp-web.js';
+const { Client, LocalAuth } = wwebjs;
 import QRCode from 'qrcode';
 
 dotenv.config();
