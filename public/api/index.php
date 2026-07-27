@@ -13,8 +13,8 @@ define('DB_USER', 'u236076924_royalcoast');
 define('DB_PASS', 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
-define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSA8ZCX1sTY2ZBLgmjSzxpLUm0fl9uIj4OCQX8bVB4dlZBfqYF1gBWOErJGzu4w0hMJunHMZA7NokYzumaxcGB0ZCzbq1pSMyZB1RxZAFJ2rqBwaZCLFJMZCS7Jeh4twpmUkeREQT5jE20CbsFZBwEE36mvK2hR8ZAugmEHZAhupZCZAz257nm57izLQPkA5AZDZD');
-define('META_WA_PHONE_ID_DEFAULT', '1239529775907696');
+define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSM18vnK35UJCZCqv70bNZBdZA2kUXlo0yqBLjX2171jf2vn7nbKgoSDCNI93QzbN3hDSO5gjZCcbSI0ED3ARIULHoZAuumhTYs81uZBx8gXXVnWSZCqxemK5jou5etPRPzV25snjVTZBZAGDBXmKk4dSXxamnjfOinAiMVqUYXg83dnmHl3Fh0QZDZD');
+define('META_WA_PHONE_ID_DEFAULT', '1240632239137751');
 
 // --- Carregar variáveis do ficheiro .env ---
 function loadEnv() {
@@ -337,51 +337,11 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
         return $res;
     }
 
-    // 2. Meta WhatsApp Cloud API (Oficial - 1.000 Mensagens Grátis / mês)
+    // 2. Meta WhatsApp Cloud API (Oficial - Texto Direto)
     $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
     $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
     if ($metaToken && $metaPhoneId) {
-        $url = "https://graph.facebook.com/v19.0/{$metaPhoneId}/messages";
-
-        // Tentar enviar modelo de utilidade aprovado (funciona para QUALQUER cliente novo sem restrição de 24h)
-        if ($templateParams && is_array($templateParams)) {
-            $components = [
-                [
-                    'type' => 'body',
-                    'parameters' => array_map(function($val) {
-                        return ['type' => 'text', 'text' => (string)$val];
-                    }, $templateParams)
-                ]
-            ];
-            $dataTemplate = json_encode([
-                'messaging_product' => 'whatsapp',
-                'to' => $cleanPhone,
-                'type' => 'template',
-                'template' => [
-                    'name' => 'reserva_confirmada',
-                    'language' => ['code' => 'pt_PT'],
-                    'components' => $components
-                ]
-            ]);
-
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "Authorization: Bearer {$metaToken}",
-                "Content-Type: application/json"
-            ]);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $dataTemplate);
-            $resTemplate = curl_exec($ch);
-            curl_close($ch);
-
-            $parsedT = json_decode($resTemplate, true);
-            if (!empty($parsedT['messages'])) {
-                return $resTemplate;
-            }
-        }
-
-        // Fallback para envio de Texto Livre
+        $url = "https://graph.facebook.com/v20.0/{$metaPhoneId}/messages";
         $data = json_encode([
             'messaging_product' => 'whatsapp',
             'to' => $cleanPhone,
