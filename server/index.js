@@ -60,13 +60,13 @@ async function initBaileys() {
       if (connection === 'close') {
         waSock = null;
         const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-        console.log('📱 Ligação WhatsApp terminada. A tentar reconetar...', shouldReconnect);
-        if (shouldReconnect) {
-          setTimeout(initBaileys, 3000);
-        } else {
-          waStatus = 'DISCONNECTED';
+        console.log('📱 Ligação WhatsApp terminada. Código:', statusCode);
+        if (statusCode === DisconnectReason.loggedOut) {
+          console.log('🧹 Sessão expirada/terminada. A limpar credenciais para novo QR Code...');
+          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
         }
+        console.log('📱 A reconectar WhatsApp em 3 segundos...');
+        setTimeout(initBaileys, 3000);
       }
     });
 
