@@ -8,76 +8,94 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers } from '@whiskeysockets/baileys';
+import { Client, LocalAuth } from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 
 dotenv.config();
 
-let waSock = null;
+let waClient = null;
 let currentQrCode = null;
 let waStatus = 'DISCONNECTED';
 
-async function initBaileys() {
-  try {
-    console.log('⚡ A iniciar motor de WhatsApp (Baileys)...');
-    waStatus = 'CONNECTING';
-
-    const authDir = path.join(__dirname, 'baileys_auth_info');
-    const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
-    const sock = makeWASocket({
-      auth: state,
-      browser: Browsers.ubuntu('Chrome'),
-      syncFullHistory: false
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
-
-      if (qr) {
-        waStatus = 'WAITING_FOR_QR_SCAN';
-        try {
-          currentQrCode = await QRCode.toDataURL(qr);
-          const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
-          console.log('\n=============================================================');
-          console.log('📌 ESCANEIA O QR CODE ABAIXO OU NO BROWSER: http://localhost:3001/api/whatsapp/qr');
-          console.log('=============================================================\n');
-          console.log(terminalQr);
-        } catch (qrErr) {
-          console.error('Erro ao gerar imagem QR:', qrErr);
-        }
-      }
-
-      if (connection === 'open') {
-        waStatus = 'CONNECTED';
-        currentQrCode = null;
-        waSock = sock;
-        console.log('✅ WhatsApp ligado com sucesso! Pronto a enviar mensagens.');
-      }
-
-      if (connection === 'close') {
-        waSock = null;
-        const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-        console.log('📱 Ligação WhatsApp terminada. Código:', statusCode);
-        if (statusCode === DisconnectReason.loggedOut) {
-          console.log('🧹 Sessão expirada/terminada. A limpar credenciais para novo QR Code...');
-          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
-        }
-        console.log('📱 A reconectar WhatsApp em 3 segundos...');
-        setTimeout(initBaileys, 3000);
-      }
-    });
-
-  } catch (err) {
-    console.error('⚠️ Erro ao inicializar WhatsApp:', err.message);
-    waStatus = 'ERROR';
-  }
-}
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function initWhatsApp() {
+  console.log('⚡ A iniciar motor de WhatsApp (whatsapp-web.js)...');
+  waStatus = 'CONNECTING';
+
+  const authDir = path.join(__dirname, 'wwebjs_auth');
+
+  const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: authDir }),
+    puppeteer: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    }
+  });
+
+  client.on('qr', async (qr) => {
+    waStatus = 'WAITING_FOR_QR_SCAN';
+    try {
+      currentQrCode = await QRCode.toDataURL(qr);
+      const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
+      console.log('\n=============================================================');
+      console.log('📌 ESCANEIA O QR CODE ABAIXO OU NO BROWSER: https://royalcoast.pt/api/whatsapp/qr');
+      console.log('=============================================================\n');
+      console.log(terminalQr);
+    } catch (qrErr) {
+      console.error('Erro ao gerar imagem QR:', qrErr);
+    }
+  });
+
+  client.on('authenticated', () => {
+    console.log('🔑 WhatsApp autenticado! A aguardar ligação...');
+    waStatus = 'CONNECTING';
+  });
+
+  client.on('auth_failure', (msg) => {
+    console.error('❌ Falha na autenticação WhatsApp:', msg);
+    waStatus = 'DISCONNECTED';
+    currentQrCode = null;
+    // Limpar sessão corrompida e tentar novamente
+    try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
+    setTimeout(initWhatsApp, 5000);
+  });
+
+  client.on('ready', () => {
+    waStatus = 'CONNECTED';
+    currentQrCode = null;
+    waClient = client;
+    console.log('✅ WhatsApp ligado com sucesso! Pronto a enviar mensagens.');
+  });
+
+  client.on('disconnected', (reason) => {
+    console.log('📱 Ligação WhatsApp terminada. Motivo:', reason);
+    waStatus = 'DISCONNECTED';
+    waClient = null;
+    currentQrCode = null;
+    // Reconectar automaticamente após 5 segundos
+    setTimeout(initWhatsApp, 5000);
+  });
+
+  client.initialize().catch((err) => {
+    console.error('⚠️ Erro ao inicializar WhatsApp:', err.message);
+    waStatus = 'ERROR';
+    // Tentar reiniciar após 10 segundos em caso de erro
+    setTimeout(initWhatsApp, 10000);
+  });
+}
+
+// __filename and __dirname are already defined above
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -680,12 +698,12 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 0. Conexão Direta WhatsApp (Baileys Protocol - Sem Browser/Sem Meta)
-  if (waSock && waStatus === 'CONNECTED') {
+  // 0. Conexão Direta WhatsApp (whatsapp-web.js - Sem Meta)
+  if (waClient && waStatus === 'CONNECTED') {
     try {
-      const jid = `${cleanPhone}@s.whatsapp.net`;
-      await waSock.sendMessage(jid, { text: body });
-      console.log(`✅ WhatsApp (Baileys): Mensagem enviada com sucesso para ${cleanPhone}`);
+      const chatId = `${cleanPhone}@c.us`;
+      await waClient.sendMessage(chatId, body);
+      console.log(`✅ WhatsApp: Mensagem enviada com sucesso para ${cleanPhone}`);
       return true;
     } catch (e) {
       console.error('WhatsApp Error ao enviar:', e.message);
@@ -1394,5 +1412,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
   await connectDB();
-  initBaileys();
+  initWhatsApp();
 });
