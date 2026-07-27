@@ -8,95 +8,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import wwebjs from 'whatsapp-web.js';
-const { Client, LocalAuth } = wwebjs;
-import QRCode from 'qrcode';
 
 dotenv.config();
 
-let waClient = null;
-let currentQrCode = null;
-let waStatus = 'DISCONNECTED';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-function initWhatsApp() {
-  console.log('⚡ A iniciar motor de WhatsApp (whatsapp-web.js)...');
-  waStatus = 'CONNECTING';
-
-  const authDir = path.join(__dirname, 'wwebjs_auth');
-
-  const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: authDir }),
-    puppeteer: {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    }
-  });
-
-  client.on('qr', async (qr) => {
-    waStatus = 'WAITING_FOR_QR_SCAN';
-    try {
-      currentQrCode = await QRCode.toDataURL(qr);
-      const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
-      console.log('\n=============================================================');
-      console.log('📌 ESCANEIA O QR CODE ABAIXO OU NO BROWSER: https://royalcoast.pt/api/whatsapp/qr');
-      console.log('=============================================================\n');
-      console.log(terminalQr);
-    } catch (qrErr) {
-      console.error('Erro ao gerar imagem QR:', qrErr);
-    }
-  });
-
-  client.on('authenticated', () => {
-    console.log('🔑 WhatsApp autenticado! A aguardar ligação...');
-    waStatus = 'CONNECTING';
-  });
-
-  client.on('auth_failure', (msg) => {
-    console.error('❌ Falha na autenticação WhatsApp:', msg);
-    waStatus = 'DISCONNECTED';
-    currentQrCode = null;
-    // Limpar sessão corrompida e tentar novamente
-    try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
-    setTimeout(initWhatsApp, 5000);
-  });
-
-  client.on('ready', () => {
-    waStatus = 'CONNECTED';
-    currentQrCode = null;
-    waClient = client;
-    console.log('✅ WhatsApp ligado com sucesso! Pronto a enviar mensagens.');
-  });
-
-  client.on('disconnected', (reason) => {
-    console.log('📱 Ligação WhatsApp terminada. Motivo:', reason);
-    waStatus = 'DISCONNECTED';
-    waClient = null;
-    currentQrCode = null;
-    // Reconectar automaticamente após 5 segundos
-    setTimeout(initWhatsApp, 5000);
-  });
-
-  client.initialize().catch((err) => {
-    console.error('⚠️ Erro ao inicializar WhatsApp:', err.message);
-    waStatus = 'ERROR';
-    // Tentar reiniciar após 10 segundos em caso de erro
-    setTimeout(initWhatsApp, 10000);
-  });
-}
-
-// __filename and __dirname are already defined above
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -699,52 +615,9 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 0. Conexão Direta WhatsApp (whatsapp-web.js - Sem Meta)
-  if (waClient && waStatus === 'CONNECTED') {
-    try {
-      const chatId = `${cleanPhone}@c.us`;
-      await waClient.sendMessage(chatId, body);
-      console.log(`✅ WhatsApp: Mensagem enviada com sucesso para ${cleanPhone}`);
-      return true;
-    } catch (e) {
-      console.error('WhatsApp Error ao enviar:', e.message);
-    }
-  }
-
-  // 1. Green API (100% Gratuito - Developer Plan)
-  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
-  const greenToken = process.env.GREEN_API_TOKEN || '';
-  if (greenInstance && greenToken) {
-    try {
-      await fetch(`https://api.green-api.com/waInstance${greenInstance}/sendMessage/${greenToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: `${cleanPhone}@c.us`,
-          message: body
-        })
-      });
-      return true;
-    } catch (e) {
-      console.error('Green API Error:', e.message);
-    }
-  }
-
-  // 1. CallMeBot (100% Gratuito)
-  const callMeBotKey = process.env.CALLMEBOT_API_KEY || '';
-  if (callMeBotKey) {
-    try {
-      const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(body)}&apikey=${encodeURIComponent(callMeBotKey)}`;
-      await fetch(url);
-      return true;
-    } catch (e) {
-      console.error('CallMeBot Error:', e.message);
-    }
-  }
-
-  // 2. Meta WhatsApp Cloud API (1.000 Mensagens Grátis/mês)
-  const metaToken = process.env.META_WA_TOKEN || 'EAARmrytIMFkBSA8ZCX1sTY2ZBLgmjSzxpLUm0fl9uIj4OCQX8bVB4dlZBfqYF1gBWOErJGzu4w0hMJunHMZA7NokYzumaxcGB0ZCzbq1pSMyZB1RxZAFJ2rqBwaZCLFJMZCS7Jeh4twpmUkeREQT5jE20CbsFZBwEE36mvK2hR8ZAugmEHZAhupZCZAz257nm57izLQPkA5AZDZD';
-  const metaPhoneId = process.env.META_WA_PHONE_ID || '1239529775907696';
+  // 1. Meta WhatsApp Cloud API (Método Principal - Oficial, sem ban)
+  const metaToken = process.env.META_WA_TOKEN || '';
+  const metaPhoneId = process.env.META_WA_PHONE_ID || '';
   if (metaToken && metaPhoneId) {
     try {
       if (templateParams && Array.isArray(templateParams)) {
@@ -789,80 +662,60 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
       });
       const data = await resp.json();
       console.log('📱 Meta WA API Response:', JSON.stringify(data));
-      if (data.messages && data.messages.length > 0) return true;
+      if (data.messages && data.messages.length > 0) {
+        console.log(`✅ WhatsApp (Meta API): Mensagem enviada com sucesso para ${cleanPhone}`);
+        return true;
+      }
       if (data.error) console.error('📱 Meta WA API Error:', data.error.message);
     } catch (e) {
       console.error('Meta WA API Error:', e.message);
     }
   }
 
-  // 3. UltraMsg / Green API
-  const instanceId = process.env.WHATSAPP_INSTANCE_ID || '';
-  const token = process.env.WHATSAPP_TOKEN || process.env.WHATSAPP_API_TOKEN || '';
-  const apiUrl = process.env.WHATSAPP_API_URL || '';
-
-  try {
-    if (instanceId && token) {
-      await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+  // 2. Green API (fallback gratuito)
+  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
+  const greenToken = process.env.GREEN_API_TOKEN || '';
+  if (greenInstance && greenToken) {
+    try {
+      await fetch(`https://api.green-api.com/waInstance${greenInstance}/sendMessage/${greenToken}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ token, to: cleanPhone, body })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: `${cleanPhone}@c.us`,
+          message: body
+        })
       });
+      console.log(`✅ WhatsApp (Green API): Mensagem enviada para ${cleanPhone}`);
       return true;
-    } else if (apiUrl && token) {
-      await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ token, to: cleanPhone, body })
-      });
-      return true;
+    } catch (e) {
+      console.error('Green API Error:', e.message);
     }
-  } catch (err) {
-    console.error('WhatsApp API Error:', err.message);
   }
+
+  console.warn(`⚠️ WhatsApp: Nenhum método configurado conseguiu enviar para ${cleanPhone}`);
   return false;
 }
 
-// OpenWA WhatsApp Status & QR Route
+// WhatsApp Status Route
 app.get('/api/whatsapp/status', (req, res) => {
+  const metaToken = process.env.META_WA_TOKEN || '';
+  const metaPhoneId = process.env.META_WA_PHONE_ID || '';
+  const configured = !!(metaToken && metaPhoneId);
   res.json({
-    status: waStatus,
-    connected: waStatus === 'CONNECTED',
-    hasQrCode: !!currentQrCode
+    status: configured ? 'CONNECTED' : 'DISCONNECTED',
+    connected: configured,
+    hasQrCode: false,
+    mode: 'meta_api'
   });
 });
 
 app.get('/api/whatsapp/qr', (req, res) => {
-  if (currentQrCode) {
-    if (currentQrCode.startsWith('data:image')) {
-      const base64Data = currentQrCode.replace(/^data:image\/png;base64,/, '');
-      const img = Buffer.from(base64Data, 'base64');
-      res.type('png');
-      res.send(img);
-    } else {
-      res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
-        <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
-          <h2 style="margin-bottom:10px;">📱 Escanear QR Code do WhatsApp</h2>
-          <p style="color:#8b949e;margin-bottom:24px;">Abre o WhatsApp no telemóvel &rarr; Dispositivos Conectados &rarr; Conectar Dispositivo</p>
-          <img src="${currentQrCode}" style="max-width:320px;border:8px solid #fff;border-radius:16px;" />
-        </div>
-      </body></html>`);
-    }
-  } else if (waStatus === 'CONNECTED') {
-    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
-      <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;">
-        <h1 style="color:#2ea44f;">✅ WhatsApp Ligado com Sucesso!</h1>
-        <p style="color:#8b949e;">O OpenWA está ligado e pronto para enviar mensagens de reserva.</p>
-      </div>
-    </body></html>`);
-  } else {
-    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
-      <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;">
-        <h2>Estado do WhatsApp: ${waStatus}</h2>
-        <p style="color:#8b949e;">A gerar QR Code... Recarrega a página em alguns segundos.</p>
-      </div>
-    </body></html>`);
-  }
+  res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
+    <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;">
+      <h1 style="color:#2ea44f;">✅ WhatsApp via Meta API Oficial</h1>
+      <p style="color:#8b949e;">A ligação WhatsApp é feita via Meta Cloud API. Não é necessário QR Code.</p>
+    </div>
+  </body></html>`);
 });
 
 // WhatsApp Notification Route
@@ -1413,5 +1266,11 @@ app.get('*', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
   await connectDB();
-  initWhatsApp();
+  const metaToken = process.env.META_WA_TOKEN || '';
+  const metaPhoneId = process.env.META_WA_PHONE_ID || '';
+  if (metaToken && metaPhoneId) {
+    console.log('✅ WhatsApp via Meta Cloud API configurado e pronto!');
+  } else {
+    console.warn('⚠️ META_WA_TOKEN ou META_WA_PHONE_ID não configurados no .env');
+  }
 });
