@@ -675,32 +675,7 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
         });
         const dataT = await respT.json();
         if (dataT.messages && dataT.messages.length > 0) return true;
-        console.warn('📱 Modelo reserva_confirmada ainda não disponível/aprovado. A tentar hello_world...');
-      }
-
-      // Fallback para o modelo aprovado 'hello_world'
-      try {
-        const respHW = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${metaToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: cleanPhone,
-            type: 'template',
-            template: {
-              name: 'hello_world',
-              language: { code: 'en_US' }
-            }
-          })
-        });
-        const dataHW = await respHW.json();
-        console.log('📱 Meta WA API (hello_world) Response:', JSON.stringify(dataHW));
-        if (dataHW.messages && dataHW.messages.length > 0) return true;
-      } catch (eHW) {
-        console.error('Meta WA API hello_world Error:', eHW.message);
+        console.warn('📱 Modelo reserva_confirmada ainda em revisão. A enviar mensagem de texto direto...');
       }
 
       const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {

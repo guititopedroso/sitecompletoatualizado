@@ -373,31 +373,6 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
             }
         }
 
-        // Fallback para o modelo aprovado 'hello_world'
-        $dataHW = json_encode([
-            'messaging_product' => 'whatsapp',
-            'to' => $cleanPhone,
-            'type' => 'template',
-            'template' => [
-                'name' => 'hello_world',
-                'language' => ['code' => 'en_US']
-            ]
-        ]);
-        $chHW = curl_init($url);
-        curl_setopt($chHW, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($chHW, CURLOPT_POST, true);
-        curl_setopt($chHW, CURLOPT_HTTPHEADER, [
-            "Authorization: Bearer {$metaToken}",
-            "Content-Type: application/json"
-        ]);
-        curl_setopt($chHW, CURLOPT_POSTFIELDS, $dataHW);
-        $resHW = curl_exec($chHW);
-        curl_close($chHW);
-        $parsedHW = json_decode($resHW, true);
-        if (!empty($parsedHW['messages'])) {
-            return $resHW;
-        }
-
         // Fallback para envio de Texto Livre
         $data = json_encode([
             'messaging_product' => 'whatsapp',
