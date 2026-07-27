@@ -205,9 +205,8 @@ function saveUpload($fileKey) {
 initTables();
 
 $method  = $_SERVER['REQUEST_METHOD'];
-$rawPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-// Remove /api prefix para simplificar o routing
-$path    = preg_replace('#^/api/?#', '', $rawPath);
+// Remove qualquer prefixo até /api/ para simplificar o routing
+$path    = preg_replace('#^.*api/(index\.php/)?#', '', $rawPath);
 $path    = rtrim($path, '/') ?: '';
 $seg     = $path === '' ? [] : explode('/', $path);
 
