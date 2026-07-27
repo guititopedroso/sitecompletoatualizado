@@ -471,7 +471,7 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
 }
 
 // GET /api/whatsapp/status
-if ($method === 'GET' && $seg === ['whatsapp','status']) {
+if ($method === 'GET' && (in_array('status', $seg) && in_array('whatsapp', $seg))) {
     $chNode = curl_init('http://127.0.0.1:3001/api/whatsapp/status');
     curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($chNode, CURLOPT_TIMEOUT, 3);
@@ -487,7 +487,7 @@ if ($method === 'GET' && $seg === ['whatsapp','status']) {
 }
 
 // GET /api/whatsapp/qr
-if ($method === 'GET' && $seg === ['whatsapp','qr']) {
+if ($method === 'GET' && (in_array('qr', $seg) && in_array('whatsapp', $seg))) {
     $chNode = curl_init('http://127.0.0.1:3001/api/whatsapp/qr');
     curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($chNode, CURLOPT_TIMEOUT, 3);
