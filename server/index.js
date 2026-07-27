@@ -611,43 +611,16 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-async function sendWhatsAppMessage(to, body, templateParams = null) {
+async function sendWhatsAppMessage(to, body) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 1. Meta WhatsApp Cloud API (Método Principal - Oficial, sem ban)
+  // 1. Meta WhatsApp Cloud API (Texto Direto - Sem necessidade de aprovação de modelos)
   const metaToken = process.env.META_WA_TOKEN || '';
   const metaPhoneId = process.env.META_WA_PHONE_ID || '';
   if (metaToken && metaPhoneId) {
     try {
-      if (templateParams && Array.isArray(templateParams)) {
-        const components = [{
-          type: 'body',
-          parameters: templateParams.map(val => ({ type: 'text', text: String(val) }))
-        }];
-        const respT = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${metaToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: cleanPhone,
-            type: 'template',
-            template: {
-              name: 'reserva_confirmada',
-              language: { code: 'pt_PT' },
-              components
-            }
-          })
-        });
-        const dataT = await respT.json();
-        if (dataT.messages && dataT.messages.length > 0) return true;
-        console.warn('📱 Modelo reserva_confirmada ainda em revisão. A enviar mensagem de texto direto...');
-      }
-
-      const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+      const resp = await fetch(`https://graph.facebook.com/v20.0/${metaPhoneId}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${metaToken}`,
