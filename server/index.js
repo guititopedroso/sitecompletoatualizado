@@ -611,7 +611,7 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-async function sendWhatsAppMessage(to, body, templateParams = null) {
+async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
@@ -636,7 +636,7 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
             to: cleanPhone,
             type: 'template',
             template: {
-              name: 'reserva_confirmada',
+              name: templateName,
               language: { code: 'pt_PT' },
               components
             }
@@ -644,10 +644,10 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
         });
         const dataT = await respT.json();
         if (dataT.messages && dataT.messages.length > 0) {
-          console.log(`✅ WhatsApp (Meta API Modelo): Enviado com sucesso para ${cleanPhone}`);
+          console.log(`✅ WhatsApp (Meta API Modelo ${templateName}): Enviado com sucesso para ${cleanPhone}`);
           return true;
         }
-        console.warn('📱 Modelo ainda em revisão ou indisponível. A tentar envio por texto direto...');
+        console.warn(`📱 Modelo ${templateName} ainda em revisão ou indisponível. A tentar envio por texto direto...`);
       }
 
       const resp = await fetch(`https://graph.facebook.com/v20.0/${metaPhoneId}/messages`, {
@@ -723,10 +723,16 @@ app.get('/api/whatsapp/qr', (req, res) => {
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
-  const { to, message, templateParams } = req.body;
+  const { to, message, adminMessage, templateParams, adminTemplateParams } = req.body;
 
-  console.log('📱 ENVIANDO MENSAGEM WHATSAPP APENAS PARA O CLIENTE:', to);
-  const sentClient = await sendWhatsAppMessage(to, message, templateParams);
+  console.log('📱 ENVIANDO MENSAGEM WHATSAPP PARA O CLIENTE:', to);
+  const sentClient = await sendWhatsAppMessage(to, message, templateParams, 'reserva_confirmada');
+
+  if (adminMessage) {
+    const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
+    console.log('📱 ENVIANDO ALERTA DE RESERVA PARA O ADMIN:', adminPhone);
+    await sendWhatsAppMessage(adminPhone, adminMessage, adminTemplateParams, 'nova_reserva_admin');
+  }
 
   res.json({ success: true, clientSent: sentClient });
 });

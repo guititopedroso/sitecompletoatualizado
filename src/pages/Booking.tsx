@@ -452,6 +452,17 @@ const Booking = () => {
             location,
             people,
             totalPriceStr
+          ],
+          adminTemplateParams: [
+            fullName,
+            fullPhone,
+            email,
+            finalPackName,
+            dateFormatted,
+            time || "",
+            location,
+            people,
+            totalPriceStr
           ]
         }
       }).catch(() => null);

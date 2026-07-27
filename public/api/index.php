@@ -357,7 +357,7 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
                 'to' => $cleanPhone,
                 'type' => 'template',
                 'template' => [
-                    'name' => 'reserva_confirmada',
+                    'name' => $templateName,
                     'language' => ['code' => 'pt_PT'],
                     'components' => $components
                 ]
@@ -441,9 +441,11 @@ if (strtoupper($method) === 'POST' && ($path === 'notify/whatsapp' || $seg === [
     $b = getBody();
     $to = $b['to'] ?? '';
     $message = $b['message'] ?? '';
+    $adminMessage = $b['adminMessage'] ?? null;
     $templateParams = $b['templateParams'] ?? null;
+    $adminTemplateParams = $b['adminTemplateParams'] ?? null;
 
-    // 1. Tentar enviar via servidor Node.js Baileys local (porta 3001) se estiver ativo
+    // 1. Tentar enviar via servidor Node.js local (porta 3001) se estiver ativo
     $chNode = curl_init('http://127.0.0.1:3001/api/notify/whatsapp');
     curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($chNode, CURLOPT_POST, true);
@@ -452,7 +454,9 @@ if (strtoupper($method) === 'POST' && ($path === 'notify/whatsapp' || $seg === [
     curl_setopt($chNode, CURLOPT_POSTFIELDS, json_encode([
         'to' => $to,
         'message' => $message,
-        'templateParams' => $templateParams
+        'adminMessage' => $adminMessage,
+        'templateParams' => $templateParams,
+        'adminTemplateParams' => $adminTemplateParams
     ]));
     $resNode = curl_exec($chNode);
     $httpCodeNode = curl_getinfo($chNode, CURLINFO_HTTP_CODE);
@@ -465,9 +469,15 @@ if (strtoupper($method) === 'POST' && ($path === 'notify/whatsapp' || $seg === [
         }
     }
 
-    // 2. Fallback para APIs de Gateway (Meta / Green API / CallMeBot)
-    $metaResult = sendWhatsAppMessage($to, $message, $templateParams);
+    // 2. Enviar para o Cliente (via Meta API)
+    $metaResult = sendWhatsAppMessage($to, $message, $templateParams, 'reserva_confirmada');
     $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
+
+    // 3. Enviar para o Administrador se fornecido
+    if ($adminMessage) {
+        $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
+        sendWhatsAppMessage($adminPhone, $adminMessage, $adminTemplateParams, 'nova_reserva_admin');
+    }
 
     respond([
         'success' => true,
