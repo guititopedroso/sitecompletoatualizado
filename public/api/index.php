@@ -337,11 +337,49 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
         return $res;
     }
 
-    // 2. Meta WhatsApp Cloud API (Oficial - Texto Direto)
+    // 2. Meta WhatsApp Cloud API (Tenta Modelo primeiro para novos clientes, com fallback para texto direto)
     $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
     $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
     if ($metaToken && $metaPhoneId) {
         $url = "https://graph.facebook.com/v20.0/{$metaPhoneId}/messages";
+
+        if ($templateParams && is_array($templateParams)) {
+            $components = [
+                [
+                    'type' => 'body',
+                    'parameters' => array_map(function($val) {
+                        return ['type' => 'text', 'text' => (string)$val];
+                    }, $templateParams)
+                ]
+            ];
+            $dataTemplate = json_encode([
+                'messaging_product' => 'whatsapp',
+                'to' => $cleanPhone,
+                'type' => 'template',
+                'template' => [
+                    'name' => 'reserva_confirmada',
+                    'language' => ['code' => 'pt_PT'],
+                    'components' => $components
+                ]
+            ]);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Authorization: Bearer {$metaToken}",
+                "Content-Type: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $dataTemplate);
+            $resTemplate = curl_exec($ch);
+            curl_close($ch);
+
+            $parsedT = json_decode($resTemplate, true);
+            if (!empty($parsedT['messages'])) {
+                return $resTemplate;
+            }
+        }
+
         $data = json_encode([
             'messaging_product' => 'whatsapp',
             'to' => $cleanPhone,
