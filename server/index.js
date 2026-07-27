@@ -8,8 +8,73 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, Browsers } from '@whiskeysockets/baileys';
+import QRCode from 'qrcode';
 
 dotenv.config();
+
+let waSock = null;
+let currentQrCode = null;
+let waStatus = 'DISCONNECTED';
+
+async function initBaileys() {
+  try {
+    console.log('⚡ A iniciar motor de WhatsApp (Baileys)...');
+    waStatus = 'CONNECTING';
+
+    const authDir = path.join(__dirname, 'baileys_auth_info');
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
+
+    const sock = makeWASocket({
+      auth: state,
+      browser: Browsers.ubuntu('Chrome'),
+      syncFullHistory: false
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        waStatus = 'WAITING_FOR_QR_SCAN';
+        try {
+          currentQrCode = await QRCode.toDataURL(qr);
+          const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
+          console.log('\n=============================================================');
+          console.log('📌 ESCANEIA O QR CODE ABAIXO OU NO BROWSER: http://localhost:3001/api/whatsapp/qr');
+          console.log('=============================================================\n');
+          console.log(terminalQr);
+        } catch (qrErr) {
+          console.error('Erro ao gerar imagem QR:', qrErr);
+        }
+      }
+
+      if (connection === 'open') {
+        waStatus = 'CONNECTED';
+        currentQrCode = null;
+        waSock = sock;
+        console.log('✅ WhatsApp ligado com sucesso! Pronto a enviar mensagens.');
+      }
+
+      if (connection === 'close') {
+        waSock = null;
+        const statusCode = (lastDisconnect?.error)?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        console.log('📱 Ligação WhatsApp terminada. A tentar reconetar...', shouldReconnect);
+        if (shouldReconnect) {
+          setTimeout(initBaileys, 3000);
+        } else {
+          waStatus = 'DISCONNECTED';
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error('⚠️ Erro ao inicializar WhatsApp:', err.message);
+    waStatus = 'ERROR';
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -615,6 +680,18 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
+  // 0. Conexão Direta WhatsApp (Baileys Protocol - Sem Browser/Sem Meta)
+  if (waSock && waStatus === 'CONNECTED') {
+    try {
+      const jid = `${cleanPhone}@s.whatsapp.net`;
+      await waSock.sendMessage(jid, { text: body });
+      console.log(`✅ WhatsApp (Baileys): Mensagem enviada com sucesso para ${cleanPhone}`);
+      return true;
+    } catch (e) {
+      console.error('WhatsApp Error ao enviar:', e.message);
+    }
+  }
+
   // 1. Green API (100% Gratuito - Developer Plan)
   const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
   const greenToken = process.env.GREEN_API_TOKEN || '';
@@ -726,6 +803,48 @@ async function sendWhatsAppMessage(to, body, templateParams = null) {
   }
   return false;
 }
+
+// OpenWA WhatsApp Status & QR Route
+app.get('/api/whatsapp/status', (req, res) => {
+  res.json({
+    status: waStatus,
+    connected: waStatus === 'CONNECTED',
+    hasQrCode: !!currentQrCode
+  });
+});
+
+app.get('/api/whatsapp/qr', (req, res) => {
+  if (currentQrCode) {
+    if (currentQrCode.startsWith('data:image')) {
+      const base64Data = currentQrCode.replace(/^data:image\/png;base64,/, '');
+      const img = Buffer.from(base64Data, 'base64');
+      res.type('png');
+      res.send(img);
+    } else {
+      res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
+        <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+          <h2 style="margin-bottom:10px;">📱 Escanear QR Code do WhatsApp</h2>
+          <p style="color:#8b949e;margin-bottom:24px;">Abre o WhatsApp no telemóvel &rarr; Dispositivos Conectados &rarr; Conectar Dispositivo</p>
+          <img src="${currentQrCode}" style="max-width:320px;border:8px solid #fff;border-radius:16px;" />
+        </div>
+      </body></html>`);
+    }
+  } else if (waStatus === 'CONNECTED') {
+    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
+      <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;">
+        <h1 style="color:#2ea44f;">✅ WhatsApp Ligado com Sucesso!</h1>
+        <p style="color:#8b949e;">O OpenWA está ligado e pronto para enviar mensagens de reserva.</p>
+      </div>
+    </body></html>`);
+  } else {
+    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#0d1117;color:#fff;">
+      <div style="text-align:center;background:#161b22;padding:40px;border-radius:24px;">
+        <h2>Estado do WhatsApp: ${waStatus}</h2>
+        <p style="color:#8b949e;">A gerar QR Code... Recarrega a página em alguns segundos.</p>
+      </div>
+    </body></html>`);
+  }
+});
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
@@ -1275,4 +1394,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
   await connectDB();
+  initBaileys();
 });

@@ -435,8 +435,31 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $b = getBody();
     $to = $b['to'] ?? '';
     $message = $b['message'] ?? '';
-
     $templateParams = $b['templateParams'] ?? null;
+
+    // 1. Tentar enviar via servidor Node.js Baileys local (porta 3001) se estiver ativo
+    $chNode = curl_init('http://127.0.0.1:3001/api/notify/whatsapp');
+    curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($chNode, CURLOPT_POST, true);
+    curl_setopt($chNode, CURLOPT_TIMEOUT, 4);
+    curl_setopt($chNode, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($chNode, CURLOPT_POSTFIELDS, json_encode([
+        'to' => $to,
+        'message' => $message,
+        'templateParams' => $templateParams
+    ]));
+    $resNode = curl_exec($chNode);
+    $httpCodeNode = curl_getinfo($chNode, CURLINFO_HTTP_CODE);
+    curl_close($chNode);
+
+    if ($httpCodeNode === 200 && $resNode) {
+        $parsedNode = json_decode($resNode, true);
+        if (!empty($parsedNode['success']) && !empty($parsedNode['clientSent'])) {
+            respond(['success' => true, 'clientSent' => true, 'provider' => 'baileys_node']);
+        }
+    }
+
+    // 2. Fallback para APIs de Gateway (Meta / Green API / CallMeBot)
     $metaResult = sendWhatsAppMessage($to, $message, $templateParams);
     $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
 
