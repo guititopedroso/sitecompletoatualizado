@@ -470,6 +470,43 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     ]);
 }
 
+// GET /api/whatsapp/status
+if ($method === 'GET' && $seg === ['whatsapp','status']) {
+    $chNode = curl_init('http://127.0.0.1:3001/api/whatsapp/status');
+    curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($chNode, CURLOPT_TIMEOUT, 3);
+    $resNode = curl_exec($chNode);
+    $httpCodeNode = curl_getinfo($chNode, CURLINFO_HTTP_CODE);
+    curl_close($chNode);
+
+    if ($httpCodeNode === 200 && $resNode) {
+        respond(json_decode($resNode, true));
+    } else {
+        respond(['status' => 'OFFLINE', 'connected' => false, 'note' => 'Servidor Node.js desligado na porta 3001 na Hostinger']);
+    }
+}
+
+// GET /api/whatsapp/qr
+if ($method === 'GET' && $seg === ['whatsapp','qr']) {
+    $chNode = curl_init('http://127.0.0.1:3001/api/whatsapp/qr');
+    curl_setopt($chNode, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($chNode, CURLOPT_TIMEOUT, 3);
+    $resNode = curl_exec($chNode);
+    $httpCodeNode = curl_getinfo($chNode, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($chNode, CURLINFO_CONTENT_TYPE);
+    curl_close($chNode);
+
+    if ($httpCodeNode === 200 && $resNode) {
+        header('Content-Type: ' . ($contentType ?: 'text/html; charset=utf-8'));
+        echo $resNode;
+        exit;
+    } else {
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<div style="font-family:sans-serif;text-align:center;padding:40px;background:#0d1117;color:#fff;min-height:100vh;"><h2>⚠️ Servidor WhatsApp Node.js desligado na porta 3001</h2><p style="color:#8b949e;">Inicia a aplicação Node.js no hPanel da Hostinger para ver o estado do WhatsApp.</p></div>';
+        exit;
+    }
+}
+
 // GET /api/auth/me
 if ($method === 'GET' && $seg === ['auth','me']) {
     $au = requireAuth();
