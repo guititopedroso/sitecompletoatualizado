@@ -611,7 +611,7 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-async function sendWhatsAppMessage(to, body) {
+async function sendWhatsAppMessage(to, body, templateParams = null) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
@@ -675,6 +675,32 @@ async function sendWhatsAppMessage(to, body) {
         });
         const dataT = await respT.json();
         if (dataT.messages && dataT.messages.length > 0) return true;
+        console.warn('📱 Modelo reserva_confirmada ainda não disponível/aprovado. A tentar hello_world...');
+      }
+
+      // Fallback para o modelo aprovado 'hello_world'
+      try {
+        const respHW = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${metaToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: cleanPhone,
+            type: 'template',
+            template: {
+              name: 'hello_world',
+              language: { code: 'en_US' }
+            }
+          })
+        });
+        const dataHW = await respHW.json();
+        console.log('📱 Meta WA API (hello_world) Response:', JSON.stringify(dataHW));
+        if (dataHW.messages && dataHW.messages.length > 0) return true;
+      } catch (eHW) {
+        console.error('Meta WA API hello_world Error:', eHW.message);
       }
 
       const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
@@ -728,10 +754,10 @@ async function sendWhatsAppMessage(to, body) {
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
-  const { to, message } = req.body;
+  const { to, message, templateParams } = req.body;
 
   console.log('📱 ENVIANDO MENSAGEM WHATSAPP APENAS PARA O CLIENTE:', to);
-  const sentClient = await sendWhatsAppMessage(to, message);
+  const sentClient = await sendWhatsAppMessage(to, message, templateParams);
 
   res.json({ success: true, clientSent: sentClient });
 });

@@ -294,7 +294,7 @@ if ($method === 'POST' && $seg === ['auth','google']) {
     ]]);
 }
 
-function sendWhatsAppMessage($to, $body) {
+function sendWhatsAppMessage($to, $body, $templateParams = null) {
     $cleanPhone = preg_replace('/\D/', '', $to);
     if (empty($cleanPhone) || empty($body)) return false;
 
@@ -371,6 +371,31 @@ function sendWhatsAppMessage($to, $body) {
             if (!empty($parsedT['messages'])) {
                 return $resTemplate;
             }
+        }
+
+        // Fallback para o modelo aprovado 'hello_world'
+        $dataHW = json_encode([
+            'messaging_product' => 'whatsapp',
+            'to' => $cleanPhone,
+            'type' => 'template',
+            'template' => [
+                'name' => 'hello_world',
+                'language' => ['code' => 'en_US']
+            ]
+        ]);
+        $chHW = curl_init($url);
+        curl_setopt($chHW, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($chHW, CURLOPT_POST, true);
+        curl_setopt($chHW, CURLOPT_HTTPHEADER, [
+            "Authorization: Bearer {$metaToken}",
+            "Content-Type: application/json"
+        ]);
+        curl_setopt($chHW, CURLOPT_POSTFIELDS, $dataHW);
+        $resHW = curl_exec($chHW);
+        curl_close($chHW);
+        $parsedHW = json_decode($resHW, true);
+        if (!empty($parsedHW['messages'])) {
+            return $resHW;
         }
 
         // Fallback para envio de Texto Livre
