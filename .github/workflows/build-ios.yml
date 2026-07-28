@@ -87,6 +87,12 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             archive
 
+          if [ ! -d "archive.xcarchive/Products/Applications/App.app" ]; then
+            echo "❌ ERRO CRÍTICO: Xcode não gerou o App.app!"
+            exit 1
+          fi
+          echo "✅ Xcode compilou o App.app nativo com sucesso!"
+
       - name: Package Official iOS IPA
         run: |
           mkdir -p public/apps server/apps /tmp/staging/Payload
