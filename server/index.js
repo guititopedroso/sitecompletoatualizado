@@ -1148,11 +1148,86 @@ app.post('/api/bookings', async (req, res) => {
         JSON.stringify(data.extras || {}), data.notes || null
       ]
     );
+
+    // ─── Auto-send Email Confirmation ─────────────────────────────────────────
+    if (data.client_email) {
+      const firstName = (data.client_name || '').split(' ')[0] || data.client_name || '';
+      // Format date: YYYY-MM-DD → DD/MM/YYYY
+      const dateFormatted = data.booking_date
+        ? data.booking_date.split('-').reverse().join('/')
+        : '';
+      const priceStr = data.price ? `${Number(data.price).toFixed(2)}€` : '';
+
+      const emailParams = {
+        to_name: firstName,
+        to_email: data.client_email,
+        email: data.client_email,
+        reply_to: data.client_email,
+        pack_name: data.pack_name || '',
+        booking_date: dateFormatted,
+        booking_time: data.booking_time || '',
+        num_people: String(data.num_people || 1),
+        phone: data.client_phone || '',
+        location: data.location || '',
+        extras: 'Nenhum',
+        pack_price: priceStr,
+      };
+
+      sendEmailJSNotification(emailParams).catch(err =>
+        console.error('❌ Erro ao enviar email de confirmação:', err)
+      );
+    }
+
+    // ─── Auto-send WhatsApp Notification ──────────────────────────────────────
+    const firstName = (data.client_name || '').split(' ')[0] || '';
+    const dateFormatted = data.booking_date
+      ? data.booking_date.split('-').reverse().join('/')
+      : '';
+    const priceStr = data.price ? `${Number(data.price).toFixed(2)}€` : '';
+
+    const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
+    const adminMsg =
+      `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
+      `👤 *Cliente:* ${data.client_name || ''}\n` +
+      `📱 *Contacto:* ${data.client_phone || 'N/D'}\n` +
+      `📧 *Email:* ${data.client_email || 'N/D'}\n` +
+      `🛥️ *Pacote:* ${data.pack_name || ''}\n` +
+      `📅 *Data:* ${dateFormatted}\n` +
+      `⏰ *Hora:* ${data.booking_time || 'N/D'}\n` +
+      `📍 *Local:* ${data.location || 'N/D'}\n` +
+      `👥 *Pessoas:* ${data.num_people || 1}\n` +
+      `💰 *Valor Total:* ${priceStr}\n\n` +
+      `📌 *Estado:* Confirmado online pelo cliente.`;
+
+    const clientMsg =
+      `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
+      `Olá ${firstName}! 👋\n\n` +
+      `A tua reserva na *RoyalCoast* foi registada com sucesso!\n\n` +
+      `📋 *Detalhes da Reserva:*\n` +
+      `• *Experiência:* ${data.pack_name || ''}\n` +
+      `• *Data:* ${dateFormatted}\n` +
+      `• *Hora:* ${data.booking_time || 'N/D'}\n` +
+      `• *Local:* ${data.location || 'N/D'}\n` +
+      `• *Pessoas:* ${data.num_people || 1}\n` +
+      `• *Valor Total:* ${priceStr}\n\n` +
+      `📍 Por favor, chega 15 minutos antes no ponto de embarque.\n\n` +
+      `Dúvidas? Liga para +351 927 314 506.\n\nAté breve! 🚤`;
+
+    // Admin WhatsApp alert
+    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin').catch(() => null);
+
+    // Client WhatsApp (if phone available)
+    if (data.client_phone) {
+      const cleanClientPhone = data.client_phone.replace(/\D/g, '');
+      sendWhatsAppMessage(cleanClientPhone, clientMsg, null, 'reserva_confirmada').catch(() => null);
+    }
+
     res.json({ id, ...data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.put('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
