@@ -769,7 +769,7 @@ app.post('/api/notify/whatsapp', async (req, res) => {
   } = req.body;
 
   const targetClientPhone = clientPhone || to;
-  const targetAdminPhone = adminPhone || process.env.ADMIN_PHONE_NUMBER || '351910259346';
+  const targetAdminPhone = adminPhone || process.env.ADMIN_PHONE_NUMBER || '351930663083';
 
   const cName = clientName || firstName || 'Cliente';
   const fName = firstName || (clientName ? clientName.split(' ')[0] : 'Cliente');

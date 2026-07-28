@@ -15,7 +15,7 @@ define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
 define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSPDSeAtMF1EZBOgeylnFdZC6tGijlbJYjrdgJsDuYQy3vZBpmvXZBsD4f8ar7dWwKYXpkAITodAOiJEzWmqH1CR6Wpd80hhwt5SDsVnjSZA4tfe41NOdeV7sZAttncdxbVUQ0y8IUHGcW7SDyKxuZAllQcAoDHEJ1A5FQ8R2GF22HqwoZABrDQZDZD');
 define('META_WA_PHONE_ID_DEFAULT', '1240632239137751');
-define('ADMIN_PHONE_DEFAULT', '351910259346');
+define('ADMIN_PHONE_DEFAULT', '351930663083');
 
 // --- Carregar variáveis do ficheiro .env ---
 function loadEnv() {
@@ -438,7 +438,7 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $location    = $b['location'] ?? 'Setúbal';
     $numPeople   = (string)($b['numPeople'] ?? '1');
     $totalPrice  = $b['totalPriceStr'] ?? '';
-    $adminPhone  = $b['adminPhone'] ?? getenv('ADMIN_PHONE_NUMBER') ?: (defined('ADMIN_PHONE_DEFAULT') ? ADMIN_PHONE_DEFAULT : '351910259346');
+    $adminPhone  = $b['adminPhone'] ?? getenv('ADMIN_PHONE_NUMBER') ?: (defined('ADMIN_PHONE_DEFAULT') ? ADMIN_PHONE_DEFAULT : '351930663083');
 
     $clientSent = false;
     $adminSent  = false;
