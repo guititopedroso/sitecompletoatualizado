@@ -27,6 +27,11 @@ yarn-error.log*
 *.sln
 *.sw?
 public/hero-video.mp4
+*.ipa
+certs/
+public/apps/*.ipa
+server/apps/*.ipa
+
 
 # managed
 **.data.json

@@ -27,8 +27,22 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Serve uploads statically
+// Serve uploads and iOS apps statically
 app.use('/uploads', express.static(uploadsDir));
+
+const appsDir = path.join(__dirname, 'apps');
+if (!fs.existsSync(appsDir)) {
+  fs.mkdirSync(appsDir, { recursive: true });
+}
+app.use('/apps', express.static(appsDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.plist')) {
+      res.setHeader('Content-Type', 'text/xml');
+    } else if (filePath.endsWith('.ipa')) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
+  }
+}));
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
