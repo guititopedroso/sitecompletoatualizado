@@ -492,27 +492,29 @@ const Booking = () => {
         pack_price: totalPriceStr,
       };
 
+      // Send EmailJS Confirmation Email (Direct Browser REST API)
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_souo4bi";
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_lyoryda";
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "YAyeqW_hAHwLaV3Ho";
+
+      fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          template_params: emailParams,
+        }),
+      })
+        .then((r) => r.text().then((t) => console.log("📧 EmailJS Direct Fetch Status:", r.status, t)))
+        .catch((err) => console.error("📧 EmailJS Direct Fetch Error:", err));
+
       fetchApi("/api/notify/email", {
         method: "POST",
         body: { templateParams: emailParams }
-      }).catch((err) => console.error("📧 Erro endpoint email:", err));
+      }).catch(() => null);
 
-      const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_souo4bi";
-      const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_lyoryda";
-      const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "YAyeqW_hAHwLaV3Ho";
-
-
-      if (emailTemplateId && emailPublicKey) {
-        emailjs.send(
-          emailServiceId,
-          emailTemplateId,
-          emailParams,
-          emailPublicKey
-        ).then(
-          (res) => console.log("📧 EmailJS (Client) enviado com sucesso:", res.status, res.text),
-          (err) => console.error("📧 Erro ao enviar EmailJS (Client):", err)
-        );
-      }
 
 
 
