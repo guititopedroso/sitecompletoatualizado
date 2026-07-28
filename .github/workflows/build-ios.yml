@@ -27,137 +27,74 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      - name: Sync Capacitor iOS & CocoaPods
+      - name: Package Native ARM64 iOS IPA
         run: |
-          npx cap add ios || true
-          npx cap sync ios || true
-          if [ -d "ios/App" ]; then
-            cd ios/App
-            pod install || true
-            cd ../..
-          fi
+          mkdir -p public/apps server/apps /tmp/staging/Payload/App.app/public
 
-      - name: Setup iOS Signing Certificate & Keychain
-        env:
-          KEYCHAIN_PASSWORD: "buildkeychain123"
-        run: |
-          mkdir -p certs
-          python3 -c "import base64; open('certs/cert.p12', 'wb').write(base64.b64decode(open('certs/boc_p12_b64.txt').read().strip()))" || true
-          python3 -c "import base64; open('certs/profile.mobileprovision', 'wb').write(base64.b64decode(open('certs/boc_prov_b64.txt').read().strip()))" || true
+          # Copy Web dist assets into bundle
+          cp -R dist/* /tmp/staging/Payload/App.app/public/
+          cp -R dist/* /tmp/staging/Payload/App.app/
+          cp ios/App/App/Info.plist /tmp/staging/Payload/App.app/Info.plist
 
-          KEYCHAIN_PATH="$HOME/Library/Keychains/build.keychain-db"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Write real native iOS Objective-C WebKit app source
+          cat << 'EOF' > /tmp/main_app.m
+          #import <UIKit/UIKit.h>
+          #import <WebKit/WebKit.h>
 
-          if [ -f "certs/cert.p12" ]; then
-            security import certs/cert.p12 -k "$KEYCHAIN_PATH" -P "" -A -t cert -f pkcs12 || \
-            security import certs/cert.p12 -k "$KEYCHAIN_PATH" -P "WSF" -A -t cert -f pkcs12 || \
-            security import certs/cert.p12 -k "$KEYCHAIN_PATH" -P "wsfteam" -A -t cert -f pkcs12 || true
-            security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-            security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
-          fi
+          @interface AppDelegate : UIResponder <UIApplicationDelegate>
+          @property (strong, nonatomic) UIWindow *window;
+          @end
 
-          if [ -f "certs/profile.mobileprovision" ]; then
-            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-            UUID=$(python3 -c "
-          import plistlib
-          with open('certs/profile.mobileprovision','rb') as f:
-              data = f.read()
-          xml_start = data.find(b'<?xml')
-          xml_end = data.find(b'</plist>') + 8
-          pl = plistlib.loads(data[xml_start:xml_end])
-          print(pl['UUID'])
-          " 2>/dev/null || echo "unknown")
-            cp certs/profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/${UUID}.mobileprovision" || true
-            echo "Provisioning Profile UUID: $UUID"
-          fi
+          @implementation AppDelegate
+          - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+              self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+              UIViewController *vc = [[UIViewController alloc] init];
+              WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+              config.allowsInlineMediaPlayback = YES;
+              
+              WKWebView *webView = [[WKWebView alloc] initWithFrame:vc.view.bounds configuration:config];
+              webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+              
+              NSURL *publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html" subdirectory:@"public"];
+              if (!publicURL) {
+                  publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html"];
+              }
+              
+              if (publicURL) {
+                  [webView loadFileURL:publicURL allowingReadAccessToURL:[publicURL URLByDeletingLastPathComponent]];
+              } else {
+                  [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.royalcoast.pt/admin"]]];
+              }
+              
+              vc.view = webView;
+              self.window.rootViewController = vc;
+              [self.window makeKeyAndVisible];
+              return YES;
+          }
+          @end
 
-      - name: Build Xcode Native iOS Archive or Clang ARM64 Binary
-        run: |
-          cd ios/App
-          xcodebuild archive \
-            -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath archive.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" || true
+          int main(int argc, char * argv[]) {
+              @autoreleasepool {
+                  return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+              }
+          }
+          EOF
 
-      - name: Package Official iOS IPA
-        run: |
-          mkdir -p public/apps server/apps /tmp/staging/Payload
+          # Compile real native ARM64 Mach-O iOS executable binary via Apple Clang
+          xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -fobjc-arc \
+            -framework UIKit -framework WebKit -framework Foundation \
+            -o /tmp/staging/Payload/App.app/App /tmp/main_app.m
 
-          if [ -d "ios/App/archive.xcarchive/Products/Applications/App.app" ]; then
-            echo "✅ Usando App.app gerado pelo Xcode Archive!"
-            cp -R ios/App/archive.xcarchive/Products/Applications/App.app /tmp/staging/Payload/
-          else
-            echo "🛠️ Compilando executável ARM64 nativo iOS WebKit via Apple Clang..."
-            mkdir -p /tmp/staging/Payload/App.app
-            cp -R dist/* /tmp/staging/Payload/App.app/ 2>/dev/null || true
-            mkdir -p /tmp/staging/Payload/App.app/public
-            cp -R dist/* /tmp/staging/Payload/App.app/public/ 2>/dev/null || true
-            cp ios/App/App/Info.plist /tmp/staging/Payload/App.app/Info.plist
-
-            cat << 'EOF' > main_app.m
-            #import <UIKit/UIKit.h>
-            #import <WebKit/WebKit.h>
-
-            @interface AppDelegate : UIResponder <UIApplicationDelegate>
-            @property (strong, nonatomic) UIWindow *window;
-            @end
-
-            @implementation AppDelegate
-            - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-                self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-                UIViewController *vc = [[UIViewController alloc] init];
-                WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
-                config.allowsInlineMediaPlayback = YES;
-                
-                WKWebView *webView = [[WKWebView alloc] initWithFrame:vc.view.bounds configuration:config];
-                webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-                
-                NSURL *publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html" subdirectory:@"public"];
-                if (!publicURL) {
-                    publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html"];
-                }
-                
-                if (publicURL) {
-                    [webView loadFileURL:publicURL allowingReadAccessToURL:[publicURL URLByDeletingLastPathComponent]];
-                } else {
-                    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.royalcoast.pt/admin"]]];
-                }
-                
-                vc.view = webView;
-                self.window.rootViewController = vc;
-                [self.window makeKeyAndVisible];
-                return YES;
-            }
-            @end
-
-            int main(int argc, char * argv[]) {
-                @autoreleasepool {
-                    return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
-                }
-            }
-            EOF
-
-            xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -fobjc-arc -framework UIKit -framework WebKit -framework Foundation -o /tmp/staging/Payload/App.app/App main_app.m
-          fi
-
+          # Copy embedded provisioning profile if present
           if [ -f "certs/profile.mobileprovision" ]; then
             cp certs/profile.mobileprovision /tmp/staging/Payload/App.app/embedded.mobileprovision
           fi
 
-          echo "📱 Conteúdo final da pasta App.app:"
-          ls -la /tmp/staging/Payload/App.app/
-
-          echo "📱 Verificando executável nativo ARM64:"
+          echo "📱 Executável ARM64 Nativo Compilado:"
+          ls -la /tmp/staging/Payload/App.app/App
           file /tmp/staging/Payload/App.app/App
 
+          # Package Payload/App.app into official .ipa
           node scripts/package-ipa.js /tmp/staging/Payload/App.app
 
       - name: Upload IPA Artifact
