@@ -1,0 +1,49 @@
+
+{
+  "owner": "IPMA",
+  "country": "PT",
+  "data": [
+    {
+      "precipitaProb": "80.0",
+      "tMin": "15.0",
+      "tMax": "22.0",
+      "predWindDir": "NW",
+      "idWeatherType": 6,
+      "forecastDate": "2024-10-25"
+    },
+    {
+      "precipitaProb": "20.0",
+      "tMin": "14.0",
+      "tMax": "23.0",
+      "predWindDir": "N",
+      "idWeatherType": 2,
+      "forecastDate": "2024-10-26"
+    },
+    {
+      "precipitaProb": "10.0",
+      "tMin": "16.0",
+      "tMax": "25.0",
+      "predWindDir": "E",
+      "idWeatherType": 1,
+      "forecastDate": "2024-10-27"
+    },
+    {
+      "precipitaProb": "40.0",
+      "tMin": "17.0",
+      "tMax": "24.0",
+      "predWindDir": "S",
+      "idWeatherType": 3,
+      "forecastDate": "2024-10-28"
+    },
+    {
+      "precipitaProb": "60.0",
+      "tMin": "16.0",
+      "tMax": "21.0",
+      "predWindDir": "NW",
+      "idWeatherType": 9,
+      "forecastDate": "2024-10-29"
+    }
+  ],
+  "globalIdLocal": 1151200,
+  "dataUpdate": "2024-10-24T20:30:00"
+}

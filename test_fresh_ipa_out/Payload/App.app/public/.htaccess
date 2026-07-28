@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Servir ficheiros e diretorias reais directamente (ex: /uploads/, /assets/)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # API PHP — tratado pelo api/.htaccess
+    RewriteRule ^api(/|$) - [L]
+
+    # React Router SPA — tudo o resto vai para index.html
+    RewriteRule ^ index.html [L]
+</IfModule>

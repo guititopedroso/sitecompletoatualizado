@@ -402,15 +402,16 @@ const Booking = () => {
       const adminWhatsAppMsg = `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
         `👤 *Cliente:* ${fullName}\n` +
         `📱 *Contacto:* ${fullPhone}\n` +
-        `📧 *Email:* ${email}\n` +
-        `🛥️ *Pacote:* ${finalPackName}\n` +
+        `📧 *Email:* ${email || 'N/D'}\n` +
+        `🛥️ *Pacote / Experiência:* ${finalPackName}\n` +
         `📅 *Data:* ${dateFormatted}\n` +
-        `⏰ *Hora:* ${time}\n` +
-        `📍 *Local:* ${location}\n` +
-        `👥 *Pessoas:* ${people}\n` +
+        `⏰ *Hora:* ${time || 'N/D'}\n` +
+        `📍 *Local de Embarque:* ${location}\n` +
+        `👥 *Número de Pessoas:* ${people}\n` +
         `💰 *Valor Total:* ${totalPriceStr}\n` +
         (referralCode ? `🎁 *Recomendado por:* ${referralCode}\n` : '') +
-        `\n📌 *Estado:* Confirmado online pelo cliente.`;
+        `👤 *Origem:* Cliente Online\n` +
+        `📌 *Estado:* Confirmado online pelo cliente.`;
 
       const clientWhatsAppMsg = `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
         `Olá ${firstName.trim()}! 👋\n\n` +

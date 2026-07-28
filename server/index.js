@@ -625,11 +625,104 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
+function buildAdminBookingWhatsAppMessage(data) {
+  const dateFormatted = data.booking_date
+    ? (data.booking_date.includes('-') ? data.booking_date.split('-').reverse().join('/') : data.booking_date)
+    : 'N/D';
+  const priceStr = data.price !== undefined && data.price !== null && data.price !== '' ? `${Number(data.price).toFixed(2)}€` : 'N/D';
+
+  let extrasText = '';
+  const allExtraItems = [];
+
+  let parsedExtras = data.extras;
+  if (typeof parsedExtras === 'string') {
+    try { parsedExtras = JSON.parse(parsedExtras); } catch (e) {}
+  }
+  let parsedPrefs = data.extra_preferences;
+  if (typeof parsedPrefs === 'string') {
+    try { parsedPrefs = JSON.parse(parsedPrefs); } catch (e) {}
+  }
+  let parsedDurations = data.extra_durations;
+  if (typeof parsedDurations === 'string') {
+    try { parsedDurations = JSON.parse(parsedDurations); } catch (e) {}
+  }
+  let parsedStartTimes = data.extra_start_times;
+  if (typeof parsedStartTimes === 'string') {
+    try { parsedStartTimes = JSON.parse(parsedStartTimes); } catch (e) {}
+  }
+
+  if (parsedExtras && typeof parsedExtras === 'object') {
+    for (const [key, val] of Object.entries(parsedExtras)) {
+      if (val) {
+        const details = [];
+        if (parsedStartTimes && parsedStartTimes[key]) details.push(`início: ${parsedStartTimes[key]}`);
+        if (parsedDurations && parsedDurations[key]) details.push(`duração: ${parsedDurations[key]}h`);
+        if (parsedPrefs && parsedPrefs[key]) details.push(`nota: ${parsedPrefs[key]}`);
+        allExtraItems.push(`• *${key}*${details.length > 0 ? ` (${details.join(', ')})` : ''}`);
+      }
+    }
+  } else if (parsedPrefs && typeof parsedPrefs === 'object') {
+    for (const [key, val] of Object.entries(parsedPrefs)) {
+      if (val) {
+        allExtraItems.push(`• *${key}*: ${val}`);
+      }
+    }
+  }
+
+  if (allExtraItems.length > 0) {
+    extrasText = `\n✨ *Extras & Preferências:*\n${allExtraItems.join('\n')}\n`;
+  }
+
+  const isConfirmed = data.confirmed === true || data.confirmed === 1 || data.confirmed === '1';
+
+  return `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
+    `🆔 *ID Reserva:* ${data.id || 'N/D'}\n` +
+    `👤 *Cliente:* ${data.client_name || 'N/D'}\n` +
+    `📱 *Contacto:* ${data.client_phone || 'N/D'}\n` +
+    `📧 *Email:* ${data.client_email || 'N/D'}\n` +
+    `🛥️ *Pacote / Experiência:* ${data.pack_name || 'N/D'}\n` +
+    `📅 *Data:* ${dateFormatted}\n` +
+    `⏰ *Hora:* ${data.booking_time || 'N/D'}\n` +
+    `📍 *Local de Embarque:* ${data.location || 'N/D'}\n` +
+    `👥 *Número de Pessoas:* ${data.num_people || 1}\n` +
+    `💰 *Valor Total:* ${priceStr}\n` +
+    (data.payment_method ? `💳 *Método de Pagamento:* ${data.payment_method}\n` : '') +
+    (data.referralCode ? `🎁 *Recomendado por (Ref):* ${data.referralCode}\n` : '') +
+    extrasText +
+    (data.notes ? `📝 *Observações:* ${data.notes}\n` : '') +
+    `👤 *Origem:* ${data.created_by || 'Cliente Online'}\n` +
+    `📌 *Estado:* ${isConfirmed ? 'Confirmada' : 'Pendente'}`;
+}
+
 async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 1. Meta WhatsApp Cloud API (Tenta Modelo primeiro para novos clientes, com fallback para texto direto)
+  // 1. Green API (Prioridade Principal se configurado)
+  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || process.env.VITE_GREEN_API_INSTANCE_ID || '';
+  const greenToken = process.env.GREEN_API_TOKEN || process.env.VITE_GREEN_API_TOKEN || '';
+  const greenApiUrl = (process.env.GREEN_API_URL || `https://${greenInstance.substring(0, 4)}.api.greenapi.com`).replace(/\/+$/, '');
+
+  if (greenInstance && greenToken) {
+    try {
+      const endpoint = `${greenApiUrl}/waInstance${greenInstance}/sendMessage/${greenToken}`;
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: `${cleanPhone}@c.us`,
+          message: body
+        })
+      });
+      const data = await resp.json();
+      console.log(`✅ WhatsApp (Green API): Mensagem enviada para ${cleanPhone}`, data);
+      return true;
+    } catch (e) {
+      console.error('❌ Green API Error:', e.message);
+    }
+  }
+
+  // 2. Meta WhatsApp Cloud API (Fallback)
   const metaToken = process.env.META_WA_TOKEN || '';
   const metaPhoneId = process.env.META_WA_PHONE_ID || '';
   if (metaToken && metaPhoneId) {
@@ -689,29 +782,10 @@ async function sendWhatsAppMessage(to, body, templateParams = null, templateName
     }
   }
 
-  // 2. Green API (fallback gratuito)
-  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
-  const greenToken = process.env.GREEN_API_TOKEN || '';
-  if (greenInstance && greenToken) {
-    try {
-      await fetch(`https://api.green-api.com/waInstance${greenInstance}/sendMessage/${greenToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: `${cleanPhone}@c.us`,
-          message: body
-        })
-      });
-      console.log(`✅ WhatsApp (Green API): Mensagem enviada para ${cleanPhone}`);
-      return true;
-    } catch (e) {
-      console.error('Green API Error:', e.message);
-    }
-  }
-
   console.warn(`⚠️ WhatsApp: Nenhum método configurado conseguiu enviar para ${cleanPhone}`);
   return false;
 }
+
 
 // WhatsApp Status Route
 app.get('/api/whatsapp/status', (req, res) => {
@@ -1200,18 +1274,7 @@ app.post('/api/bookings', async (req, res) => {
     const priceStr = data.price ? `${Number(data.price).toFixed(2)}€` : '';
 
     const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
-    const adminMsg =
-      `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
-      `👤 *Cliente:* ${data.client_name || ''}\n` +
-      `📱 *Contacto:* ${data.client_phone || 'N/D'}\n` +
-      `📧 *Email:* ${data.client_email || 'N/D'}\n` +
-      `🛥️ *Pacote:* ${data.pack_name || ''}\n` +
-      `📅 *Data:* ${dateFormatted}\n` +
-      `⏰ *Hora:* ${data.booking_time || 'N/D'}\n` +
-      `📍 *Local:* ${data.location || 'N/D'}\n` +
-      `👥 *Pessoas:* ${data.num_people || 1}\n` +
-      `💰 *Valor Total:* ${priceStr}\n\n` +
-      `📌 *Estado:* Confirmado online pelo cliente.`;
+    const adminMsg = buildAdminBookingWhatsAppMessage({ id, ...data });
 
     const clientMsg =
       `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
@@ -1227,8 +1290,10 @@ app.post('/api/bookings', async (req, res) => {
       `📍 Por favor, chega 15 minutos antes no ponto de embarque.\n\n` +
       `Dúvidas? Liga para +351 927 314 506.\n\nAté breve! 🚤`;
 
-    // Admin WhatsApp alert
-    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin').catch(() => null);
+    // Admin WhatsApp alert via Green API
+    console.log('📱 Enviando notificação detalhada da reserva para o Admin via Green API:', adminPhone);
+    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin').catch((e) => console.error('Erro ao enviar mensagem admin Green API:', e));
+
 
     // Client WhatsApp (if phone available)
     if (data.client_phone) {

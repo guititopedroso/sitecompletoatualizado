@@ -302,84 +302,15 @@ if ($method === 'POST' && $seg === ['auth','google']) {
     ]]);
 }
 
-function buildAdminBookingWhatsAppMessage($data) {
-    $dateFormatted = !empty($data['booking_date'])
-        ? (strpos($data['booking_date'], '-') !== false ? implode('/', array_reverse(explode('-', $data['booking_date']))) : $data['booking_date'])
-        : 'N/D';
-    $priceStr = isset($data['price']) && $data['price'] !== '' ? number_format((float)$data['price'], 2, '.', '') . '€' : 'N/D';
-
-    $extrasText = '';
-    $allExtraItems = [];
-
-    $extras = $data['extras'] ?? null;
-    if (is_string($extras)) $extras = json_decode($extras, true);
-
-    $prefs = $data['extra_preferences'] ?? null;
-    if (is_string($prefs)) $prefs = json_decode($prefs, true);
-
-    $durations = $data['extra_durations'] ?? null;
-    if (is_string($durations)) $durations = json_decode($durations, true);
-
-    $startTimes = $data['extra_start_times'] ?? null;
-    if (is_string($startTimes)) $startTimes = json_decode($startTimes, true);
-
-    if (is_array($extras)) {
-        foreach ($extras as $key => $val) {
-            if ($val) {
-                $details = [];
-                if (!empty($startTimes[$key])) $details[] = "início: {$startTimes[$key]}";
-                if (!empty($durations[$key])) $details[] = "duração: {$durations[$key]}h";
-                if (!empty($prefs[$key])) $details[] = "nota: {$prefs[$key]}";
-                $detStr = !empty($details) ? " (" . implode(', ', $details) . ")" : "";
-                $allExtraItems[] = "• *{$key}*{$detStr}";
-            }
-        }
-    } elseif (is_array($prefs)) {
-        foreach ($prefs as $key => $val) {
-            if ($val) {
-                $allExtraItems[] = "• *{$key}*: {$val}";
-            }
-        }
-    }
-
-    if (!empty($allExtraItems)) {
-        $extrasText = "\n✨ *Extras & Preferências:*\n" . implode("\n", $allExtraItems) . "\n";
-    }
-
-    $isConfirmed = !empty($data['confirmed']);
-
-    $msg = "🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n";
-    $msg .= "🆔 *ID Reserva:* " . ($data['id'] ?? 'N/D') . "\n";
-    $msg .= "👤 *Cliente:* " . ($data['client_name'] ?? 'N/D') . "\n";
-    $msg .= "📱 *Contacto:* " . ($data['client_phone'] ?? 'N/D') . "\n";
-    $msg .= "📧 *Email:* " . ($data['client_email'] ?? 'N/D') . "\n";
-    $msg .= "🛥️ *Pacote / Experiência:* " . ($data['pack_name'] ?? 'N/D') . "\n";
-    $msg .= "📅 *Data:* {$dateFormatted}\n";
-    $msg .= "⏰ *Hora:* " . ($data['booking_time'] ?? 'N/D') . "\n";
-    $msg .= "📍 *Local de Embarque:* " . ($data['location'] ?? 'N/D') . "\n";
-    $msg .= "👥 *Número de Pessoas:* " . ($data['num_people'] ?? 1) . "\n";
-    $msg .= "💰 *Valor Total:* {$priceStr}\n";
-    if (!empty($data['payment_method'])) $msg .= "💳 *Método de Pagamento:* {$data['payment_method']}\n";
-    if (!empty($data['referralCode'])) $msg .= "🎁 *Recomendado por (Ref):* {$data['referralCode']}\n";
-    $msg .= $extrasText;
-    if (!empty($data['notes'])) $msg .= "📝 *Observações:* {$data['notes']}\n";
-    $msg .= "👤 *Origem:* " . ($data['created_by'] ?? 'Cliente Online') . "\n";
-    $msg .= "📌 *Estado:* " . ($isConfirmed ? 'Confirmada' : 'Pendente');
-
-    return $msg;
-}
-
-function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada') {
+function sendWhatsAppMessage($to, $body, $templateParams = null) {
     $cleanPhone = preg_replace('/\D/', '', $to);
     if (empty($cleanPhone) || empty($body)) return false;
 
-    // 1. Green API (Prioridade Principal)
-    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: getenv('VITE_GREEN_API_INSTANCE_ID') ?: '';
-    $greenToken    = getenv('GREEN_API_TOKEN') ?: getenv('VITE_GREEN_API_TOKEN') ?: '';
-    $greenApiUrl   = rtrim(getenv('GREEN_API_URL') ?: ("https://" . substr($greenInstance, 0, 4) . ".api.greenapi.com"), '/');
-
+    // 1. Green API (100% Gratuito - Developer Plan)
+    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: '';
+    $greenToken    = getenv('GREEN_API_TOKEN') ?: '';
     if ($greenInstance && $greenToken) {
-        $url = "{$greenApiUrl}/waInstance{$greenInstance}/sendMessage/{$greenToken}";
+        $url = "https://api.green-api.com/waInstance{$greenInstance}/sendMessage/{$greenToken}";
         $chatId = $cleanPhone . "@c.us";
         $data = json_encode([
             'chatId' => $chatId,
@@ -391,11 +322,8 @@ function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName =
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $res = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        if ($httpCode === 200) {
-            return $res;
-        }
+        return $res;
     }
 
     // 1. CallMeBot (100% Gratuito)
@@ -810,12 +738,6 @@ if ($method === 'POST' && $seg === ['bookings']) {
     $d=getBody(); $id=genId('bk-');
     getDB()->prepare('INSERT INTO bookings (id,client_name,client_email,client_phone,pack_name,extra_preferences,extra_durations,extra_start_times,booking_date,booking_time,num_people,location,referralCode,price,confirmed,payment_method,created_by,extras,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([$id,$d['client_name'],$d['client_email']??null,$d['client_phone']??null,$d['pack_name'],json_encode($d['extra_preferences']??[]),json_encode($d['extra_durations']??[]),json_encode($d['extra_start_times']??[]),$d['booking_date']??null,$d['booking_time']??null,$d['num_people']??1,$d['location']??null,$d['referralCode']??null,$d['price']??0,!empty($d['confirmed'])?1:0,$d['payment_method']??null,$d['created_by']??null,json_encode($d['extras']??[]),$d['notes']??null]);
-
-    // Notificar Admin via WhatsApp (Green API) com todos os detalhes da reserva
-    $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
-    $adminMsg = buildAdminBookingWhatsAppMessage(array_merge(['id' => $id], $d));
-    sendWhatsAppMessage($adminPhone, $adminMsg, null, 'nova_reserva_admin');
-
     respond(array_merge(['id'=>$id],$d));
 }
 
