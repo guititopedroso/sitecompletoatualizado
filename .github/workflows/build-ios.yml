@@ -8,7 +8,10 @@ on:
 jobs:
   build-ios:
     runs-on: macos-14
+    permissions:
+      contents: write
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -67,13 +70,15 @@ jobs:
           path: public/apps/royalcoast-admin.ipa
 
       - name: Release IPA Build
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: latest
-          name: "RoyalCoast Admin iOS IPA"
+          tag_name: v1.0.0
+          name: "RoyalCoast Admin iOS IPA v1.0.0"
           files: |
             public/apps/royalcoast-admin.ipa
             public/apps/manifest.plist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
