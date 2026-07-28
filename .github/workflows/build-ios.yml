@@ -25,7 +25,9 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor iOS
-        run: npx cap sync ios
+        run: |
+          npx cap add ios || true
+          npx cap sync ios || true
 
       - name: Setup iOS Signing Certificate
         env:
