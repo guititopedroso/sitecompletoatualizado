@@ -4,8 +4,8 @@ import { Clock, Users, Star, Camera, Sunset, Fish, MapPin, Waves, Anchor, Loader
 import WaveDivider from "./WaveDivider";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
-import BoatCatalog from "./BoatCatalog";
 import SectionWrapper from "./ui/section-wrapper";
+
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import {
@@ -121,7 +121,6 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
   const tabs = [
     { id: "jetski", label: t("exp_tab_jetski") },
-    { id: "barcos", label: t("exp_tab_boats") },
     { id: "passeios", label: "Passeios Turísticos" },
   ];
 
@@ -165,17 +164,8 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
             </div>
 
             <AnimatePresence mode="wait">
-              {activeTab === "barcos" ? ( 
-                <motion.div
-                  key="barcos"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  <BoatCatalog referralCode={referralCode} />
-                </motion.div>
-              ) : activeTab === "jetski" ? (
+              {activeTab === "jetski" ? (
+
                 <motion.div
                   key="jetski"
                   initial={{ opacity: 0, scale: 0.95 }}

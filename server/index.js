@@ -737,6 +737,49 @@ app.post('/api/notify/whatsapp', async (req, res) => {
   res.json({ success: true, clientSent: sentClient });
 });
 
+// EmailJS Notification Helper & Route (Backend API)
+async function sendEmailJSNotification(templateParams) {
+  const serviceId = process.env.VITE_EMAILJS_SERVICE_ID || process.env.EMAILJS_SERVICE_ID || 'service_h8ub1o1';
+  const templateId = process.env.VITE_EMAILJS_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || 'template_lyoryda';
+  const publicKey = process.env.VITE_EMAILJS_PUBLIC_KEY || process.env.EMAILJS_PUBLIC_KEY || 'YAyeqW_hAHwLaV3Ho';
+
+  try {
+    const payload = {
+      service_id: serviceId,
+      template_id: templateId,
+      user_id: publicKey,
+      template_params: templateParams
+    };
+
+    console.log('📧 ENVIANDO EMAIL VIA EMAILJS REST API PARA:', templateParams.to_email || templateParams.email);
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await response.text();
+    if (response.ok) {
+      console.log('✅ EmailJS enviado com sucesso via Backend API! Resposta:', text);
+      return true;
+    } else {
+      console.error('❌ Erro no envio EmailJS via Backend API:', response.status, text);
+      return false;
+    }
+  } catch (err) {
+    console.error('❌ Exceção ao enviar EmailJS via Backend API:', err.message);
+    return false;
+  }
+}
+
+app.post('/api/notify/email', async (req, res) => {
+  const { templateParams } = req.body;
+  if (!templateParams) return res.status(400).json({ error: 'Falta templateParams' });
+  const success = await sendEmailJSNotification(templateParams);
+  res.json({ success });
+});
+
+
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
