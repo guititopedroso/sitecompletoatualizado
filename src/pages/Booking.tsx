@@ -446,35 +446,25 @@ const Booking = () => {
         priceStr: totalPriceStr
       });
 
-      // Send to server API endpoint for automated WhatsApp Bot gateway
-      fetchApi("/api/notify/whatsapp", {
-        method: "POST",
-        body: {
-          to: cleanClientPhone,
-          message: clientWhatsAppMsg,
-          adminMessage: adminWhatsAppMsg,
-          templateParams: [
-            firstName.trim(),
-            finalPackName,
-            dateFormatted,
-            time || "",
-            location,
-            people,
-            totalPriceStr
-          ],
-          adminTemplateParams: [
-            fullName,
-            fullPhone,
-            email,
-            finalPackName,
-            dateFormatted,
-            time || "",
-            location,
-            people,
-            totalPriceStr
-          ]
-        }
-      }).catch(() => null);
+      // Send client WhatsApp notification (admin notification is handled automatically on booking creation)
+      if (cleanClientPhone) {
+        fetchApi("/api/notify/whatsapp", {
+          method: "POST",
+          body: {
+            to: cleanClientPhone,
+            message: clientWhatsAppMsg,
+            templateParams: [
+              firstName.trim(),
+              finalPackName,
+              dateFormatted,
+              time || "",
+              location,
+              people,
+              totalPriceStr
+            ]
+          }
+        }).catch(() => null);
+      }
 
       // Send EmailJS Confirmation Email (Backend + Client)
       const emailParams = {

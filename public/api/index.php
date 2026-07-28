@@ -541,20 +541,16 @@ if (strtoupper($method) === 'POST' && ($path === 'notify/whatsapp' || $seg === [
         }
     }
 
-    // 2. Enviar para o Cliente (via Meta API)
-    $metaResult = sendWhatsAppMessage($to, $message, $templateParams, 'reserva_confirmada');
-    $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
-
-    // 3. Enviar para o Administrador se fornecido
-    if ($adminMessage) {
-        $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
-        sendWhatsAppMessage($adminPhone, $adminMessage, $adminTemplateParams, 'nova_reserva_admin');
+    // 2. Enviar para o Cliente (via Green API / Meta API)
+    $clientResult = false;
+    if (!empty($to) && !empty($message)) {
+        $clientResult = sendWhatsAppMessage($to, $message, $templateParams, 'reserva_confirmada');
     }
 
     respond([
         'success' => true,
-        'clientSent' => !empty($parsed['messages']),
-        'raw' => $parsed ?: $metaResult
+        'clientSent' => !empty($clientResult),
+        'raw' => $clientResult
     ]);
 }
 

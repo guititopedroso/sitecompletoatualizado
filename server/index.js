@@ -811,15 +811,12 @@ app.get('/api/whatsapp/qr', (req, res) => {
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
-  const { to, message, adminMessage, templateParams, adminTemplateParams } = req.body;
+  const { to, message, templateParams } = req.body;
 
-  console.log('📱 ENVIANDO MENSAGEM WHATSAPP PARA O CLIENTE:', to);
-  const sentClient = await sendWhatsAppMessage(to, message, templateParams, 'reserva_confirmada');
-
-  if (adminMessage) {
-    const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
-    console.log('📱 ENVIANDO ALERTA DE RESERVA PARA O ADMIN:', adminPhone);
-    await sendWhatsAppMessage(adminPhone, adminMessage, adminTemplateParams, 'nova_reserva_admin');
+  let sentClient = false;
+  if (to && message) {
+    console.log('📱 ENVIANDO MENSAGEM WHATSAPP PARA O CLIENTE:', to);
+    sentClient = await sendWhatsAppMessage(to, message, templateParams, 'reserva_confirmada');
   }
 
   res.json({ success: true, clientSent: sentClient });
