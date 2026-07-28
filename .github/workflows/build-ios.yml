@@ -92,27 +92,27 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             archive 2>&1 || true
 
-      - name: Package Valid iOS IPA (Guaranteed ARM64 Executable)
+      - name: Package Valid iOS IPA (Guaranteed ARM64 Executable & Top-level Payload)
         run: |
-          mkdir -p public/apps server/apps /tmp/payload-dir/Payload/App.app
+          mkdir -p public/apps server/apps /tmp/App.app
 
           # Copy web assets dist into public
-          cp -R dist/* /tmp/payload-dir/Payload/App.app/ 2>/dev/null || true
-          mkdir -p /tmp/payload-dir/Payload/App.app/public
-          cp -R dist/* /tmp/payload-dir/Payload/App.app/public/ 2>/dev/null || true
+          cp -R dist/* /tmp/App.app/ 2>/dev/null || true
+          mkdir -p /tmp/App.app/public
+          cp -R dist/* /tmp/App.app/public/ 2>/dev/null || true
 
           # Copy Info.plist
-          cp ios/App/App/Info.plist /tmp/payload-dir/Payload/App.app/Info.plist
+          cp ios/App/App/Info.plist /tmp/App.app/Info.plist
 
           # Copy mobileprovision
           if [ -f "certs/profile.mobileprovision" ]; then
-            cp certs/profile.mobileprovision /tmp/payload-dir/Payload/App.app/embedded.mobileprovision
+            cp certs/profile.mobileprovision /tmp/App.app/embedded.mobileprovision
           fi
 
           # Copy Xcode compiled App executable if available, or compile ARM64 Mach-O binary using Apple clang
           if [ -f "ios/App/archive.xcarchive/Products/Applications/App.app/App" ]; then
             echo "✅ Usando executável compilado pelo Xcode!"
-            cp ios/App/archive.xcarchive/Products/Applications/App.app/App /tmp/payload-dir/Payload/App.app/App
+            cp ios/App/archive.xcarchive/Products/Applications/App.app/App /tmp/App.app/App
           else
             echo "🛠️ A compilar executável ARM64 nativo via Apple Clang..."
             cat << 'EOF' > main_stub.c
@@ -122,20 +122,16 @@ jobs:
                 return 0;
             }
             EOF
-            xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -o /tmp/payload-dir/Payload/App.app/App main_stub.c
+            xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -o /tmp/App.app/App main_stub.c
           fi
 
           # Verify binary with file command
           echo "📱 Informação do Executável NATIVO ARM64:"
-          file /tmp/payload-dir/Payload/App.app/App
+          file /tmp/App.app/App
 
-          # Create final IPA zip package
-          cd /tmp/payload-dir
-          zip -qr royalcoast-admin.ipa Payload/
-          cp royalcoast-admin.ipa $GITHUB_WORKSPACE/public/apps/royalcoast-admin.ipa
-          cp royalcoast-admin.ipa $GITHUB_WORKSPACE/server/apps/royalcoast-admin.ipa
+          # Package using node script for guaranteed Payload/App.app zip structure
+          node scripts/package-ipa.js /tmp/App.app
 
-          echo "✅ Ficheiro IPA VÁLIDO criado com sucesso! Tamanho: $(du -sh royalcoast-admin.ipa)"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
