@@ -124,13 +124,7 @@ export const api = {
 
   // Tours
   tours: {
-    getAll: async () => {
-      try {
-        const res = await fetchApi('/api/tours');
-        if (Array.isArray(res) && res.length > 0) return res;
-      } catch (e) {}
-      return [];
-    },
+    getAll: () => fetchApi('/api/tours'),
     create: (data: any) => fetchApi('/api/tours', { method: 'POST', body: data }),
     update: (id: string, data: any) => fetchApi(`/api/tours/${id}`, { method: 'PUT', body: data }),
     delete: (id: string) => fetchApi(`/api/tours/${id}`, { method: 'DELETE' }),
@@ -140,20 +134,7 @@ export const api = {
 
   // Gallery
   gallery: {
-    getAll: async () => {
-      try {
-        const res = await fetchApi('/api/gallery');
-        if (Array.isArray(res) && res.length > 0) return res;
-      } catch (e) {}
-      return [
-        { id: "g-1", url: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80", alt: "Jet Ski Royal Coast" },
-        { id: "g-2", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", alt: "Praia de Galapinhos & Arrábida" },
-        { id: "g-3", url: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80", alt: "Golfinhos no Estuário do Sado" },
-        { id: "g-4", url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80", alt: "Pôr do Sol em Setúbal" },
-        { id: "g-5", url: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80", alt: "Navegação em Águas Turquesa" },
-        { id: "g-6", url: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80", alt: "Aventura de Barco Royal Coast" }
-      ];
-    },
+    getAll: () => fetchApi('/api/gallery'),
     uploadImage: (file: File, alt: string = 'Imagem da galeria') => {
       const formData = new FormData();
       formData.append('file', file);
