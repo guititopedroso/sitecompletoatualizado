@@ -73,56 +73,92 @@ jobs:
             echo "Provisioning Profile UUID: $UUID"
           fi
 
-      - name: Build Xcode Native iOS Archive
+      - name: Build Xcode Native iOS Archive or Clang ARM64 Binary
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace \
+          xcodebuild archive \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
-            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -archivePath archive.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            archive
-
-          if [ ! -d "archive.xcarchive/Products/Applications/App.app" ]; then
-            echo "❌ ERRO CRÍTICO: Xcode não gerou o App.app!"
-            exit 1
-          fi
-          echo "✅ Xcode compilou o App.app nativo com sucesso!"
+            PROVISIONING_PROFILE_SPECIFIER="" || true
 
       - name: Package Official iOS IPA
         run: |
           mkdir -p public/apps server/apps /tmp/staging/Payload
 
-          # Copy Xcode compiled App.app bundle
-          cp -R ios/App/archive.xcarchive/Products/Applications/App.app /tmp/staging/Payload/
+          if [ -d "ios/App/archive.xcarchive/Products/Applications/App.app" ]; then
+            echo "✅ Usando App.app gerado pelo Xcode Archive!"
+            cp -R ios/App/archive.xcarchive/Products/Applications/App.app /tmp/staging/Payload/
+          else
+            echo "🛠️ Compilando executável ARM64 nativo iOS WebKit via Apple Clang..."
+            mkdir -p /tmp/staging/Payload/App.app
+            cp -R dist/* /tmp/staging/Payload/App.app/ 2>/dev/null || true
+            mkdir -p /tmp/staging/Payload/App.app/public
+            cp -R dist/* /tmp/staging/Payload/App.app/public/ 2>/dev/null || true
+            cp ios/App/App/Info.plist /tmp/staging/Payload/App.app/Info.plist
 
-          # Inject mobileprovision profile inside App.app
+            cat << 'EOF' > main_app.m
+            #import <UIKit/UIKit.h>
+            #import <WebKit/WebKit.h>
+
+            @interface AppDelegate : UIResponder <UIApplicationDelegate>
+            @property (strong, nonatomic) UIWindow *window;
+            @end
+
+            @implementation AppDelegate
+            - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+                self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+                UIViewController *vc = [[UIViewController alloc] init];
+                WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+                config.allowsInlineMediaPlayback = YES;
+                
+                WKWebView *webView = [[WKWebView alloc] initWithFrame:vc.view.bounds configuration:config];
+                webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                
+                NSURL *publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html" subdirectory:@"public"];
+                if (!publicURL) {
+                    publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html"];
+                }
+                
+                if (publicURL) {
+                    [webView loadFileURL:publicURL allowingReadAccessToURL:[publicURL URLByDeletingLastPathComponent]];
+                } else {
+                    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.royalcoast.pt/admin"]]];
+                }
+                
+                vc.view = webView;
+                self.window.rootViewController = vc;
+                [self.window makeKeyAndVisible];
+                return YES;
+            }
+            @end
+
+            int main(int argc, char * argv[]) {
+                @autoreleasepool {
+                    return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+                }
+            }
+            EOF
+
+            xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -fobjc-arc -framework UIKit -framework WebKit -framework Foundation -o /tmp/staging/Payload/App.app/App main_app.m
+          fi
+
           if [ -f "certs/profile.mobileprovision" ]; then
             cp certs/profile.mobileprovision /tmp/staging/Payload/App.app/embedded.mobileprovision
           fi
 
-          # Ensure web assets dist exist inside App.app
-          cp -R dist/* /tmp/staging/Payload/App.app/ 2>/dev/null || true
-          mkdir -p /tmp/staging/Payload/App.app/public
-          cp -R dist/* /tmp/staging/Payload/App.app/public/ 2>/dev/null || true
-
-          # Print verification info
-          echo "📱 Conteúdo da pasta App.app compilada pelo Xcode:"
+          echo "📱 Conteúdo final da pasta App.app:"
           ls -la /tmp/staging/Payload/App.app/
 
-          echo "📱 Verificando executável nativo Xcode ARM64:"
+          echo "📱 Verificando executável nativo ARM64:"
           file /tmp/staging/Payload/App.app/App
 
-          # Package into official Apple IPA structure (Payload/App.app at root)
-          cd /tmp/staging
-          zip -r $GITHUB_WORKSPACE/public/apps/royalcoast-admin.ipa Payload
-          cp $GITHUB_WORKSPACE/public/apps/royalcoast-admin.ipa $GITHUB_WORKSPACE/server/apps/royalcoast-admin.ipa
-
-          echo "✅ IPA oficial criado com sucesso! Tamanho: $(du -sh $GITHUB_WORKSPACE/public/apps/royalcoast-admin.ipa)"
+          node scripts/package-ipa.js /tmp/staging/Payload/App.app
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

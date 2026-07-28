@@ -40,4 +40,5 @@ server/apps/*.ipa
 **.data.json
 **.node-persist**
 **_IGNORE_**
+scratch/
 # end managed
