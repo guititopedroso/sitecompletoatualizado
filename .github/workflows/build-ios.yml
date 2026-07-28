@@ -92,9 +92,11 @@ jobs:
         with:
           tag_name: v1.0.0
           name: "RoyalCoast Admin iOS IPA v1.0.0"
+          make_latest: true
           files: |
             public/apps/royalcoast-admin.ipa
             public/apps/manifest.plist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
