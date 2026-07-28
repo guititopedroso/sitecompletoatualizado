@@ -31,5 +31,5 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
-public/hero-video.mp4
+
 
