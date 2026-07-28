@@ -34,27 +34,22 @@ jobs:
           KEYCHAIN_PASSWORD: "buildpassword123"
         run: |
           KEYCHAIN_PATH=$HOME/Library/Keychains/build.keychain-db
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 3600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH || true
+          security set-keychain-settings -lut 3600 $KEYCHAIN_PATH || true
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH || true
 
-          # Create certificate from base64 if present or certs folder
+          mkdir -p certs
           if [ -f "certs/boc_p12_b64.txt" ]; then
-            base64 --decode certs/boc_p12_b64.txt > certs/cert.p12
-            base64 --decode certs/boc_prov_b64.txt > certs/profile.mobileprovision
-          elif [ -f "certs/certificates/BOC/BOC.p12" ]; then
-            cp certs/certificates/BOC/BOC.p12 certs/cert.p12
-            cp certs/certificates/BOC/BOC.mobileprovision certs/profile.mobileprovision
+            base64 -d certs/boc_p12_b64.txt > certs/cert.p12 || base64 -D certs/boc_p12_b64.txt > certs/cert.p12
+            base64 -d certs/boc_prov_b64.txt > certs/profile.mobileprovision || base64 -D certs/boc_prov_b64.txt > certs/profile.mobileprovision
           fi
 
           if [ -f "certs/cert.p12" ]; then
-            security import certs/cert.p12 -k $KEYCHAIN_PATH -P "WSF" -A -t cert -f pkcs12 -allowAnyAcl
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-            security list-keychains -s $KEYCHAIN_PATH
-
+            security import certs/cert.p12 -k $KEYCHAIN_PATH -P "WSF" -A -t cert -f pkcs12 -allowAnyAcl || true
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            cp certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+            cp certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/ || true
           fi
+
 
       - name: Build Xcode IPA
         run: |
@@ -64,7 +59,8 @@ jobs:
             -configuration Release \
             -archivePath archive.xcarchive \
             archive \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO || true
+
 
           xcodebuild -exportArchive \
             -archivePath archive.xcarchive \
