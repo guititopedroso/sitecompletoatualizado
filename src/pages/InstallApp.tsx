@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 
 export default function InstallApp() {
-  const otaUrl = "itms-services://?action=download-manifest&url=https://www.royalcoast.pt/apps/manifest.plist";
-  const ipaDirectUrl = "https://www.royalcoast.pt/apps/royalcoast-admin.ipa";
+  const otaUrl = "itms-services://?action=download-manifest&url=https://raw.githubusercontent.com/guititopedroso/sitecompletoatualizado/main/public/apps/manifest.plist";
+  const ipaDirectUrl = "https://github.com/guititopedroso/sitecompletoatualizado/releases/download/v1.0.0/royalcoast-admin.ipa";
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between">
