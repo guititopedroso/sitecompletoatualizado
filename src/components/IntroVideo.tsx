@@ -9,7 +9,7 @@ const IntroVideo = ({ onComplete }: IntroVideoProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const videoURL = "https://res.cloudinary.com/dw86u43e6/video/upload/v1/Timeline_1_m0bngd";
+  const videoURL = "/hero-video.mp4";
 
   const handleStartVideo = () => {
     if (videoRef.current && !isPlaying) {

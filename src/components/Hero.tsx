@@ -20,11 +20,9 @@ const Hero = () => {
           loop
           muted
           playsInline
-          poster="/hero-poster.jpg"
           preload="auto"
           className="w-full h-[120%] object-cover"
         >
-          <source src="https://res.cloudinary.com/dw86u43e6/video/upload/v1/Timeline_1_m0bngd" type="video/mp4" />
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
       </motion.div>
