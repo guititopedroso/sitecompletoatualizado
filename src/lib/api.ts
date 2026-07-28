@@ -68,6 +68,10 @@ export function subscribeUrl<T>(url: string, callback: (data: T) => void): () =>
         }
       } catch (e) {
         console.error("Polling error for " + url, e);
+        // Desencadear callback se houver erro para libertar o estado de loading do frontend
+        if (!lastDataJson) {
+          listeners.forEach(cb => cb([] as any));
+        }
       }
     };
 

@@ -12,6 +12,9 @@ import Index from "./pages/Index";
 import Booking from "./pages/Booking";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import Maintenance from "./pages/Maintenance";
+import InstallApp from "./pages/InstallApp";
+import ReferralTracker from "./components/ReferralTracker";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Staff from "./pages/Staff";
@@ -20,10 +23,11 @@ import GalleryPage from "./pages/GalleryPage";
 import AdminGallery from "./pages/AdminGallery";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
-import Maintenance from "./pages/Maintenance";
-import ReferralTracker from "./components/ReferralTracker";
+
 
 const queryClient = new QueryClient();
+
+
 
 const AppContent = () => {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -51,8 +55,10 @@ const AppContent = () => {
       <Route path="/" element={<Index />} />
       <Route path="/reservar" element={<Booking />} />
       <Route path="/termos" element={<Terms />} />
-      <Route path="/privacidade" element={<Privacy />} />
       <Route path="/admin-painel" element={<Admin />} />
+      <Route path="/admin/install" element={<InstallApp />} />
+
+
       <Route path="/staff-painel" element={<Staff />} />
       <Route path="/afiliado" element={<Referral />} />
       <Route path="/galeria" element={<GalleryPage />} />

@@ -25,6 +25,7 @@ const Hero = () => {
           className="w-full h-[120%] object-cover"
         >
           <source src="/hero-video.mp4" type="video/mp4" />
+          <source src="https://assets.mixkit.co/videos/preview/mixkit-top-view-of-a-boat-sailing-in-the-sea-41544-large.mp4" type="video/mp4" />
         </video>
       </motion.div>
       <div className="absolute inset-0 hero-overlay" />

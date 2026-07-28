@@ -6,11 +6,11 @@
 // ============================================================
 
 // --- Configuração ---
-define('DB_HOST', '127.0.0.1');
-define('DB_PORT', 3306);
-define('DB_NAME', 'u236076924_royalcoast');
-define('DB_USER', 'u236076924_royalcoast');
-define('DB_PASS', 'Guitacrapazes.101010%');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_PORT', getenv('DB_PORT') ?: 3306);
+define('DB_NAME', getenv('DB_NAME') ?: 'u236076924_royalcoast');
+define('DB_USER', getenv('DB_USER') ?: 'u236076924_royalcoast');
+define('DB_PASS', getenv('DB_PASS') ?: 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
 define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSM18vnK35UJCZCqv70bNZBdZA2kUXlo0yqBLjX2171jf2vn7nbKgoSDCNI93QzbN3hDSO5gjZCcbSI0ED3ARIULHoZAuumhTYs81uZBx8gXXVnWSZCqxemK5jou5etPRPzV25snjVTZBZAGDBXmKk4dSXxamnjfOinAiMVqUYXg83dnmHl3Fh0QZDZD');
@@ -69,14 +69,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function getDB() {
     static $pdo = null;
     if ($pdo === null) {
-        try {
-            $pdo = new PDO(
-                'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-                DB_USER, DB_PASS,
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-            );
-        } catch (PDOException $e) {
-            respond(['error' => 'Erro de ligação à BD: ' . $e->getMessage()], 500);
+        $dbname = DB_NAME;
+        $user   = DB_USER;
+        $pass   = DB_PASS;
+
+        $dsns = [
+            "mysql:host=localhost;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=127.0.0.1;port=3306;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=127.0.0.1;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/tmp/mysql.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/var/lib/mysql/mysql.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=localhost;port=3306;dbname={$dbname};charset=utf8mb4"
+        ];
+
+        $errors = [];
+        foreach ($dsns as $dsn) {
+            try {
+                $instance = new PDO($dsn, $user, $pass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                ]);
+                $pdo = $instance;
+                break;
+            } catch (PDOException $e) {
+                $errors[] = $dsn . " => " . $e->getMessage();
+            }
+        }
+
+        if ($pdo === null) {
+            respond([
+                'error' => 'Erro de ligação à BD',
+                'details' => $errors
+            ], 500);
         }
     }
     return $pdo;
@@ -113,8 +138,10 @@ function initTables() {
         images TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
-    // Migração: adicionar coluna images se não existir
+    // Migrações: adicionar colunas se não existirem
     try { $pdo->exec('ALTER TABLE tours ADD COLUMN images TEXT'); } catch (Exception $e) {}
+    try { $pdo->exec('ALTER TABLE tours ADD COLUMN includes TEXT'); } catch (Exception $e) {}
+    try { $pdo->exec('ALTER TABLE tours ADD COLUMN popular TINYINT(1) DEFAULT 0'); } catch (Exception $e) {}
     $pdo->exec("CREATE TABLE IF NOT EXISTS gallery (
         id VARCHAR(128) PRIMARY KEY, url VARCHAR(512) NOT NULL,
         alt VARCHAR(255) DEFAULT 'Imagem da galeria',
@@ -302,15 +329,83 @@ if ($method === 'POST' && $seg === ['auth','google']) {
     ]]);
 }
 
-function sendWhatsAppMessage($to, $body, $templateParams = null) {
+function buildAdminBookingWhatsAppMessage($data) {
+    $dateFormatted = !empty($data['booking_date'])
+        ? (strpos($data['booking_date'], '-') !== false ? implode('/', array_reverse(explode('-', $data['booking_date']))) : $data['booking_date'])
+        : 'N/D';
+    $priceStr = isset($data['price']) && $data['price'] !== '' ? number_format((float)$data['price'], 2, '.', '') . '€' : 'N/D';
+
+    $extrasText = '';
+    $allExtraItems = [];
+
+    $extras = $data['extras'] ?? null;
+    if (is_string($extras)) $extras = json_decode($extras, true);
+
+    $prefs = $data['extra_preferences'] ?? null;
+    if (is_string($prefs)) $prefs = json_decode($prefs, true);
+
+    $durations = $data['extra_durations'] ?? null;
+    if (is_string($durations)) $durations = json_decode($durations, true);
+
+    $startTimes = $data['extra_start_times'] ?? null;
+    if (is_string($startTimes)) $startTimes = json_decode($startTimes, true);
+
+    if (is_array($extras)) {
+        foreach ($extras as $key => $val) {
+            if ($val) {
+                $details = [];
+                if (!empty($startTimes[$key])) $details[] = "início: {$startTimes[$key]}";
+                if (!empty($durations[$key])) $details[] = "duração: {$durations[$key]}h";
+                if (!empty($prefs[$key])) $details[] = "nota: {$prefs[$key]}";
+                $detStr = !empty($details) ? " (" . implode(', ', $details) . ")" : "";
+                $allExtraItems[] = "• *{$key}*{$detStr}";
+            }
+        }
+    } elseif (is_array($prefs)) {
+        foreach ($prefs as $key => $val) {
+            if ($val) {
+                $allExtraItems[] = "• *{$key}*: {$val}";
+            }
+        }
+    }
+
+    if (!empty($allExtraItems)) {
+        $extrasText = "\n✨ *Extras & Preferências:*\n" . implode("\n", $allExtraItems) . "\n";
+    }
+
+    $isConfirmed = !empty($data['confirmed']);
+
+    $msg = "🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n";
+    $msg .= "🆔 *ID Reserva:* " . ($data['id'] ?? 'N/D') . "\n";
+    $msg .= "👤 *Cliente:* " . ($data['client_name'] ?? 'N/D') . "\n";
+    $msg .= "📱 *Contacto:* " . ($data['client_phone'] ?? 'N/D') . "\n";
+    $msg .= "📧 *Email:* " . ($data['client_email'] ?? 'N/D') . "\n";
+    $msg .= "🛥️ *Pacote / Experiência:* " . ($data['pack_name'] ?? 'N/D') . "\n";
+    $msg .= "📅 *Data:* {$dateFormatted}\n";
+    $msg .= "⏰ *Hora:* " . ($data['booking_time'] ?? 'N/D') . "\n";
+    $msg .= "📍 *Local de Embarque:* " . ($data['location'] ?? 'N/D') . "\n";
+    $msg .= "👥 *Número de Pessoas:* " . ($data['num_people'] ?? 1) . "\n";
+    $msg .= "💰 *Valor Total:* {$priceStr}\n";
+    if (!empty($data['payment_method'])) $msg .= "💳 *Método de Pagamento:* {$data['payment_method']}\n";
+    if (!empty($data['referralCode'])) $msg .= "🎁 *Recomendado por (Ref):* {$data['referralCode']}\n";
+    $msg .= $extrasText;
+    if (!empty($data['notes'])) $msg .= "📝 *Observações:* {$data['notes']}\n";
+    $msg .= "👤 *Origem:* " . ($data['created_by'] ?? 'Cliente Online') . "\n";
+    $msg .= "📌 *Estado:* " . ($isConfirmed ? 'Confirmada' : 'Pendente');
+
+    return $msg;
+}
+
+function sendGreenApiMessage($to, $body) {
     $cleanPhone = preg_replace('/\D/', '', $to);
     if (empty($cleanPhone) || empty($body)) return false;
 
-    // 1. Green API (100% Gratuito - Developer Plan)
-    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: '';
-    $greenToken    = getenv('GREEN_API_TOKEN') ?: '';
+    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: ($_ENV['GREEN_API_INSTANCE_ID'] ?? '710722695372');
+    $greenToken    = getenv('GREEN_API_TOKEN') ?: ($_ENV['GREEN_API_TOKEN'] ?? '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1');
+    $greenApiUrl   = rtrim(getenv('GREEN_API_URL') ?: ($_ENV['GREEN_API_URL'] ?? 'https://7107.api.greenapi.com'), '/');
+
     if ($greenInstance && $greenToken) {
-        $url = "https://api.green-api.com/waInstance{$greenInstance}/sendMessage/{$greenToken}";
+        $url = "{$greenApiUrl}/waInstance{$greenInstance}/sendMessage/{$greenToken}";
         $chatId = $cleanPhone . "@c.us";
         $data = json_encode([
             'chatId' => $chatId,
@@ -322,22 +417,19 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        return $res;
+        if ($httpCode === 200) {
+            return $res;
+        }
     }
+    return false;
+}
 
-    // 1. CallMeBot (100% Gratuito)
-    $callMeBotKey = getenv('CALLMEBOT_API_KEY') ?: '';
-    if ($callMeBotKey) {
-        $url = "https://api.callmebot.com/whatsapp.php?phone=" . urlencode($cleanPhone) . "&text=" . urlencode($body) . "&apikey=" . urlencode($callMeBotKey);
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $res = curl_exec($ch);
-        curl_close($ch);
-        return $res;
-    }
+function sendMetaWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada') {
+    $cleanPhone = preg_replace('/\D/', '', $to);
+    if (empty($cleanPhone) || empty($body)) return false;
 
-    // 2. Meta WhatsApp Cloud API (Tenta Modelo primeiro para novos clientes, com fallback para texto direto)
     $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
     $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
     if ($metaToken && $metaPhoneId) {
@@ -398,6 +490,20 @@ function sendWhatsAppMessage($to, $body, $templateParams = null) {
         curl_close($ch);
         return $res;
     }
+    return false;
+}
+
+function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada', $isAdmin = false) {
+    if ($isAdmin) {
+        $sentG = sendGreenApiMessage($to, $body);
+        if ($sentG) return $sentG;
+        return sendMetaWhatsAppMessage($to, $body, $templateParams, $templateName);
+    } else {
+        $sentM = sendMetaWhatsAppMessage($to, $body, $templateParams, $templateName);
+        if ($sentM) return $sentM;
+        return sendGreenApiMessage($to, $body);
+    }
+}
 
     // 3. UltraMsg / Green API
     $instanceId = getenv('WHATSAPP_INSTANCE_ID') ?: '';
@@ -469,20 +575,16 @@ if (strtoupper($method) === 'POST' && ($path === 'notify/whatsapp' || $seg === [
         }
     }
 
-    // 2. Enviar para o Cliente (via Meta API)
-    $metaResult = sendWhatsAppMessage($to, $message, $templateParams, 'reserva_confirmada');
-    $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
-
-    // 3. Enviar para o Administrador se fornecido
-    if ($adminMessage) {
-        $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
-        sendWhatsAppMessage($adminPhone, $adminMessage, $adminTemplateParams, 'nova_reserva_admin');
+    // 2. Enviar para o Cliente (via Green API / Meta API)
+    $clientResult = false;
+    if (!empty($to) && !empty($message)) {
+        $clientResult = sendWhatsAppMessage($to, $message, $templateParams, 'reserva_confirmada');
     }
 
     respond([
         'success' => true,
-        'clientSent' => !empty($parsed['messages']),
-        'raw' => $parsed ?: $metaResult
+        'clientSent' => !empty($clientResult),
+        'raw' => $clientResult
     ]);
 }
 
@@ -627,20 +729,25 @@ if ($method === 'POST' && $seg === ['boats','upload']) {
 // ==================================================
 
 function parseTour($t) {
-    $t['packs']       = $t['packs']       ? json_decode($t['packs'],true)       : [];
-    $t['extraOptions']= $t['extraOptions']? json_decode($t['extraOptions'],true) : [];
-    // Decode images array; fallback to [image] so the frontend always gets an array
-    if ($t['images']) {
-        $t['images'] = json_decode($t['images'], true) ?: [];
+    $t['popular']     = !empty($t['popular']);
+    $t['packs']       = $t['packs']       ? (is_string($t['packs']) ? json_decode($t['packs'],true) : $t['packs']) : [];
+    $t['includes']    = $t['includes']    ? (is_string($t['includes']) ? json_decode($t['includes'],true) : $t['includes']) : [];
+    $t['extraOptions']= $t['extraOptions']? (is_string($t['extraOptions']) ? json_decode($t['extraOptions'],true) : $t['extraOptions']) : [];
+    if (!empty($t['images'])) {
+        $t['images'] = is_string($t['images']) ? (json_decode($t['images'], true) ?: []) : $t['images'];
     } else {
-        $t['images'] = $t['image'] ? [$t['image']] : [];
+        $t['images'] = !empty($t['image']) ? [$t['image']] : [];
     }
     return $t;
 }
 
 // GET /api/tours
 if ($method === 'GET' && $seg === ['tours']) {
-    $rows = getDB()->query('SELECT * FROM tours ORDER BY tour_order ASC')->fetchAll();
+    try {
+        $rows = getDB()->query('SELECT * FROM tours')->fetchAll();
+    } catch (\Throwable $e) {
+        $rows = [];
+    }
     respond(array_map('parseTour', $rows));
 }
 
@@ -650,8 +757,8 @@ if ($method === 'POST' && $seg === ['tours']) {
     $id = genId('t-');
     $imgs = $d['images'] ?? [];
     $img  = $d['image'] ?? ($imgs[0] ?? '');
-    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image,images) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs)]);
+    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image,images,includes,popular) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs),json_encode($d['includes']??[]),!empty($d['popular'])?1:0]);
     respond(array_merge(['id'=>$id],$d));
 }
 
@@ -684,7 +791,12 @@ if ($method === 'DELETE' && count($seg)===2 && $seg[0]==='tours') {
 
 // GET /api/gallery
 if ($method === 'GET' && $seg === ['gallery']) {
-    respond(getDB()->query('SELECT * FROM gallery ORDER BY created_at DESC')->fetchAll());
+    try {
+        $rows = getDB()->query('SELECT * FROM gallery')->fetchAll();
+    } catch (\Throwable $e) {
+        $rows = [];
+    }
+    respond($rows);
 }
 
 // POST /api/gallery
@@ -738,6 +850,12 @@ if ($method === 'POST' && $seg === ['bookings']) {
     $d=getBody(); $id=genId('bk-');
     getDB()->prepare('INSERT INTO bookings (id,client_name,client_email,client_phone,pack_name,extra_preferences,extra_durations,extra_start_times,booking_date,booking_time,num_people,location,referralCode,price,confirmed,payment_method,created_by,extras,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([$id,$d['client_name'],$d['client_email']??null,$d['client_phone']??null,$d['pack_name'],json_encode($d['extra_preferences']??[]),json_encode($d['extra_durations']??[]),json_encode($d['extra_start_times']??[]),$d['booking_date']??null,$d['booking_time']??null,$d['num_people']??1,$d['location']??null,$d['referralCode']??null,$d['price']??0,!empty($d['confirmed'])?1:0,$d['payment_method']??null,$d['created_by']??null,json_encode($d['extras']??[]),$d['notes']??null]);
+
+    // Notificar Admin via WhatsApp (Green API) com todos os detalhes da reserva
+    $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
+    $adminMsg = buildAdminBookingWhatsAppMessage(array_merge(['id' => $id], $d));
+    sendWhatsAppMessage($adminPhone, $adminMsg, null, 'nova_reserva_admin', true);
+
     respond(array_merge(['id'=>$id],$d));
 }
 

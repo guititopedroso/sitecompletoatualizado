@@ -27,8 +27,22 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Serve uploads statically
+// Serve uploads and iOS apps statically
 app.use('/uploads', express.static(uploadsDir));
+
+const appsDir = path.join(__dirname, 'apps');
+if (!fs.existsSync(appsDir)) {
+  fs.mkdirSync(appsDir, { recursive: true });
+}
+app.use('/apps', express.static(appsDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.plist')) {
+      res.setHeader('Content-Type', 'text/xml');
+    } else if (filePath.endsWith('.ipa')) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
+  }
+}));
 
 // Multer config for file uploads
 const storage = multer.diskStorage({
@@ -611,11 +625,108 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
+function buildAdminBookingWhatsAppMessage(data) {
+  const dateFormatted = data.booking_date
+    ? (data.booking_date.includes('-') ? data.booking_date.split('-').reverse().join('/') : data.booking_date)
+    : 'N/D';
+  const priceStr = data.price !== undefined && data.price !== null && data.price !== '' ? `${Number(data.price).toFixed(2)}€` : 'N/D';
+
+  let extrasText = '';
+  const allExtraItems = [];
+
+  let parsedExtras = data.extras;
+  if (typeof parsedExtras === 'string') {
+    try { parsedExtras = JSON.parse(parsedExtras); } catch (e) {}
+  }
+  let parsedPrefs = data.extra_preferences;
+  if (typeof parsedPrefs === 'string') {
+    try { parsedPrefs = JSON.parse(parsedPrefs); } catch (e) {}
+  }
+  let parsedDurations = data.extra_durations;
+  if (typeof parsedDurations === 'string') {
+    try { parsedDurations = JSON.parse(parsedDurations); } catch (e) {}
+  }
+  let parsedStartTimes = data.extra_start_times;
+  if (typeof parsedStartTimes === 'string') {
+    try { parsedStartTimes = JSON.parse(parsedStartTimes); } catch (e) {}
+  }
+
+  if (parsedExtras && typeof parsedExtras === 'object') {
+    for (const [key, val] of Object.entries(parsedExtras)) {
+      if (val) {
+        const details = [];
+        if (parsedStartTimes && parsedStartTimes[key]) details.push(`início: ${parsedStartTimes[key]}`);
+        if (parsedDurations && parsedDurations[key]) details.push(`duração: ${parsedDurations[key]}h`);
+        if (parsedPrefs && parsedPrefs[key]) details.push(`nota: ${parsedPrefs[key]}`);
+        allExtraItems.push(`• *${key}*${details.length > 0 ? ` (${details.join(', ')})` : ''}`);
+      }
+    }
+  } else if (parsedPrefs && typeof parsedPrefs === 'object') {
+    for (const [key, val] of Object.entries(parsedPrefs)) {
+      if (val) {
+        allExtraItems.push(`• *${key}*: ${val}`);
+      }
+    }
+  }
+
+  if (allExtraItems.length > 0) {
+    extrasText = `\n✨ *Extras & Preferências:*\n${allExtraItems.join('\n')}\n`;
+  }
+
+  const isConfirmed = data.confirmed === true || data.confirmed === 1 || data.confirmed === '1';
+
+  return `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
+    `🆔 *ID Reserva:* ${data.id || 'N/D'}\n` +
+    `👤 *Cliente:* ${data.client_name || 'N/D'}\n` +
+    `📱 *Contacto:* ${data.client_phone || 'N/D'}\n` +
+    `📧 *Email:* ${data.client_email || 'N/D'}\n` +
+    `🛥️ *Pacote / Experiência:* ${data.pack_name || 'N/D'}\n` +
+    `📅 *Data:* ${dateFormatted}\n` +
+    `⏰ *Hora:* ${data.booking_time || 'N/D'}\n` +
+    `📍 *Local de Embarque:* ${data.location || 'N/D'}\n` +
+    `👥 *Número de Pessoas:* ${data.num_people || 1}\n` +
+    `💰 *Valor Total:* ${priceStr}\n` +
+    (data.payment_method ? `💳 *Método de Pagamento:* ${data.payment_method}\n` : '') +
+    (data.referralCode ? `🎁 *Recomendado por (Ref):* ${data.referralCode}\n` : '') +
+    extrasText +
+    (data.notes ? `📝 *Observações:* ${data.notes}\n` : '') +
+    `👤 *Origem:* ${data.created_by || 'Cliente Online'}\n` +
+    `📌 *Estado:* ${isConfirmed ? 'Confirmada' : 'Pendente'}`;
+}
+
+async function sendGreenApiMessage(to, body) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 1. Meta WhatsApp Cloud API (Tenta Modelo primeiro para novos clientes, com fallback para texto direto)
+  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || process.env.VITE_GREEN_API_INSTANCE_ID || '710722695372';
+  const greenToken = process.env.GREEN_API_TOKEN || process.env.VITE_GREEN_API_TOKEN || '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1';
+  const greenApiUrl = (process.env.GREEN_API_URL || 'https://7107.api.greenapi.com').replace(/\/+$/, '');
+
+  if (greenInstance && greenToken) {
+    try {
+      const endpoint = `${greenApiUrl}/waInstance${greenInstance}/sendMessage/${greenToken}`;
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: `${cleanPhone}@c.us`,
+          message: body
+        })
+      });
+      const data = await resp.json();
+      console.log(`✅ WhatsApp (Green API): Mensagem enviada para ${cleanPhone}`, data);
+      return true;
+    } catch (e) {
+      console.error('❌ Green API Error:', e.message);
+    }
+  }
+  return false;
+}
+
+async function sendMetaWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
+  const cleanPhone = (to || '').replace(/\D/g, '');
+  if (!cleanPhone || !body) return false;
+
   const metaToken = process.env.META_WA_TOKEN || '';
   const metaPhoneId = process.env.META_WA_PHONE_ID || '';
   if (metaToken && metaPhoneId) {
@@ -674,30 +785,23 @@ async function sendWhatsAppMessage(to, body, templateParams = null, templateName
       console.error('Meta WA API Error:', e.message);
     }
   }
-
-  // 2. Green API (fallback gratuito)
-  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
-  const greenToken = process.env.GREEN_API_TOKEN || '';
-  if (greenInstance && greenToken) {
-    try {
-      await fetch(`https://api.green-api.com/waInstance${greenInstance}/sendMessage/${greenToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: `${cleanPhone}@c.us`,
-          message: body
-        })
-      });
-      console.log(`✅ WhatsApp (Green API): Mensagem enviada para ${cleanPhone}`);
-      return true;
-    } catch (e) {
-      console.error('Green API Error:', e.message);
-    }
-  }
-
-  console.warn(`⚠️ WhatsApp: Nenhum método configurado conseguiu enviar para ${cleanPhone}`);
   return false;
 }
+
+async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada', isAdmin = false) {
+  if (isAdmin) {
+    // Admin: Green API primeiro, Meta como fallback
+    const sentGreen = await sendGreenApiMessage(to, body);
+    if (sentGreen) return true;
+    return await sendMetaWhatsAppMessage(to, body, templateParams, templateName);
+  } else {
+    // Cliente: Meta API primeiro, Green API como fallback
+    const sentMeta = await sendMetaWhatsAppMessage(to, body, templateParams, templateName);
+    if (sentMeta) return true;
+    return await sendGreenApiMessage(to, body);
+  }
+}
+
 
 // WhatsApp Status Route
 app.get('/api/whatsapp/status', (req, res) => {
@@ -723,19 +827,68 @@ app.get('/api/whatsapp/qr', (req, res) => {
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
-  const { to, message, adminMessage, templateParams, adminTemplateParams } = req.body;
+  const { to, message, templateParams } = req.body;
 
-  console.log('📱 ENVIANDO MENSAGEM WHATSAPP PARA O CLIENTE:', to);
-  const sentClient = await sendWhatsAppMessage(to, message, templateParams, 'reserva_confirmada');
-
-  if (adminMessage) {
-    const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
-    console.log('📱 ENVIANDO ALERTA DE RESERVA PARA O ADMIN:', adminPhone);
-    await sendWhatsAppMessage(adminPhone, adminMessage, adminTemplateParams, 'nova_reserva_admin');
+  let sentClient = false;
+  if (to && message) {
+    console.log('📱 ENVIANDO MENSAGEM WHATSAPP PARA O CLIENTE:', to);
+    sentClient = await sendWhatsAppMessage(to, message, templateParams, 'reserva_confirmada');
   }
 
   res.json({ success: true, clientSent: sentClient });
 });
+
+// EmailJS Notification Helper & Route (Backend API)
+async function sendEmailJSNotification(templateParams) {
+  const serviceId = process.env.VITE_EMAILJS_SERVICE_ID || process.env.EMAILJS_SERVICE_ID || 'service_souo4bi';
+  const templateId = process.env.VITE_EMAILJS_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || 'template_lyoryda';
+  const publicKey = process.env.VITE_EMAILJS_PUBLIC_KEY || process.env.EMAILJS_PUBLIC_KEY || 'YAyeqW_hAHwLaV3Ho';
+
+  const servicesToTry = [serviceId, 'default_service'];
+
+
+
+  for (const sId of Array.from(new Set(servicesToTry))) {
+    try {
+      const payload = {
+        service_id: sId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: templateParams
+      };
+
+      console.log(`📧 ENVIANDO EMAIL VIA EMAILJS REST API (Service: ${sId}) PARA:`, templateParams.to_email || templateParams.email);
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://www.royalcoast.pt'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await response.text();
+      if (response.ok) {
+        console.log(`✅ EmailJS enviado com sucesso via Backend API (Service: ${sId})! Resposta:`, text);
+        return true;
+      } else {
+        console.warn(`⚠️ Tentativa EmailJS com Service ID "${sId}" retornou ${response.status}: ${text}`);
+      }
+    } catch (err) {
+      console.error('❌ Exceção ao enviar EmailJS via Backend API:', err.message);
+    }
+  }
+  return false;
+}
+
+
+app.post('/api/notify/email', async (req, res) => {
+  const { templateParams } = req.body;
+  if (!templateParams) return res.status(400).json({ error: 'Falta templateParams' });
+  const success = await sendEmailJSNotification(templateParams);
+  res.json({ success });
+});
+
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -917,10 +1070,12 @@ app.post('/api/boats/upload', upload.single('file'), (req, res) => {
 
 app.get('/api/tours', async (req, res) => {
   try {
-    const [rows] = await queryDB('SELECT * FROM tours ORDER BY tour_order ASC');
-    const parsed = rows.map(t => ({
+    const [rows] = await queryDB('SELECT * FROM tours');
+    const parsed = (rows || []).map(t => ({
       ...t,
+      popular: !!t.popular,
       packs: t.packs ? (typeof t.packs === 'string' ? JSON.parse(t.packs) : t.packs) : [],
+      includes: t.includes ? (typeof t.includes === 'string' ? JSON.parse(t.includes) : t.includes) : [],
       extraOptions: t.extraOptions ? (typeof t.extraOptions === 'string' ? JSON.parse(t.extraOptions) : t.extraOptions) : [],
       images: t.images ? (typeof t.images === 'string' ? JSON.parse(t.images) : t.images) : (t.image ? [t.image] : [])
     }));
@@ -937,11 +1092,12 @@ app.post('/api/tours', async (req, res) => {
   const img = data.image || (imgs[0] || '');
   try {
     await queryDB(
-      `INSERT INTO tours (id, name, slug, packs, capacity, price4h, price8h, extraOptions, theme, tour_order, image, images) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tours (id, name, slug, packs, capacity, price4h, price8h, extraOptions, theme, tour_order, image, images, includes, popular) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, data.name, data.slug, JSON.stringify(data.packs || []), data.capacity, data.price4h || '', data.price8h || '',
-        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs)
+        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs),
+        JSON.stringify(data.includes || []), data.popular ? 1 : 0
       ]
     );
     res.json({ id, ...data });
@@ -957,10 +1113,11 @@ app.put('/api/tours/:id', async (req, res) => {
   const img = data.image || (imgs[0] || '');
   try {
     await queryDB(
-      `UPDATE tours SET name=?, slug=?, packs=?, capacity=?, price4h=?, price8h=?, extraOptions=?, theme=?, tour_order=?, image=?, images=? WHERE id=?`,
+      `UPDATE tours SET name=?, slug=?, packs=?, capacity=?, price4h=?, price8h=?, extraOptions=?, theme=?, tour_order=?, image=?, images=?, includes=?, popular=? WHERE id=?`,
       [
         data.name, data.slug, JSON.stringify(data.packs || []), data.capacity, data.price4h || '', data.price8h || '',
-        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs), id
+        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs),
+        JSON.stringify(data.includes || []), data.popular ? 1 : 0, id
       ]
     );
     res.json({ id, ...data });
@@ -997,8 +1154,8 @@ app.delete('/api/tours/:id', async (req, res) => {
 
 app.get('/api/gallery', async (req, res) => {
   try {
-    const [rows] = await queryDB('SELECT * FROM gallery ORDER BY created_at DESC');
-    res.json(rows);
+    const [rows] = await queryDB('SELECT * FROM gallery');
+    res.json(rows || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1096,11 +1253,77 @@ app.post('/api/bookings', async (req, res) => {
         JSON.stringify(data.extras || {}), data.notes || null
       ]
     );
+
+    // ─── Auto-send Email Confirmation ─────────────────────────────────────────
+    if (data.client_email) {
+      const firstName = (data.client_name || '').split(' ')[0] || data.client_name || '';
+      // Format date: YYYY-MM-DD → DD/MM/YYYY
+      const dateFormatted = data.booking_date
+        ? data.booking_date.split('-').reverse().join('/')
+        : '';
+      const priceStr = data.price ? `${Number(data.price).toFixed(2)}€` : '';
+
+      const emailParams = {
+        to_name: firstName,
+        to_email: data.client_email,
+        email: data.client_email,
+        reply_to: data.client_email,
+        pack_name: data.pack_name || '',
+        booking_date: dateFormatted,
+        booking_time: data.booking_time || '',
+        num_people: String(data.num_people || 1),
+        phone: data.client_phone || '',
+        location: data.location || '',
+        extras: 'Nenhum',
+        pack_price: priceStr,
+      };
+
+      sendEmailJSNotification(emailParams).catch(err =>
+        console.error('❌ Erro ao enviar email de confirmação:', err)
+      );
+    }
+
+    // ─── Auto-send WhatsApp Notification ──────────────────────────────────────
+    const firstName = (data.client_name || '').split(' ')[0] || '';
+    const dateFormatted = data.booking_date
+      ? data.booking_date.split('-').reverse().join('/')
+      : '';
+    const priceStr = data.price ? `${Number(data.price).toFixed(2)}€` : '';
+
+    const adminPhone = process.env.WHATSAPP_ADMIN_PHONE || '351927314506';
+    const adminMsg = buildAdminBookingWhatsAppMessage({ id, ...data });
+
+    const clientMsg =
+      `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
+      `Olá ${firstName}! 👋\n\n` +
+      `A tua reserva na *RoyalCoast* foi registada com sucesso!\n\n` +
+      `📋 *Detalhes da Reserva:*\n` +
+      `• *Experiência:* ${data.pack_name || ''}\n` +
+      `• *Data:* ${dateFormatted}\n` +
+      `• *Hora:* ${data.booking_time || 'N/D'}\n` +
+      `• *Local:* ${data.location || 'N/D'}\n` +
+      `• *Pessoas:* ${data.num_people || 1}\n` +
+      `• *Valor Total:* ${priceStr}\n\n` +
+      `📍 Por favor, chega 15 minutos antes no ponto de embarque.\n\n` +
+      `Dúvidas? Liga para +351 927 314 506.\n\nAté breve! 🚤`;
+
+    // Admin WhatsApp alert via Green API (isAdmin = true)
+    console.log('📱 Enviando notificação detalhada da reserva para o Admin via Green API:', adminPhone);
+    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin', true).catch((e) => console.error('Erro ao enviar mensagem admin Green API:', e));
+
+
+    // Client WhatsApp (if phone available)
+    if (data.client_phone) {
+      const cleanClientPhone = data.client_phone.replace(/\D/g, '');
+      sendWhatsAppMessage(cleanClientPhone, clientMsg, null, 'reserva_confirmada').catch(() => null);
+    }
+
     res.json({ id, ...data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.put('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
