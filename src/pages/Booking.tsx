@@ -123,11 +123,14 @@ const Booking = () => {
         setFirstName(parts[0] || "");
         setLastName(parts.length > 1 ? parts.slice(1).join(" ") : "");
       }
-      if (user.email) {
-        setEmail(user.email);
-      }
+      if (user.firstName) setFirstName(user.firstName);
+      if (user.lastName) setLastName(user.lastName);
+      if (user.email) setEmail(user.email);
+      if (user.phoneNumber) setPhone(user.phoneNumber);
+      if (user.phonePrefix) setPhonePrefix(user.phonePrefix);
     }
   }, [user]);
+
 
   const referralCode = searchParams.get("ref") || localStorage.getItem("royal_coast_referral") || null;
   const initialPack = allPacks[packId];
@@ -337,7 +340,11 @@ const Booking = () => {
   const handleConfirm = async () => {
     setSending(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
-    const fullPhone = `${phonePrefix} ${phone.trim()}`;
+    const cleanPhoneInput = phone.trim();
+    const fullPhone = cleanPhoneInput.startsWith("+")
+      ? cleanPhoneInput
+      : `${phonePrefix} ${cleanPhoneInput}`;
+
     const durationStr = pack.isBoat 
       ? ` (${boatDuration})` 
       : pack.isTour && pack.tourPacks 
@@ -490,11 +497,12 @@ const Booking = () => {
         body: { templateParams: emailParams }
       }).catch((err) => console.error("📧 Erro endpoint email:", err));
 
-      const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_h8ub1o1";
+      const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_souo4bi";
       const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_lyoryda";
       const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "YAyeqW_hAHwLaV3Ho";
 
-      if (emailServiceId && emailTemplateId && emailPublicKey) {
+
+      if (emailTemplateId && emailPublicKey) {
         emailjs.send(
           emailServiceId,
           emailTemplateId,
@@ -502,13 +510,10 @@ const Booking = () => {
           emailPublicKey
         ).then(
           (res) => console.log("📧 EmailJS (Client) enviado com sucesso:", res.status, res.text),
-          () => {
-            emailjs.send("default_service", emailTemplateId, emailParams, emailPublicKey)
-              .then((res) => console.log("📧 EmailJS (Client default_service) enviado:", res.status))
-              .catch((err) => console.error("📧 Erro ao enviar EmailJS (Client):", err));
-          }
+          (err) => console.error("📧 Erro ao enviar EmailJS (Client):", err)
         );
       }
+
 
 
 

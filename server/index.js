@@ -739,11 +739,13 @@ app.post('/api/notify/whatsapp', async (req, res) => {
 
 // EmailJS Notification Helper & Route (Backend API)
 async function sendEmailJSNotification(templateParams) {
-  const serviceId = process.env.VITE_EMAILJS_SERVICE_ID || process.env.EMAILJS_SERVICE_ID || 'service_h8ub1o1';
+  const serviceId = process.env.VITE_EMAILJS_SERVICE_ID || process.env.EMAILJS_SERVICE_ID || 'service_souo4bi';
   const templateId = process.env.VITE_EMAILJS_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || 'template_lyoryda';
   const publicKey = process.env.VITE_EMAILJS_PUBLIC_KEY || process.env.EMAILJS_PUBLIC_KEY || 'YAyeqW_hAHwLaV3Ho';
 
   const servicesToTry = [serviceId, 'default_service'];
+
+
 
   for (const sId of Array.from(new Set(servicesToTry))) {
     try {
