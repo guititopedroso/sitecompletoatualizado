@@ -611,11 +611,109 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
+function formatWhatsAppPhone(phone) {
+  if (!phone) return '';
+  let cleaned = String(phone).replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.length === 9 && (cleaned.startsWith('9') || cleaned.startsWith('2') || cleaned.startsWith('3'))) {
+    cleaned = '351' + cleaned;
+  }
+  return cleaned;
+}
+
+async function sendWhatsAppTemplate(toPhone, templateName, templateParams, languageCode = 'pt_PT') {
+  const cleanPhone = formatWhatsAppPhone(toPhone);
+  if (!cleanPhone) {
+    console.error(`❌ WhatsApp template [${templateName}] failed: phone number missing or invalid`);
+    return false;
+  }
+
+  const metaToken = process.env.META_WA_TOKEN || 'EAARmrytIMFkBSPDSeAtMF1EZBOgeylnFdZC6tGijlbJYjrdgJsDuYQy3vZBpmvXZBsD4f8ar7dWwKYXpkAITodAOiJEzWmqH1CR6Wpd80hhwt5SDsVnjSZA4tfe41NOdeV7sZAttncdxbVUQ0y8IUHGcW7SDyKxuZAllQcAoDHEJ1A5FQ8R2GF22HqwoZABrDQZDZD';
+  const metaPhoneId = process.env.META_WA_PHONE_ID || '1240632239137751';
+
+  const components = [
+    {
+      type: 'body',
+      parameters: (templateParams || []).map(val => ({
+        type: 'text',
+        text: String(val ?? '')
+      }))
+    }
+  ];
+
+  const languagesToTry = [languageCode, 'pt_PT', 'pt', 'pt_BR', 'en_US'].filter((v, i, a) => a.indexOf(v) === i);
+
+  for (const lang of languagesToTry) {
+    try {
+      console.log(`📱 Envia Meta WA Template '${templateName}' (lang: ${lang}) -> ${cleanPhone}`);
+      const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: cleanPhone,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: lang },
+            components
+          }
+        })
+      });
+      const data = await resp.json();
+      console.log(`📱 Meta WA Template (${templateName}) Resp [${cleanPhone}]:`, JSON.stringify(data));
+
+      if (data.messages && data.messages.length > 0) {
+        return true;
+      }
+      if (data.error && (data.error.code === 132001 || data.error.message?.toLowerCase().includes('language'))) {
+        continue;
+      }
+      if (data.error) {
+        console.error(`❌ Meta WA API Error for template ${templateName}:`, data.error.message || JSON.stringify(data.error));
+      }
+    } catch (e) {
+      console.error(`❌ Meta WA Exception [${templateName}]:`, e.message);
+    }
+  }
+  return false;
+}
+
 async function sendWhatsAppMessage(to, body) {
-  const cleanPhone = (to || '').replace(/\D/g, '');
+  const cleanPhone = formatWhatsAppPhone(to);
   if (!cleanPhone || !body) return false;
 
-  // 1. Green API (100% Gratuito - Developer Plan)
+  // 1. Meta WhatsApp Cloud API (Free text message within 24h window)
+  const metaToken = process.env.META_WA_TOKEN || 'EAARmrytIMFkBSPDSeAtMF1EZBOgeylnFdZC6tGijlbJYjrdgJsDuYQy3vZBpmvXZBsD4f8ar7dWwKYXpkAITodAOiJEzWmqH1CR6Wpd80hhwt5SDsVnjSZA4tfe41NOdeV7sZAttncdxbVUQ0y8IUHGcW7SDyKxuZAllQcAoDHEJ1A5FQ8R2GF22HqwoZABrDQZDZD';
+  const metaPhoneId = process.env.META_WA_PHONE_ID || '1240632239137751';
+  if (metaToken && metaPhoneId) {
+    try {
+      const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: cleanPhone,
+          type: 'text',
+          text: { body }
+        })
+      });
+      const data = await resp.json();
+      console.log('📱 Meta WA Text Response:', JSON.stringify(data));
+      if (data.messages && data.messages.length > 0) return true;
+      if (data.error) console.error('📱 Meta WA Text Error:', data.error.message);
+    } catch (e) {
+      console.error('Meta WA API Error:', e.message);
+    }
+  }
+
+  // 2. Green API Fallback
   const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || '';
   const greenToken = process.env.GREEN_API_TOKEN || '';
   if (greenInstance && greenToken) {
@@ -634,7 +732,7 @@ async function sendWhatsAppMessage(to, body) {
     }
   }
 
-  // 1. CallMeBot (100% Gratuito)
+  // 3. CallMeBot Fallback
   const callMeBotKey = process.env.CALLMEBOT_API_KEY || '';
   if (callMeBotKey) {
     try {
@@ -646,94 +744,98 @@ async function sendWhatsAppMessage(to, body) {
     }
   }
 
-  // 2. Meta WhatsApp Cloud API (1.000 Mensagens Grátis/mês)
-  const metaToken = process.env.META_WA_TOKEN || 'EAARmrytIMFkBSA8ZCX1sTY2ZBLgmjSzxpLUm0fl9uIj4OCQX8bVB4dlZBfqYF1gBWOErJGzu4w0hMJunHMZA7NokYzumaxcGB0ZCzbq1pSMyZB1RxZAFJ2rqBwaZCLFJMZCS7Jeh4twpmUkeREQT5jE20CbsFZBwEE36mvK2hR8ZAugmEHZAhupZCZAz257nm57izLQPkA5AZDZD';
-  const metaPhoneId = process.env.META_WA_PHONE_ID || '1239529775907696';
-  if (metaToken && metaPhoneId) {
-    try {
-      if (templateParams && Array.isArray(templateParams)) {
-        const components = [{
-          type: 'body',
-          parameters: templateParams.map(val => ({ type: 'text', text: String(val) }))
-        }];
-        const respT = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${metaToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: cleanPhone,
-            type: 'template',
-            template: {
-              name: 'reserva_confirmada',
-              language: { code: 'pt_PT' },
-              components
-            }
-          })
-        });
-        const dataT = await respT.json();
-        if (dataT.messages && dataT.messages.length > 0) return true;
-      }
-
-      const resp = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${metaToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: cleanPhone,
-          type: 'text',
-          text: { body }
-        })
-      });
-      const data = await resp.json();
-      console.log('📱 Meta WA API Response:', JSON.stringify(data));
-      if (data.messages && data.messages.length > 0) return true;
-      if (data.error) console.error('📱 Meta WA API Error:', data.error.message);
-    } catch (e) {
-      console.error('Meta WA API Error:', e.message);
-    }
-  }
-
-  // 3. UltraMsg / Green API
-  const instanceId = process.env.WHATSAPP_INSTANCE_ID || '';
-  const token = process.env.WHATSAPP_TOKEN || process.env.WHATSAPP_API_TOKEN || '';
-  const apiUrl = process.env.WHATSAPP_API_URL || '';
-
-  try {
-    if (instanceId && token) {
-      await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ token, to: cleanPhone, body })
-      });
-      return true;
-    } else if (apiUrl && token) {
-      await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ token, to: cleanPhone, body })
-      });
-      return true;
-    }
-  } catch (err) {
-    console.error('WhatsApp API Error:', err.message);
-  }
   return false;
 }
 
 // WhatsApp Notification Route
 app.post('/api/notify/whatsapp', async (req, res) => {
-  const { to, message } = req.body;
+  const {
+    to,
+    message,
+    adminMessage,
+    // Booking structured parameters
+    clientPhone,
+    clientName,
+    firstName,
+    clientEmail,
+    packName,
+    bookingDate,
+    bookingTime,
+    location,
+    numPeople,
+    totalPriceStr,
+    adminPhone,
+    templateParams
+  } = req.body;
 
-  console.log('📱 ENVIANDO MENSAGEM WHATSAPP APENAS PARA O CLIENTE:', to);
-  const sentClient = await sendWhatsAppMessage(to, message);
+  const targetClientPhone = clientPhone || to;
+  const targetAdminPhone = adminPhone || process.env.ADMIN_PHONE_NUMBER || '351910259346';
 
-  res.json({ success: true, clientSent: sentClient });
+  const cName = clientName || firstName || 'Cliente';
+  const fName = firstName || (clientName ? clientName.split(' ')[0] : 'Cliente');
+  const cPhone = targetClientPhone || '';
+  const cEmail = clientEmail || 'Não indicado';
+  const pName = packName || 'Reserva Royal Coast';
+  const bDate = bookingDate || '';
+  const bTime = bookingTime || '';
+  const bLoc = location || 'Setúbal';
+  const bPeople = String(numPeople || '1');
+  const bPrice = totalPriceStr || '';
+
+  let clientSent = false;
+  let adminSent = false;
+
+  // 1. Send Template 'reserva_confirmada' to Customer (7 params)
+  // Template: Olá {{1}}! ... {{2}} Experiência ... {{3}} Data ... {{4}} Hora ... {{5}} Local ... {{6}} Pessoas ... {{7}} Valor Total
+  if (targetClientPhone) {
+    const customerParams = templateParams && templateParams.length === 7 ? templateParams : [
+      fName,
+      pName,
+      bDate,
+      bTime,
+      bLoc,
+      bPeople,
+      bPrice
+    ];
+    console.log(`📱 A notificar cliente (${targetClientPhone}) via template 'reserva_confirmada'...`);
+    clientSent = await sendWhatsAppTemplate(targetClientPhone, 'reserva_confirmada', customerParams);
+    
+    // Fallback to text message if template fails
+    if (!clientSent && message) {
+      console.log(`⚠️ Template falhou. Tentando envio de mensagem de texto direta para o cliente...`);
+      clientSent = await sendWhatsAppMessage(targetClientPhone, message);
+    }
+  }
+
+  // 2. Send Template 'nova_reserva_admin' to Admin (9 params)
+  // Template: {{1}} Cliente ... {{2}} Contacto ... {{3}} Email ... {{4}} Pacote ... {{5}} Data ... {{6}} Hora ... {{7}} Local ... {{8}} Pessoas ... {{9}} Valor Total
+  if (targetAdminPhone) {
+    const adminParams = [
+      cName,
+      cPhone,
+      cEmail,
+      pName,
+      bDate,
+      bTime,
+      bLoc,
+      bPeople,
+      bPrice
+    ];
+    console.log(`📱 A notificar administração (${targetAdminPhone}) via template 'nova_reserva_admin'...`);
+    adminSent = await sendWhatsAppTemplate(targetAdminPhone, 'nova_reserva_admin', adminParams);
+    
+    // Fallback to text message if template fails
+    if (!adminSent && (adminMessage || message)) {
+      console.log(`⚠️ Template admin falhou. Tentando mensagem de texto direta...`);
+      adminSent = await sendWhatsAppMessage(targetAdminPhone, adminMessage || message);
+    }
+  }
+
+  res.json({
+    success: true,
+    clientSent,
+    adminSent
+  });
 });
 
 // Login

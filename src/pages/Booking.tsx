@@ -437,22 +437,23 @@ const Booking = () => {
         priceStr: totalPriceStr
       });
 
-      // Send to server API endpoint for automated WhatsApp Bot gateway
+      // Send to server API endpoint for automated WhatsApp Cloud API templates
       fetchApi("/api/notify/whatsapp", {
         method: "POST",
         body: {
+          clientPhone: fullPhone,
+          clientName: fullName,
+          firstName: firstName.trim(),
+          clientEmail: email,
+          packName: finalPackName,
+          bookingDate: dateFormatted,
+          bookingTime: time || "",
+          location: location,
+          numPeople: people,
+          totalPriceStr: totalPriceStr,
           to: cleanClientPhone,
           message: clientWhatsAppMsg,
-          adminMessage: adminWhatsAppMsg,
-          templateParams: [
-            firstName.trim(),
-            finalPackName,
-            dateFormatted,
-            time || "",
-            location,
-            people,
-            totalPriceStr
-          ]
+          adminMessage: adminWhatsAppMsg
         }
       }).catch(() => null);
 
