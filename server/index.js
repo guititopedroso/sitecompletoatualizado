@@ -694,11 +694,10 @@ function buildAdminBookingWhatsAppMessage(data) {
     `📌 *Estado:* ${isConfirmed ? 'Confirmada' : 'Pendente'}`;
 }
 
-async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
+async function sendGreenApiMessage(to, body) {
   const cleanPhone = (to || '').replace(/\D/g, '');
   if (!cleanPhone || !body) return false;
 
-  // 1. Green API (Prioridade Principal se configurado)
   const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || process.env.VITE_GREEN_API_INSTANCE_ID || '710722695372';
   const greenToken = process.env.GREEN_API_TOKEN || process.env.VITE_GREEN_API_TOKEN || '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1';
   const greenApiUrl = (process.env.GREEN_API_URL || 'https://7107.api.greenapi.com').replace(/\/+$/, '');
@@ -721,8 +720,13 @@ async function sendWhatsAppMessage(to, body, templateParams = null, templateName
       console.error('❌ Green API Error:', e.message);
     }
   }
+  return false;
+}
 
-  // 2. Meta WhatsApp Cloud API (Fallback)
+async function sendMetaWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada') {
+  const cleanPhone = (to || '').replace(/\D/g, '');
+  if (!cleanPhone || !body) return false;
+
   const metaToken = process.env.META_WA_TOKEN || '';
   const metaPhoneId = process.env.META_WA_PHONE_ID || '';
   if (metaToken && metaPhoneId) {
@@ -781,9 +785,21 @@ async function sendWhatsAppMessage(to, body, templateParams = null, templateName
       console.error('Meta WA API Error:', e.message);
     }
   }
-
-  console.warn(`⚠️ WhatsApp: Nenhum método configurado conseguiu enviar para ${cleanPhone}`);
   return false;
+}
+
+async function sendWhatsAppMessage(to, body, templateParams = null, templateName = 'reserva_confirmada', isAdmin = false) {
+  if (isAdmin) {
+    // Admin: Green API primeiro, Meta como fallback
+    const sentGreen = await sendGreenApiMessage(to, body);
+    if (sentGreen) return true;
+    return await sendMetaWhatsAppMessage(to, body, templateParams, templateName);
+  } else {
+    // Cliente: Meta API primeiro, Green API como fallback
+    const sentMeta = await sendMetaWhatsAppMessage(to, body, templateParams, templateName);
+    if (sentMeta) return true;
+    return await sendGreenApiMessage(to, body);
+  }
 }
 
 
@@ -1287,9 +1303,9 @@ app.post('/api/bookings', async (req, res) => {
       `📍 Por favor, chega 15 minutos antes no ponto de embarque.\n\n` +
       `Dúvidas? Liga para +351 927 314 506.\n\nAté breve! 🚤`;
 
-    // Admin WhatsApp alert via Green API
+    // Admin WhatsApp alert via Green API (isAdmin = true)
     console.log('📱 Enviando notificação detalhada da reserva para o Admin via Green API:', adminPhone);
-    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin').catch((e) => console.error('Erro ao enviar mensagem admin Green API:', e));
+    sendWhatsAppMessage(adminPhone, adminMsg, null, 'nova_reserva_admin', true).catch((e) => console.error('Erro ao enviar mensagem admin Green API:', e));
 
 
     // Client WhatsApp (if phone available)

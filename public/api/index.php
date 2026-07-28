@@ -369,11 +369,10 @@ function buildAdminBookingWhatsAppMessage($data) {
     return $msg;
 }
 
-function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada') {
+function sendGreenApiMessage($to, $body) {
     $cleanPhone = preg_replace('/\D/', '', $to);
     if (empty($cleanPhone) || empty($body)) return false;
 
-    // 1. Green API (Prioridade Principal)
     $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: ($_ENV['GREEN_API_INSTANCE_ID'] ?? '710722695372');
     $greenToken    = getenv('GREEN_API_TOKEN') ?: ($_ENV['GREEN_API_TOKEN'] ?? '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1');
     $greenApiUrl   = rtrim(getenv('GREEN_API_URL') ?: ($_ENV['GREEN_API_URL'] ?? 'https://7107.api.greenapi.com'), '/');
@@ -397,19 +396,13 @@ function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName =
             return $res;
         }
     }
+    return false;
+}
 
-    // 1. CallMeBot (100% Gratuito)
-    $callMeBotKey = getenv('CALLMEBOT_API_KEY') ?: '';
-    if ($callMeBotKey) {
-        $url = "https://api.callmebot.com/whatsapp.php?phone=" . urlencode($cleanPhone) . "&text=" . urlencode($body) . "&apikey=" . urlencode($callMeBotKey);
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $res = curl_exec($ch);
-        curl_close($ch);
-        return $res;
-    }
+function sendMetaWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada') {
+    $cleanPhone = preg_replace('/\D/', '', $to);
+    if (empty($cleanPhone) || empty($body)) return false;
 
-    // 2. Meta WhatsApp Cloud API (Tenta Modelo primeiro para novos clientes, com fallback para texto direto)
     $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
     $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
     if ($metaToken && $metaPhoneId) {
@@ -470,6 +463,20 @@ function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName =
         curl_close($ch);
         return $res;
     }
+    return false;
+}
+
+function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName = 'reserva_confirmada', $isAdmin = false) {
+    if ($isAdmin) {
+        $sentG = sendGreenApiMessage($to, $body);
+        if ($sentG) return $sentG;
+        return sendMetaWhatsAppMessage($to, $body, $templateParams, $templateName);
+    } else {
+        $sentM = sendMetaWhatsAppMessage($to, $body, $templateParams, $templateName);
+        if ($sentM) return $sentM;
+        return sendGreenApiMessage($to, $body);
+    }
+}
 
     // 3. UltraMsg / Green API
     $instanceId = getenv('WHATSAPP_INSTANCE_ID') ?: '';
@@ -810,7 +817,7 @@ if ($method === 'POST' && $seg === ['bookings']) {
     // Notificar Admin via WhatsApp (Green API) com todos os detalhes da reserva
     $adminPhone = getenv('WHATSAPP_ADMIN_PHONE') ?: '351927314506';
     $adminMsg = buildAdminBookingWhatsAppMessage(array_merge(['id' => $id], $d));
-    sendWhatsAppMessage($adminPhone, $adminMsg, null, 'nova_reserva_admin');
+    sendWhatsAppMessage($adminPhone, $adminMsg, null, 'nova_reserva_admin', true);
 
     respond(array_merge(['id'=>$id],$d));
 }
