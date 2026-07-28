@@ -69,24 +69,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function getDB() {
     static $pdo = null;
     if ($pdo === null) {
-        $hosts = [DB_HOST, 'localhost', '127.0.0.1'];
-        $lastErr = null;
-        foreach (array_unique($hosts) as $h) {
+        $dbname = DB_NAME;
+        $user   = DB_USER;
+        $pass   = DB_PASS;
+
+        $dsns = [
+            "mysql:host=localhost;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=127.0.0.1;port=3306;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=127.0.0.1;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/tmp/mysql.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:unix_socket=/var/lib/mysql/mysql.sock;dbname={$dbname};charset=utf8mb4",
+            "mysql:host=localhost;port=3306;dbname={$dbname};charset=utf8mb4"
+        ];
+
+        $errors = [];
+        foreach ($dsns as $dsn) {
             try {
-                $dsn = "mysql:host={$h};dbname=" . DB_NAME . ";charset=utf8mb4";
-                $pdo = new PDO(
-                    $dsn,
-                    DB_USER,
-                    DB_PASS,
-                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-                );
+                $instance = new PDO($dsn, $user, $pass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                ]);
+                $pdo = $instance;
                 break;
             } catch (PDOException $e) {
-                $lastErr = $e;
+                $errors[] = $dsn . " => " . $e->getMessage();
             }
         }
+
         if ($pdo === null) {
-            respond(['error' => 'Erro de ligação à BD: ' . ($lastErr ? $lastErr->getMessage() : 'Desconhecido')], 500);
+            respond([
+                'error' => 'Erro de ligação à BD',
+                'details' => $errors
+            ], 500);
         }
     }
     return $pdo;
