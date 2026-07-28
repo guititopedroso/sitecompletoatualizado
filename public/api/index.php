@@ -6,11 +6,11 @@
 // ============================================================
 
 // --- Configuração ---
-define('DB_HOST', '127.0.0.1');
-define('DB_PORT', 3306);
-define('DB_NAME', 'u236076924_royalcoast');
-define('DB_USER', 'u236076924_royalcoast');
-define('DB_PASS', 'Guitacrapazes.101010%');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_PORT', getenv('DB_PORT') ?: 3306);
+define('DB_NAME', getenv('DB_NAME') ?: 'u236076924_royalcoast');
+define('DB_USER', getenv('DB_USER') ?: 'u236076924_royalcoast');
+define('DB_PASS', getenv('DB_PASS') ?: 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
 define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSM18vnK35UJCZCqv70bNZBdZA2kUXlo0yqBLjX2171jf2vn7nbKgoSDCNI93QzbN3hDSO5gjZCcbSI0ED3ARIULHoZAuumhTYs81uZBx8gXXVnWSZCqxemK5jou5etPRPzV25snjVTZBZAGDBXmKk4dSXxamnjfOinAiMVqUYXg83dnmHl3Fh0QZDZD');
@@ -69,14 +69,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function getDB() {
     static $pdo = null;
     if ($pdo === null) {
-        try {
-            $pdo = new PDO(
-                'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-                DB_USER, DB_PASS,
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-            );
-        } catch (PDOException $e) {
-            respond(['error' => 'Erro de ligação à BD: ' . $e->getMessage()], 500);
+        $hosts = [DB_HOST, 'localhost', '127.0.0.1'];
+        $lastErr = null;
+        foreach (array_unique($hosts) as $h) {
+            try {
+                $dsn = "mysql:host={$h};dbname=" . DB_NAME . ";charset=utf8mb4";
+                $pdo = new PDO(
+                    $dsn,
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+                );
+                break;
+            } catch (PDOException $e) {
+                $lastErr = $e;
+            }
+        }
+        if ($pdo === null) {
+            respond(['error' => 'Erro de ligação à BD: ' . ($lastErr ? $lastErr->getMessage() : 'Desconhecido')], 500);
         }
     }
     return $pdo;

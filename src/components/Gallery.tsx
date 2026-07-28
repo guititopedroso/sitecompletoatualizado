@@ -25,16 +25,22 @@ const Gallery = () => {
     const fetchImages = async () => {
       setLoading(true);
       try {
-        const data = await api.gallery.getAll();
-        if (Array.isArray(data)) {
-          const limitedData = data.slice(0, 4);
-          const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
-          const formattedImages = limitedData.map((img, i) => ({
-              ...img,
-              span: spans[i % spans.length],
-          }));
-          setImages(formattedImages);
+        let data = await api.gallery.getAll();
+        if (!Array.isArray(data) || data.length === 0) {
+          data = [
+            { id: "g-1", url: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80", alt: "Jet Ski Royal Coast" },
+            { id: "g-2", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", alt: "Praia de Galapinhos & Arrábida" },
+            { id: "g-3", url: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80", alt: "Golfinhos no Estuário do Sado" },
+            { id: "g-4", url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80", alt: "Pôr do Sol em Setúbal" }
+          ];
         }
+        const limitedData = data.slice(0, 4);
+        const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
+        const formattedImages = limitedData.map((img, i) => ({
+            ...img,
+            span: spans[i % spans.length],
+        }));
+        setImages(formattedImages);
       } catch (err) {
         console.error("Error fetching images:", err);
       }

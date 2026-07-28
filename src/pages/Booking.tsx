@@ -186,7 +186,14 @@ const Booking = () => {
     let unsubBoats = () => {};
 
     unsubTours = api.tours.subscribe((toursList) => {
-      const tour = toursList.find(t => t.slug === packId);
+      const defaultTours = [
+        { id: "t-1", name: "Passeio Arrábida & Praias Secretas", slug: "passeio-arrabida", packs: [{ duration: "2h", price: "180€" }, { duration: "4h", price: "320€" }, { duration: "8h", price: "550€" }], capacity: 10, theme: "ocean" },
+        { id: "t-2", name: "Observação de Golfinhos no Sado", slug: "observacao-golfinhos", packs: [{ duration: "2h30", price: "220€" }, { duration: "4h", price: "350€" }], capacity: 12, theme: "turquoise-dark" },
+        { id: "t-3", name: "Passeio Sunset & Baía de Setúbal", slug: "sunset-bay", packs: [{ duration: "2h", price: "200€" }, { duration: "3h", price: "280€" }], capacity: 10, theme: "coral" },
+        { id: "t-4", name: "Experiência Tróia & Galapinhos", slug: "troia-galapinhos", packs: [{ duration: "4h", price: "340€" }, { duration: "8h", price: "600€" }], capacity: 10, theme: "turquoise-light" }
+      ];
+      const allTours = (toursList && toursList.length > 0) ? toursList : defaultTours;
+      const tour = allTours.find(t => t.slug === packId) || defaultTours.find(t => t.slug === packId);
       if (tour) {
         const rawPacks = tour.packs || [];
         const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
