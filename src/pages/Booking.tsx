@@ -502,9 +502,14 @@ const Booking = () => {
           emailPublicKey
         ).then(
           (res) => console.log("📧 EmailJS (Client) enviado com sucesso:", res.status, res.text),
-          (err) => console.error("📧 Erro ao enviar EmailJS (Client):", err)
+          () => {
+            emailjs.send("default_service", emailTemplateId, emailParams, emailPublicKey)
+              .then((res) => console.log("📧 EmailJS (Client default_service) enviado:", res.status))
+              .catch((err) => console.error("📧 Erro ao enviar EmailJS (Client):", err));
+          }
         );
       }
+
 
 
 

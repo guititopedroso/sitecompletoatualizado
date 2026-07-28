@@ -743,34 +743,41 @@ async function sendEmailJSNotification(templateParams) {
   const templateId = process.env.VITE_EMAILJS_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || 'template_lyoryda';
   const publicKey = process.env.VITE_EMAILJS_PUBLIC_KEY || process.env.EMAILJS_PUBLIC_KEY || 'YAyeqW_hAHwLaV3Ho';
 
-  try {
-    const payload = {
-      service_id: serviceId,
-      template_id: templateId,
-      user_id: publicKey,
-      template_params: templateParams
-    };
+  const servicesToTry = [serviceId, 'default_service'];
 
-    console.log('📧 ENVIANDO EMAIL VIA EMAILJS REST API PARA:', templateParams.to_email || templateParams.email);
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+  for (const sId of Array.from(new Set(servicesToTry))) {
+    try {
+      const payload = {
+        service_id: sId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: templateParams
+      };
 
-    const text = await response.text();
-    if (response.ok) {
-      console.log('✅ EmailJS enviado com sucesso via Backend API! Resposta:', text);
-      return true;
-    } else {
-      console.error('❌ Erro no envio EmailJS via Backend API:', response.status, text);
-      return false;
+      console.log(`📧 ENVIANDO EMAIL VIA EMAILJS REST API (Service: ${sId}) PARA:`, templateParams.to_email || templateParams.email);
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://www.royalcoast.pt'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await response.text();
+      if (response.ok) {
+        console.log(`✅ EmailJS enviado com sucesso via Backend API (Service: ${sId})! Resposta:`, text);
+        return true;
+      } else {
+        console.warn(`⚠️ Tentativa EmailJS com Service ID "${sId}" retornou ${response.status}: ${text}`);
+      }
+    } catch (err) {
+      console.error('❌ Exceção ao enviar EmailJS via Backend API:', err.message);
     }
-  } catch (err) {
-    console.error('❌ Exceção ao enviar EmailJS via Backend API:', err.message);
-    return false;
   }
+  return false;
 }
+
 
 app.post('/api/notify/email', async (req, res) => {
   const { templateParams } = req.body;
