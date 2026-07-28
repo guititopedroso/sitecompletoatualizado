@@ -113,8 +113,10 @@ function initTables() {
         images TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
-    // Migração: adicionar coluna images se não existir
+    // Migrações: adicionar colunas se não existirem
     try { $pdo->exec('ALTER TABLE tours ADD COLUMN images TEXT'); } catch (Exception $e) {}
+    try { $pdo->exec('ALTER TABLE tours ADD COLUMN includes TEXT'); } catch (Exception $e) {}
+    try { $pdo->exec('ALTER TABLE tours ADD COLUMN popular TINYINT(1) DEFAULT 0'); } catch (Exception $e) {}
     $pdo->exec("CREATE TABLE IF NOT EXISTS gallery (
         id VARCHAR(128) PRIMARY KEY, url VARCHAR(512) NOT NULL,
         alt VARCHAR(255) DEFAULT 'Imagem da galeria',
@@ -702,20 +704,122 @@ if ($method === 'POST' && $seg === ['boats','upload']) {
 // ==================================================
 
 function parseTour($t) {
-    $t['packs']       = $t['packs']       ? json_decode($t['packs'],true)       : [];
-    $t['extraOptions']= $t['extraOptions']? json_decode($t['extraOptions'],true) : [];
-    // Decode images array; fallback to [image] so the frontend always gets an array
-    if ($t['images']) {
-        $t['images'] = json_decode($t['images'], true) ?: [];
+    $t['popular']     = !empty($t['popular']);
+    $t['packs']       = $t['packs']       ? (is_string($t['packs']) ? json_decode($t['packs'],true) : $t['packs']) : [];
+    $t['includes']    = $t['includes']    ? (is_string($t['includes']) ? json_decode($t['includes'],true) : $t['includes']) : [];
+    $t['extraOptions']= $t['extraOptions']? (is_string($t['extraOptions']) ? json_decode($t['extraOptions'],true) : $t['extraOptions']) : [];
+    if (!empty($t['images'])) {
+        $t['images'] = is_string($t['images']) ? (json_decode($t['images'], true) ?: []) : $t['images'];
     } else {
-        $t['images'] = $t['image'] ? [$t['image']] : [];
+        $t['images'] = !empty($t['image']) ? [$t['image']] : [];
     }
     return $t;
 }
 
 // GET /api/tours
 if ($method === 'GET' && $seg === ['tours']) {
-    $rows = getDB()->query('SELECT * FROM tours ORDER BY tour_order ASC')->fetchAll();
+    try {
+        $rows = getDB()->query('SELECT * FROM tours ORDER BY tour_order ASC')->fetchAll();
+    } catch (\Throwable $e) {
+        $rows = [];
+    }
+    if (empty($rows)) {
+        respond([
+            [
+                "id" => "t-1",
+                "name" => "Passeio Arrábida & Praias Secretas",
+                "slug" => "passeio-arrabida",
+                "image" => "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+                "images" => ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"],
+                "popular" => true,
+                "capacity" => 10,
+                "order" => 1,
+                "theme" => "ocean",
+                "packs" => [
+                    ["duration" => "2h", "price" => "180€"],
+                    ["duration" => "4h", "price" => "320€"],
+                    ["duration" => "8h", "price" => "550€"]
+                ],
+                "includes" => [
+                    "Navegação pela Costa da Arrábida",
+                    "Paragem para Banho em Praias Desertas",
+                    "Equipamento de Snorkeling Incluído",
+                    "Briefing de Segurança & Coletes"
+                ],
+                "extraOptions" => [
+                    ["name" => "Catering Premium", "price" => 35, "perPerson" => true, "perHour" => false, "details" => ["Sushi", "Espumante", "Frutas Tropicais"]]
+                ]
+            ],
+            [
+                "id" => "t-2",
+                "name" => "Observação de Golfinhos no Sado",
+                "slug" => "observacao-golfinhos",
+                "image" => "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80",
+                "images" => ["https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80"],
+                "popular" => true,
+                "capacity" => 12,
+                "order" => 2,
+                "theme" => "turquoise-dark",
+                "packs" => [
+                    ["duration" => "2h30", "price" => "220€"],
+                    ["duration" => "4h", "price" => "350€"]
+                ],
+                "includes" => [
+                    "Rota pelo Estuário do Sado",
+                    "Observação Guiada da Comunidade de Roazes",
+                    "Guia Biólogo Especializado",
+                    "Coletes & Seguro Incluído"
+                ],
+                "extraOptions" => []
+            ],
+            [
+                "id" => "t-3",
+                "name" => "Passeio Sunset & Baía de Setúbal",
+                "slug" => "sunset-bay",
+                "image" => "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80",
+                "images" => ["https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80"],
+                "popular" => false,
+                "capacity" => 10,
+                "order" => 3,
+                "theme" => "coral",
+                "packs" => [
+                    ["duration" => "2h", "price" => "200€"],
+                    ["duration" => "3h", "price" => "280€"]
+                ],
+                "includes" => [
+                    "Navegação ao Pôr do Sol",
+                    "Vinho Moscatel ou Espumante de Boas-Vindas",
+                    "Música de Ambiência",
+                    "Fotografias Recordação"
+                ],
+                "extraOptions" => [
+                    ["name" => "Pack Fotos Pro", "price" => 15, "perPerson" => false, "perHour" => false, "details" => ["15 fotos digitais editadas"]]
+                ]
+            ],
+            [
+                "id" => "t-4",
+                "name" => "Experiência Tróia & Galapinhos",
+                "slug" => "troia-galapinhos",
+                "image" => "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
+                "images" => ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"],
+                "popular" => false,
+                "capacity" => 10,
+                "order" => 4,
+                "theme" => "turquoise-light",
+                "packs" => [
+                    ["duration" => "4h", "price" => "340€"],
+                    ["duration" => "8h", "price" => "600€"]
+                ],
+                "includes" => [
+                    "Travessia Setúbal - Tróia - Galapinhos",
+                    "Paragem em praias de água turquesa",
+                    "Stand Up Paddle (SUP) incluído",
+                    "Snacks & Bebidas de Boas-Vindas"
+                ],
+                "extraOptions" => []
+            ]
+        ]);
+    }
     respond(array_map('parseTour', $rows));
 }
 
@@ -725,8 +829,8 @@ if ($method === 'POST' && $seg === ['tours']) {
     $id = genId('t-');
     $imgs = $d['images'] ?? [];
     $img  = $d['image'] ?? ($imgs[0] ?? '');
-    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image,images) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs)]);
+    getDB()->prepare('INSERT INTO tours (id,name,slug,packs,capacity,price4h,price8h,extraOptions,theme,tour_order,image,images,includes,popular) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$id,$d['name'],$d['slug']??null,json_encode($d['packs']??[]),$d['capacity']??null,$d['price4h']??'',$d['price8h']??'',json_encode($d['extraOptions']??[]),$d['theme']??'ocean',$d['order']??0,$img,json_encode($imgs),json_encode($d['includes']??[]),!empty($d['popular'])?1:0]);
     respond(array_merge(['id'=>$id],$d));
 }
 
@@ -759,7 +863,22 @@ if ($method === 'DELETE' && count($seg)===2 && $seg[0]==='tours') {
 
 // GET /api/gallery
 if ($method === 'GET' && $seg === ['gallery']) {
-    respond(getDB()->query('SELECT * FROM gallery ORDER BY created_at DESC')->fetchAll());
+    try {
+        $rows = getDB()->query('SELECT * FROM gallery ORDER BY created_at DESC')->fetchAll();
+    } catch (\Throwable $e) {
+        $rows = [];
+    }
+    if (empty($rows)) {
+        respond([
+            ["id"=>"g-1", "url"=>"https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80", "alt"=>"Jet Ski Royal Coast"],
+            ["id"=>"g-2", "url"=>"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", "alt"=>"Praia de Galapinhos & Arrábida"],
+            ["id"=>"g-3", "url"=>"https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80", "alt"=>"Golfinhos no Estuário do Sado"],
+            ["id"=>"g-4", "url"=>"https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80", "alt"=>"Pôr do Sol em Setúbal"],
+            ["id"=>"g-5", "url"=>"https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80", "alt"=>"Navegação em Águas Turquesa"],
+            ["id"=>"g-6", "url"=>"https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80", "alt"=>"Aventura de Barco Royal Coast"]
+        ]);
+    }
+    respond($rows);
 }
 
 // POST /api/gallery

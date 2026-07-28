@@ -1071,9 +1071,109 @@ app.post('/api/boats/upload', upload.single('file'), (req, res) => {
 app.get('/api/tours', async (req, res) => {
   try {
     const [rows] = await queryDB('SELECT * FROM tours ORDER BY tour_order ASC');
+    if (!rows || rows.length === 0) {
+      return res.json([
+        {
+          id: "t-1",
+          name: "Passeio Arrábida & Praias Secretas",
+          slug: "passeio-arrabida",
+          image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+          images: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"],
+          popular: true,
+          capacity: 10,
+          order: 1,
+          theme: "ocean",
+          packs: [
+            { duration: "2h", price: "180€" },
+            { duration: "4h", price: "320€" },
+            { duration: "8h", price: "550€" }
+          ],
+          includes: [
+            "Navegação pela Costa da Arrábida",
+            "Paragem para Banho em Praias Desertas",
+            "Equipamento de Snorkeling Incluído",
+            "Briefing de Segurança & Coletes"
+          ],
+          extraOptions: [
+            { name: "Catering Premium", price: 35, perPerson: true, perHour: false, details: ["Sushi", "Espumante", "Frutas Tropicais"] }
+          ]
+        },
+        {
+          id: "t-2",
+          name: "Observação de Golfinhos no Sado",
+          slug: "observacao-golfinhos",
+          image: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80",
+          images: ["https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80"],
+          popular: true,
+          capacity: 12,
+          order: 2,
+          theme: "turquoise-dark",
+          packs: [
+            { duration: "2h30", price: "220€" },
+            { duration: "4h", price: "350€" }
+          ],
+          includes: [
+            "Rota pelo Estuário do Sado",
+            "Observação Guiada da Comunidade de Roazes",
+            "Guia Biólogo Especializado",
+            "Coletes & Seguro Incluído"
+          ],
+          extraOptions: []
+        },
+        {
+          id: "t-3",
+          name: "Passeio Sunset & Baía de Setúbal",
+          slug: "sunset-bay",
+          image: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80",
+          images: ["https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80"],
+          popular: false,
+          capacity: 10,
+          order: 3,
+          theme: "coral",
+          packs: [
+            { duration: "2h", price: "200€" },
+            { duration: "3h", price: "280€" }
+          ],
+          includes: [
+            "Navegação ao Pôr do Sol",
+            "Vinho Moscatel ou Espumante de Boas-Vindas",
+            "Música de Ambiência",
+            "Fotografias Recordação"
+          ],
+          extraOptions: [
+            { name: "Pack Fotos Pro", price: 15, perPerson: false, perHour: false, details: ["15 fotos digitais editadas"] }
+          ]
+        },
+        {
+          id: "t-4",
+          name: "Experiência Tróia & Galapinhos",
+          slug: "troia-galapinhos",
+          image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
+          images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"],
+          popular: false,
+          capacity: 10,
+          order: 4,
+          theme: "turquoise-light",
+          packs: [
+            { duration: "4h", price: "340€" },
+            { duration: "8h", price: "600€" }
+          ],
+          includes: [
+            "Travessia Setúbal - Tróia - Galapinhos",
+            "Paragem em praias de água turquesa",
+            "Stand Up Paddle (SUP) incluído",
+            "Snacks & Bebidas de Boas-Vindas"
+          ],
+          extraOptions: []
+        }
+      ]);
+    }
+
     const parsed = rows.map(t => ({
       ...t,
+      popular: !!t.popular,
       packs: t.packs ? (typeof t.packs === 'string' ? JSON.parse(t.packs) : t.packs) : [],
+      includes: t.includes ? (typeof t.includes === 'string' ? JSON.parse(t.includes) : t.includes) : [],
       extraOptions: t.extraOptions ? (typeof t.extraOptions === 'string' ? JSON.parse(t.extraOptions) : t.extraOptions) : [],
       images: t.images ? (typeof t.images === 'string' ? JSON.parse(t.images) : t.images) : (t.image ? [t.image] : [])
     }));
@@ -1090,11 +1190,12 @@ app.post('/api/tours', async (req, res) => {
   const img = data.image || (imgs[0] || '');
   try {
     await queryDB(
-      `INSERT INTO tours (id, name, slug, packs, capacity, price4h, price8h, extraOptions, theme, tour_order, image, images) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tours (id, name, slug, packs, capacity, price4h, price8h, extraOptions, theme, tour_order, image, images, includes, popular) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, data.name, data.slug, JSON.stringify(data.packs || []), data.capacity, data.price4h || '', data.price8h || '',
-        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs)
+        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs),
+        JSON.stringify(data.includes || []), data.popular ? 1 : 0
       ]
     );
     res.json({ id, ...data });
@@ -1110,10 +1211,11 @@ app.put('/api/tours/:id', async (req, res) => {
   const img = data.image || (imgs[0] || '');
   try {
     await queryDB(
-      `UPDATE tours SET name=?, slug=?, packs=?, capacity=?, price4h=?, price8h=?, extraOptions=?, theme=?, tour_order=?, image=?, images=? WHERE id=?`,
+      `UPDATE tours SET name=?, slug=?, packs=?, capacity=?, price4h=?, price8h=?, extraOptions=?, theme=?, tour_order=?, image=?, images=?, includes=?, popular=? WHERE id=?`,
       [
         data.name, data.slug, JSON.stringify(data.packs || []), data.capacity, data.price4h || '', data.price8h || '',
-        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs), id
+        JSON.stringify(data.extraOptions || []), data.theme || 'ocean', data.order || 0, img, JSON.stringify(imgs),
+        JSON.stringify(data.includes || []), data.popular ? 1 : 0, id
       ]
     );
     res.json({ id, ...data });
@@ -1151,6 +1253,16 @@ app.delete('/api/tours/:id', async (req, res) => {
 app.get('/api/gallery', async (req, res) => {
   try {
     const [rows] = await queryDB('SELECT * FROM gallery ORDER BY created_at DESC');
+    if (!rows || rows.length === 0) {
+      return res.json([
+        { id: "g-1", url: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80", alt: "Jet Ski Royal Coast" },
+        { id: "g-2", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", alt: "Praia de Galapinhos & Arrábida" },
+        { id: "g-3", url: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80", alt: "Golfinhos no Estuário do Sado" },
+        { id: "g-4", url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80", alt: "Pôr do Sol em Setúbal" },
+        { id: "g-5", url: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80", alt: "Navegação em Águas Turquesa" },
+        { id: "g-6", url: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80", alt: "Aventura de Barco Royal Coast" }
+      ]);
+    }
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

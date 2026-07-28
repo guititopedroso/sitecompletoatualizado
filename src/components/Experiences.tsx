@@ -31,6 +31,98 @@ type DynamicTour = {
   extraOptions?: { name: string; price: number; perPerson: boolean; perHour: boolean; details?: string[] }[];
 };
 
+const defaultTours: DynamicTour[] = [
+  {
+    id: "t-1",
+    name: "Passeio Arrábida & Praias Secretas",
+    slug: "passeio-arrabida",
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"],
+    popular: true,
+    capacity: 10,
+    order: 1,
+    packs: [
+      { duration: "2h", price: "180€" },
+      { duration: "4h", price: "320€" },
+      { duration: "8h", price: "550€" }
+    ],
+    includes: [
+      "Navegação pela Costa da Arrábida",
+      "Paragem para Banho em Praias Desertas",
+      "Equipamento de Snorkeling Incluído",
+      "Briefing de Segurança & Coletes"
+    ],
+    extraOptions: [
+      { name: "Catering Premium", price: 35, perPerson: true, perHour: false, details: ["Sushi", "Espumante", "Frutas Tropicais"] }
+    ]
+  },
+  {
+    id: "t-2",
+    name: "Observação de Golfinhos no Sado",
+    slug: "observacao-golfinhos",
+    image: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80"],
+    popular: true,
+    capacity: 12,
+    order: 2,
+    packs: [
+      { duration: "2h30", price: "220€" },
+      { duration: "4h", price: "350€" }
+    ],
+    includes: [
+      "Rota pelo Estuário do Sado",
+      "Observação Guiada da Comunidade de Roazes",
+      "Guia Biólogo Especializado",
+      "Coletes & Seguro Incluído"
+    ],
+    extraOptions: []
+  },
+  {
+    id: "t-3",
+    name: "Passeio Sunset & Baía de Setúbal",
+    slug: "sunset-bay",
+    image: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80"],
+    popular: false,
+    capacity: 10,
+    order: 3,
+    packs: [
+      { duration: "2h", price: "200€" },
+      { duration: "3h", price: "280€" }
+    ],
+    includes: [
+      "Navegação ao Pôr do Sol",
+      "Vinho Moscatel ou Espumante de Boas-Vindas",
+      "Música de Ambiência",
+      "Fotografias Recordação"
+    ],
+    extraOptions: [
+      { name: "Pack Fotos Pro", price: 15, perPerson: false, perHour: false, details: ["15 fotos digitais editadas"] }
+    ]
+  },
+  {
+    id: "t-4",
+    name: "Experiência Tróia & Galapinhos",
+    slug: "troia-galapinhos",
+    image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"],
+    popular: false,
+    capacity: 10,
+    order: 4,
+    packs: [
+      { duration: "4h", price: "340€" },
+      { duration: "8h", price: "600€" }
+    ],
+    includes: [
+      "Travessia Setúbal - Tróia - Galapinhos",
+      "Paragem em praias de água turquesa",
+      "Stand Up Paddle (SUP) incluído",
+      "Snacks & Bebidas de Boas-Vindas"
+    ],
+    extraOptions: []
+  }
+];
+
 const Experiences = ({ referralCode }: { referralCode?: string }) => {
   const [activeTab, setActiveTab] = useState("jetski");
   const [dynamicTours, setDynamicTours] = useState<DynamicTour[]>([]);
@@ -47,6 +139,8 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     });
     return () => unsubscribe();
   }, []);
+
+  const displayTours = dynamicTours.length > 0 ? dynamicTours : defaultTours;
 
   const jetskiPacks = [
     {
@@ -291,11 +385,11 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   >
                   {loadingTours ? (
                     <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
-                  ) : dynamicTours.length === 0 ? (
+                  ) : displayTours.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">Nenhum passeio encontrado.</div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {dynamicTours.map((tour, i) => (
+                      {displayTours.map((tour, i) => (
                         <motion.div
                           key={tour.id}
                           layout
