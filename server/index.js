@@ -699,9 +699,9 @@ async function sendWhatsAppMessage(to, body, templateParams = null, templateName
   if (!cleanPhone || !body) return false;
 
   // 1. Green API (Prioridade Principal se configurado)
-  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || process.env.VITE_GREEN_API_INSTANCE_ID || '';
-  const greenToken = process.env.GREEN_API_TOKEN || process.env.VITE_GREEN_API_TOKEN || '';
-  const greenApiUrl = (process.env.GREEN_API_URL || `https://${greenInstance.substring(0, 4)}.api.greenapi.com`).replace(/\/+$/, '');
+  const greenInstance = process.env.GREEN_API_INSTANCE_ID || process.env.GREEN_API_ID || process.env.VITE_GREEN_API_INSTANCE_ID || '710722695372';
+  const greenToken = process.env.GREEN_API_TOKEN || process.env.VITE_GREEN_API_TOKEN || '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1';
+  const greenApiUrl = (process.env.GREEN_API_URL || 'https://7107.api.greenapi.com').replace(/\/+$/, '');
 
   if (greenInstance && greenToken) {
     try {

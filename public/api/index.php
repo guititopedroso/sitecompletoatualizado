@@ -374,9 +374,9 @@ function sendWhatsAppMessage($to, $body, $templateParams = null, $templateName =
     if (empty($cleanPhone) || empty($body)) return false;
 
     // 1. Green API (Prioridade Principal)
-    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: getenv('VITE_GREEN_API_INSTANCE_ID') ?: '';
-    $greenToken    = getenv('GREEN_API_TOKEN') ?: getenv('VITE_GREEN_API_TOKEN') ?: '';
-    $greenApiUrl   = rtrim(getenv('GREEN_API_URL') ?: ("https://" . substr($greenInstance, 0, 4) . ".api.greenapi.com"), '/');
+    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: ($_ENV['GREEN_API_INSTANCE_ID'] ?? '710722695372');
+    $greenToken    = getenv('GREEN_API_TOKEN') ?: ($_ENV['GREEN_API_TOKEN'] ?? '30cdd2db86224fdd849399777cd122cd9ea2baf4d1144650a1');
+    $greenApiUrl   = rtrim(getenv('GREEN_API_URL') ?: ($_ENV['GREEN_API_URL'] ?? 'https://7107.api.greenapi.com'), '/');
 
     if ($greenInstance && $greenToken) {
         $url = "{$greenApiUrl}/waInstance{$greenInstance}/sendMessage/{$greenToken}";
