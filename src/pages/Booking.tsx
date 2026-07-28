@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import LegalDialog from "@/components/LegalDialog";
 import { useLanguage } from "@/i18n/LanguageContext";
+import emailjs from "@emailjs/browser";
 
 type PackInfo = {
   name: string;
@@ -467,11 +468,40 @@ const Booking = () => {
         }
       }).catch(() => null);
 
+      // Send EmailJS Confirmation Email
+      const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+      const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+      if (emailServiceId && emailTemplateId && emailPublicKey) {
+        emailjs.send(
+          emailServiceId,
+          emailTemplateId,
+          {
+            to_name: firstName.trim(),
+            to_email: email,
+            pack_name: pack.name + durationStr,
+            booking_date: dateFormatted,
+            booking_time: time || "",
+            num_people: people,
+            phone: fullPhone,
+            location: location,
+            extras: extrasStr.trim() ? extrasStr : "Nenhum",
+            pack_price: totalPriceStr,
+          },
+          emailPublicKey
+        ).then(
+          (res) => console.log("📧 EmailJS enviado com sucesso:", res.status, res.text),
+          (err) => console.error("📧 Erro ao enviar EmailJS:", err)
+        );
+      }
+
       setStep(5);
       toast({
-        title: "Reserva Confirmada!",
-        description: "Notificação enviada por WhatsApp.",
+        title: "Reserva Registada!",
+        description: "Notificação enviada por WhatsApp e Email.",
       });
+
     } catch (error) {
       console.error("Booking error:", error);
       setStep(5);
