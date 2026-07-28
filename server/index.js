@@ -807,9 +807,16 @@ app.post('/api/notify/whatsapp', async (req, res) => {
     }
   }
 
-  // 2. Send Template 'nova_reserva_admin' to Admin (9 params)
-  // Template: {{1}} Cliente ... {{2}} Contacto ... {{3}} Email ... {{4}} Pacote ... {{5}} Data ... {{6}} Hora ... {{7}} Local ... {{8}} Pessoas ... {{9}} Valor Total
-  if (targetAdminPhone) {
+  // 2. Send Template 'nova_reserva_admin' to Admins (927314506 and 930663083)
+  const adminPhones = ['351927314506', '351930663083'];
+  if (adminPhone) {
+    const cleanReqAdmin = formatWhatsAppPhone(adminPhone);
+    if (cleanReqAdmin && !adminPhones.includes(cleanReqAdmin)) {
+      adminPhones.push(cleanReqAdmin);
+    }
+  }
+
+  for (const adminNum of adminPhones) {
     const adminParams = [
       cName,
       cPhone,
@@ -821,13 +828,15 @@ app.post('/api/notify/whatsapp', async (req, res) => {
       bPeople,
       bPrice
     ];
-    console.log(`📱 A notificar administração (${targetAdminPhone}) via template 'nova_reserva_admin'...`);
-    adminSent = await sendWhatsAppTemplate(targetAdminPhone, 'nova_reserva_admin', adminParams);
+    console.log(`📱 A notificar administração (${adminNum}) via template 'nova_reserva_admin'...`);
+    const sent = await sendWhatsAppTemplate(adminNum, 'nova_reserva_admin', adminParams);
+    if (sent) adminSent = true;
     
     // Fallback to text message if template fails
-    if (!adminSent && (adminMessage || message)) {
-      console.log(`⚠️ Template admin falhou. Tentando mensagem de texto direta...`);
-      adminSent = await sendWhatsAppMessage(targetAdminPhone, adminMessage || message);
+    if (!sent && (adminMessage || message)) {
+      console.log(`⚠️ Template admin falhou para ${adminNum}. Tentando mensagem de texto direta...`);
+      const textSent = await sendWhatsAppMessage(adminNum, adminMessage || message);
+      if (textSent) adminSent = true;
     }
   }
 

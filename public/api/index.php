@@ -460,8 +460,16 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
         }
     }
 
-    // 2. Send Template 'nova_reserva_admin' to Admin (9 params)
+    // 2. Send Template 'nova_reserva_admin' to Admins (927314506 and 930663083)
+    $adminPhones = ['351927314506', '351930663083'];
     if (!empty($adminPhone)) {
+        $cleanReqAdmin = formatWhatsAppPhonePHP($adminPhone);
+        if ($cleanReqAdmin && !in_array($cleanReqAdmin, $adminPhones)) {
+            $adminPhones[] = $cleanReqAdmin;
+        }
+    }
+
+    foreach ($adminPhones as $adminNum) {
         $adminParams = [
             $clientName,
             $clientPhone,
@@ -473,9 +481,11 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
             $numPeople,
             $totalPrice
         ];
-        $adminSent = sendWhatsAppTemplatePHP($adminPhone, 'nova_reserva_admin', $adminParams);
-        if (!$adminSent && (!empty($adminMessage) || !empty($message))) {
-            $adminSent = (bool)sendWhatsAppMessage($adminPhone, !empty($adminMessage) ? $adminMessage : $message);
+        $sent = sendWhatsAppTemplatePHP($adminNum, 'nova_reserva_admin', $adminParams);
+        if ($sent) $adminSent = true;
+        if (!$sent && (!empty($adminMessage) || !empty($message))) {
+            $textSent = (bool)sendWhatsAppMessage($adminNum, !empty($adminMessage) ? $adminMessage : $message);
+            if ($textSent) $adminSent = true;
         }
     }
 
