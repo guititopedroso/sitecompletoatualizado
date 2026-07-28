@@ -4,8 +4,8 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-// Backend URL on Hostinger phpMyAdmin MySQL database
-const BACKEND_URL = process.env.VITE_API_URL || 'https://www.royalcoast.pt';
+// Backend URL (Local dev server on port 3001 or custom VITE_API_URL)
+const BACKEND_URL = process.env.VITE_API_URL || 'http://localhost:3001';
 
 function googleAuthDevPlugin() {
   return {

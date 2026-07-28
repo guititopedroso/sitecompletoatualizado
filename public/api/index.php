@@ -13,8 +13,9 @@ define('DB_USER', 'u236076924_royalcoast');
 define('DB_PASS', 'Guitacrapazes.101010%');
 define('JWT_SECRET', 'super-secret-royalcoast-key-2026');
 
-define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSA8ZCX1sTY2ZBLgmjSzxpLUm0fl9uIj4OCQX8bVB4dlZBfqYF1gBWOErJGzu4w0hMJunHMZA7NokYzumaxcGB0ZCzbq1pSMyZB1RxZAFJ2rqBwaZCLFJMZCS7Jeh4twpmUkeREQT5jE20CbsFZBwEE36mvK2hR8ZAugmEHZAhupZCZAz257nm57izLQPkA5AZDZD');
-define('META_WA_PHONE_ID_DEFAULT', '1239529775907696');
+define('META_WA_TOKEN_DEFAULT', 'EAARmrytIMFkBSPDSeAtMF1EZBOgeylnFdZC6tGijlbJYjrdgJsDuYQy3vZBpmvXZBsD4f8ar7dWwKYXpkAITodAOiJEzWmqH1CR6Wpd80hhwt5SDsVnjSZA4tfe41NOdeV7sZAttncdxbVUQ0y8IUHGcW7SDyKxuZAllQcAoDHEJ1A5FQ8R2GF22HqwoZABrDQZDZD');
+define('META_WA_PHONE_ID_DEFAULT', '1240632239137751');
+define('ADMIN_PHONE_DEFAULT', '351910259346');
 
 // --- Carregar variáveis do ficheiro .env ---
 function loadEnv() {
@@ -294,86 +295,79 @@ if ($method === 'POST' && $seg === ['auth','google']) {
     ]]);
 }
 
-function sendWhatsAppMessage($to, $body) {
-    $cleanPhone = preg_replace('/\D/', '', $to);
-    if (empty($cleanPhone) || empty($body)) return false;
+function formatWhatsAppPhonePHP($phone) {
+    if (empty($phone)) return '';
+    $cleaned = preg_replace('/\D/', '', $phone);
+    if (empty($cleaned)) return '';
+    if (strlen($cleaned) === 9 && in_array(substr($cleaned, 0, 1), ['9', '2', '3'])) {
+        $cleaned = '351' . $cleaned;
+    }
+    return $cleaned;
+}
 
-    // 1. Green API (100% Gratuito - Developer Plan)
-    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: '';
-    $greenToken    = getenv('GREEN_API_TOKEN') ?: '';
-    if ($greenInstance && $greenToken) {
-        $url = "https://api.green-api.com/waInstance{$greenInstance}/sendMessage/{$greenToken}";
-        $chatId = $cleanPhone . "@c.us";
-        $data = json_encode([
-            'chatId' => $chatId,
-            'message' => $body
+function sendWhatsAppTemplatePHP($toPhone, $templateName, $templateParams, $languageCode = 'pt_PT') {
+    $cleanPhone = formatWhatsAppPhonePHP($toPhone);
+    if (empty($cleanPhone)) return false;
+
+    $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
+    $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
+
+    if (empty($metaToken) || empty($metaPhoneId)) return false;
+
+    $components = [
+        [
+            'type' => 'body',
+            'parameters' => array_map(function($val) {
+                return ['type' => 'text', 'text' => (string)($val ?? '')];
+            }, $templateParams ?: [])
+        ]
+    ];
+
+    $languagesToTry = array_unique([$languageCode, 'pt_PT', 'pt', 'pt_BR', 'en_US']);
+
+    foreach ($languagesToTry as $lang) {
+        $url = "https://graph.facebook.com/v19.0/{$metaPhoneId}/messages";
+        $dataTemplate = json_encode([
+            'messaging_product' => 'whatsapp',
+            'to' => $cleanPhone,
+            'type' => 'template',
+            'template' => [
+                'name' => $templateName,
+                'language' => ['code' => $lang],
+                'components' => $components
+            ]
         ]);
+
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "Authorization: Bearer {$metaToken}",
+            "Content-Type: application/json"
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $dataTemplate);
         $res = curl_exec($ch);
         curl_close($ch);
-        return $res;
-    }
 
-    // 1. CallMeBot (100% Gratuito)
-    $callMeBotKey = getenv('CALLMEBOT_API_KEY') ?: '';
-    if ($callMeBotKey) {
-        $url = "https://api.callmebot.com/whatsapp.php?phone=" . urlencode($cleanPhone) . "&text=" . urlencode($body) . "&apikey=" . urlencode($callMeBotKey);
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $res = curl_exec($ch);
-        curl_close($ch);
-        return $res;
+        $parsed = json_decode($res, true);
+        if (!empty($parsed['messages'])) {
+            return true;
+        }
+        if (!empty($parsed['error']['code']) && $parsed['error']['code'] == 132001) {
+            continue;
+        }
     }
+    return false;
+}
 
-    // 2. Meta WhatsApp Cloud API (Oficial - 1.000 Mensagens Grátis / mês)
+function sendWhatsAppMessage($to, $body) {
+    $cleanPhone = formatWhatsAppPhonePHP($to);
+    if (empty($cleanPhone) || empty($body)) return false;
+
     $metaToken   = getenv('META_WA_TOKEN') ?: (defined('META_WA_TOKEN_DEFAULT') ? META_WA_TOKEN_DEFAULT : '');
     $metaPhoneId = getenv('META_WA_PHONE_ID') ?: (defined('META_WA_PHONE_ID_DEFAULT') ? META_WA_PHONE_ID_DEFAULT : '');
     if ($metaToken && $metaPhoneId) {
         $url = "https://graph.facebook.com/v19.0/{$metaPhoneId}/messages";
-
-        // Tentar enviar modelo de utilidade aprovado (funciona para QUALQUER cliente novo sem restrição de 24h)
-        if ($templateParams && is_array($templateParams)) {
-            $components = [
-                [
-                    'type' => 'body',
-                    'parameters' => array_map(function($val) {
-                        return ['type' => 'text', 'text' => (string)$val];
-                    }, $templateParams)
-                ]
-            ];
-            $dataTemplate = json_encode([
-                'messaging_product' => 'whatsapp',
-                'to' => $cleanPhone,
-                'type' => 'template',
-                'template' => [
-                    'name' => 'reserva_confirmada',
-                    'language' => ['code' => 'pt_PT'],
-                    'components' => $components
-                ]
-            ]);
-
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "Authorization: Bearer {$metaToken}",
-                "Content-Type: application/json"
-            ]);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $dataTemplate);
-            $resTemplate = curl_exec($ch);
-            curl_close($ch);
-
-            $parsedT = json_decode($resTemplate, true);
-            if (!empty($parsedT['messages'])) {
-                return $resTemplate;
-            }
-        }
-
-        // Fallback para envio de Texto Livre
         $data = json_encode([
             'messaging_product' => 'whatsapp',
             'to' => $cleanPhone,
@@ -390,41 +384,38 @@ function sendWhatsAppMessage($to, $body) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $res = curl_exec($ch);
         curl_close($ch);
-        return $res;
+        $parsed = json_decode($res, true);
+        if (!empty($parsed['messages'])) return true;
     }
 
-    // 3. UltraMsg / Green API
-    $instanceId = getenv('WHATSAPP_INSTANCE_ID') ?: '';
-    $token      = getenv('WHATSAPP_TOKEN') ?: getenv('WHATSAPP_API_TOKEN') ?: '';
-    $apiUrl     = getenv('WHATSAPP_API_URL') ?: '';
-
-    if ($instanceId && $token) {
-        $url = "https://api.ultramsg.com/{$instanceId}/messages/chat";
+    // 2. Green API
+    $greenInstance = getenv('GREEN_API_INSTANCE_ID') ?: getenv('GREEN_API_ID') ?: '';
+    $greenToken    = getenv('GREEN_API_TOKEN') ?: '';
+    if ($greenInstance && $greenToken) {
+        $url = "https://api.green-api.com/waInstance{$greenInstance}/sendMessage/{$greenToken}";
+        $data = json_encode([
+            'chatId' => $cleanPhone . "@c.us",
+            'message' => $body
+        ]);
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-            'token' => $token,
-            'to'    => $cleanPhone,
-            'body'  => $body
-        ]));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         $res = curl_exec($ch);
         curl_close($ch);
-        return $res;
+        return true;
     }
 
-    if ($apiUrl && $token) {
-        $ch = curl_init($apiUrl);
+    // 3. CallMeBot
+    $callMeBotKey = getenv('CALLMEBOT_API_KEY') ?: '';
+    if ($callMeBotKey) {
+        $url = "https://api.callmebot.com/whatsapp.php?phone=" . urlencode($cleanPhone) . "&text=" . urlencode($body) . "&apikey=" . urlencode($callMeBotKey);
+        $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-            'token' => $token,
-            'to'    => $cleanPhone,
-            'body'  => $body
-        ]));
         $res = curl_exec($ch);
         curl_close($ch);
-        return $res;
+        return true;
     }
 
     return false;
@@ -435,15 +426,63 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $b = getBody();
     $to = $b['to'] ?? '';
     $message = $b['message'] ?? '';
+    $adminMessage = $b['adminMessage'] ?? '';
 
-    $templateParams = $b['templateParams'] ?? null;
-    $metaResult = sendWhatsAppMessage($to, $message, $templateParams);
-    $parsed = is_string($metaResult) ? json_decode($metaResult, true) : null;
+    $clientPhone = $b['clientPhone'] ?? $to;
+    $clientName  = $b['clientName'] ?? $b['firstName'] ?? 'Cliente';
+    $firstName   = $b['firstName'] ?? (explode(' ', $clientName)[0] ?: 'Cliente');
+    $clientEmail = $b['clientEmail'] ?? 'Não indicado';
+    $packName    = $b['packName'] ?? 'Reserva Royal Coast';
+    $bookingDate = $b['bookingDate'] ?? '';
+    $bookingTime = $b['bookingTime'] ?? '';
+    $location    = $b['location'] ?? 'Setúbal';
+    $numPeople   = (string)($b['numPeople'] ?? '1');
+    $totalPrice  = $b['totalPriceStr'] ?? '';
+    $adminPhone  = $b['adminPhone'] ?? getenv('ADMIN_PHONE_NUMBER') ?: (defined('ADMIN_PHONE_DEFAULT') ? ADMIN_PHONE_DEFAULT : '351910259346');
+
+    $clientSent = false;
+    $adminSent  = false;
+
+    // 1. Send Template 'reserva_confirmada' to Customer (7 params)
+    if (!empty($clientPhone)) {
+        $customerParams = (!empty($b['templateParams']) && count($b['templateParams']) === 7) ? $b['templateParams'] : [
+            $firstName,
+            $packName,
+            $bookingDate,
+            $bookingTime,
+            $location,
+            $numPeople,
+            $totalPrice
+        ];
+        $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_confirmada', $customerParams);
+        if (!$clientSent && !empty($message)) {
+            $clientSent = (bool)sendWhatsAppMessage($clientPhone, $message);
+        }
+    }
+
+    // 2. Send Template 'nova_reserva_admin' to Admin (9 params)
+    if (!empty($adminPhone)) {
+        $adminParams = [
+            $clientName,
+            $clientPhone,
+            $clientEmail,
+            $packName,
+            $bookingDate,
+            $bookingTime,
+            $location,
+            $numPeople,
+            $totalPrice
+        ];
+        $adminSent = sendWhatsAppTemplatePHP($adminPhone, 'nova_reserva_admin', $adminParams);
+        if (!$adminSent && (!empty($adminMessage) || !empty($message))) {
+            $adminSent = (bool)sendWhatsAppMessage($adminPhone, !empty($adminMessage) ? $adminMessage : $message);
+        }
+    }
 
     respond([
         'success' => true,
-        'clientSent' => !empty($parsed['messages']),
-        'raw' => $parsed ?: $metaResult
+        'clientSent' => $clientSent,
+        'adminSent' => $adminSent
     ]);
 }
 
