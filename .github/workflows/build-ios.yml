@@ -1,0 +1,118 @@
+name: Build and Sign iOS App (OTA IPA)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Package Native ARM64 iOS IPA
+        run: |
+          mkdir -p public/apps server/apps /tmp/staging/Payload/App.app/public
+
+          # Copy Web dist assets into bundle
+          cp -R dist/* /tmp/staging/Payload/App.app/public/
+          cp -R dist/* /tmp/staging/Payload/App.app/
+          cp ios/App/App/Info.plist /tmp/staging/Payload/App.app/Info.plist
+
+          # Write real native iOS Objective-C WebKit app source
+          cat << 'EOF' > /tmp/main_app.m
+          #import <UIKit/UIKit.h>
+          #import <WebKit/WebKit.h>
+
+          @interface AppDelegate : UIResponder <UIApplicationDelegate>
+          @property (strong, nonatomic) UIWindow *window;
+          @end
+
+          @implementation AppDelegate
+          - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+              self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+              UIViewController *vc = [[UIViewController alloc] init];
+              WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+              config.allowsInlineMediaPlayback = YES;
+              
+              WKWebView *webView = [[WKWebView alloc] initWithFrame:vc.view.bounds configuration:config];
+              webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+              
+              NSURL *publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html" subdirectory:@"public"];
+              if (!publicURL) {
+                  publicURL = [[NSBundle mainBundle] URLForResource:@"index" withExtension:@"html"];
+              }
+              
+              if (publicURL) {
+                  [webView loadFileURL:publicURL allowingReadAccessToURL:[publicURL URLByDeletingLastPathComponent]];
+              } else {
+                  [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.royalcoast.pt/admin"]]];
+              }
+              
+              vc.view = webView;
+              self.window.rootViewController = vc;
+              [self.window makeKeyAndVisible];
+              return YES;
+          }
+          @end
+
+          int main(int argc, char * argv[]) {
+              @autoreleasepool {
+                  return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+              }
+          }
+          EOF
+
+          # Compile real native ARM64 Mach-O iOS executable binary via Apple Clang
+          xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=13.0 -fobjc-arc \
+            -framework UIKit -framework WebKit -framework Foundation \
+            -o /tmp/staging/Payload/App.app/App /tmp/main_app.m
+
+          # Copy embedded provisioning profile if present
+          if [ -f "certs/profile.mobileprovision" ]; then
+            cp certs/profile.mobileprovision /tmp/staging/Payload/App.app/embedded.mobileprovision
+          fi
+
+          echo "📱 Executável ARM64 Nativo Compilado:"
+          ls -la /tmp/staging/Payload/App.app/App
+          file /tmp/staging/Payload/App.app/App
+
+          # Package Payload/App.app into official .ipa
+          node scripts/package-ipa.js /tmp/staging/Payload/App.app
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: royalcoast-admin-ipa
+          path: public/apps/royalcoast-admin.ipa
+
+      - name: Release IPA Build
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0
+          name: "RoyalCoast Admin iOS IPA v1.0.0"
+          make_latest: true
+          files: |
+            public/apps/royalcoast-admin.ipa
+            public/apps/manifest.plist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
