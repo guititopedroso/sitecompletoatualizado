@@ -26,17 +26,23 @@ const GalleryPage = () => {
     const fetchImages = async () => {
       setLoading(true);
       try {
-        const data = await api.gallery.getAll();
-
-        if (data) {
-          // Assign spans dynamically for layout purposes
-          const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
-          const formattedImages = data.map((img, i) => ({
-            ...img,
-            span: spans[i % spans.length], // Cycle through spans
-          }));
-          setImages(formattedImages);
+        let data = await api.gallery.getAll();
+        if (!data || data.length === 0) {
+          data = [
+            { id: "g-1", url: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80", alt: "Jet Ski Royal Coast" },
+            { id: "g-2", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", alt: "Praia de Galapinhos & Arrábida" },
+            { id: "g-3", url: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80", alt: "Golfinhos no Estuário do Sado" },
+            { id: "g-4", url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80", alt: "Pôr do Sol em Setúbal" },
+            { id: "g-5", url: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80", alt: "Navegação em Águas Turquesa" },
+            { id: "g-6", url: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80", alt: "Aventura de Barco Royal Coast" }
+          ];
         }
+        const spans = ["col-span-2 row-span-2", "col-span-1 row-span-1", "col-span-1 row-span-1", "col-span-2 row-span-1"];
+        const formattedImages = data.map((img, i) => ({
+          ...img,
+          span: spans[i % spans.length],
+        }));
+        setImages(formattedImages);
       } catch (err) {
         console.error("Error fetching images:", err);
       }
