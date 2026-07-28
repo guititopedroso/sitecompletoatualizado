@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import LegalDialog from "@/components/LegalDialog";
 import { useLanguage } from "@/i18n/LanguageContext";
+import emailjs from "@emailjs/browser";
 
 type PackInfo = {
   name: string;
@@ -122,11 +123,14 @@ const Booking = () => {
         setFirstName(parts[0] || "");
         setLastName(parts.length > 1 ? parts.slice(1).join(" ") : "");
       }
-      if (user.email) {
-        setEmail(user.email);
-      }
+      if (user.firstName) setFirstName(user.firstName);
+      if (user.lastName) setLastName(user.lastName);
+      if (user.email) setEmail(user.email);
+      if (user.phoneNumber) setPhone(user.phoneNumber);
+      if (user.phonePrefix) setPhonePrefix(user.phonePrefix);
     }
   }, [user]);
+
 
   const referralCode = searchParams.get("ref") || localStorage.getItem("royal_coast_referral") || null;
   const initialPack = allPacks[packId];
@@ -182,7 +186,14 @@ const Booking = () => {
     let unsubBoats = () => {};
 
     unsubTours = api.tours.subscribe((toursList) => {
-      const tour = toursList.find(t => t.slug === packId);
+      const defaultTours = [
+        { id: "t-1", name: "Passeio Arrábida & Praias Secretas", slug: "passeio-arrabida", packs: [{ duration: "2h", price: "180€" }, { duration: "4h", price: "320€" }, { duration: "8h", price: "550€" }], capacity: 10, theme: "ocean" },
+        { id: "t-2", name: "Observação de Golfinhos no Sado", slug: "observacao-golfinhos", packs: [{ duration: "2h30", price: "220€" }, { duration: "4h", price: "350€" }], capacity: 12, theme: "turquoise-dark" },
+        { id: "t-3", name: "Passeio Sunset & Baía de Setúbal", slug: "sunset-bay", packs: [{ duration: "2h", price: "200€" }, { duration: "3h", price: "280€" }], capacity: 10, theme: "coral" },
+        { id: "t-4", name: "Experiência Tróia & Galapinhos", slug: "troia-galapinhos", packs: [{ duration: "4h", price: "340€" }, { duration: "8h", price: "600€" }], capacity: 10, theme: "turquoise-light" }
+      ];
+      const allTours = (toursList && toursList.length > 0) ? toursList : defaultTours;
+      const tour = allTours.find(t => t.slug === packId) || defaultTours.find(t => t.slug === packId);
       if (tour) {
         const rawPacks = tour.packs || [];
         const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
@@ -336,7 +347,11 @@ const Booking = () => {
   const handleConfirm = async () => {
     setSending(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
-    const fullPhone = `${phonePrefix} ${phone.trim()}`;
+    const cleanPhoneInput = phone.trim();
+    const fullPhone = cleanPhoneInput.startsWith("+")
+      ? cleanPhoneInput
+      : `${phonePrefix} ${cleanPhoneInput}`;
+
     const durationStr = pack.isBoat 
       ? ` (${boatDuration})` 
       : pack.isTour && pack.tourPacks 
@@ -394,15 +409,16 @@ const Booking = () => {
       const adminWhatsAppMsg = `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
         `👤 *Cliente:* ${fullName}\n` +
         `📱 *Contacto:* ${fullPhone}\n` +
-        `📧 *Email:* ${email}\n` +
-        `🛥️ *Pacote:* ${finalPackName}\n` +
+        `📧 *Email:* ${email || 'N/D'}\n` +
+        `🛥️ *Pacote / Experiência:* ${finalPackName}\n` +
         `📅 *Data:* ${dateFormatted}\n` +
-        `⏰ *Hora:* ${time}\n` +
-        `📍 *Local:* ${location}\n` +
-        `👥 *Pessoas:* ${people}\n` +
+        `⏰ *Hora:* ${time || 'N/D'}\n` +
+        `📍 *Local de Embarque:* ${location}\n` +
+        `👥 *Número de Pessoas:* ${people}\n` +
         `💰 *Valor Total:* ${totalPriceStr}\n` +
         (referralCode ? `🎁 *Recomendado por:* ${referralCode}\n` : '') +
-        `\n📌 *Estado:* Confirmado online pelo cliente.`;
+        `👤 *Origem:* Cliente Online\n` +
+        `📌 *Estado:* Confirmado online pelo cliente.`;
 
       const clientWhatsAppMsg = `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
         `Olá ${firstName.trim()}! 👋\n\n` +
@@ -437,41 +453,77 @@ const Booking = () => {
         priceStr: totalPriceStr
       });
 
-      // Send to server API endpoint for automated WhatsApp Bot gateway
-      fetchApi("/api/notify/whatsapp", {
+      // Send client WhatsApp notification (admin notification is handled automatically on booking creation)
+      if (cleanClientPhone) {
+        fetchApi("/api/notify/whatsapp", {
+          method: "POST",
+          body: {
+            to: cleanClientPhone,
+            message: clientWhatsAppMsg,
+            templateParams: [
+              firstName.trim(),
+              finalPackName,
+              dateFormatted,
+              time || "",
+              location,
+              people,
+              totalPriceStr
+            ]
+          }
+        }).catch(() => null);
+      }
+
+      // Send EmailJS Confirmation Email (Backend + Client)
+      const emailParams = {
+        to_name: firstName.trim(),
+        to_email: email,
+        email: email,
+        client_email: email,
+        reply_to: email,
+        pack_name: finalPackName,
+        booking_date: dateFormatted,
+        booking_time: time || "",
+        num_people: people,
+        phone: fullPhone,
+        location: location,
+        extras: extrasStr.trim() ? extrasStr : "Nenhum",
+        pack_price: totalPriceStr,
+      };
+
+      // Send EmailJS Confirmation Email (Direct Browser REST API)
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_souo4bi";
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_lyoryda";
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "YAyeqW_hAHwLaV3Ho";
+
+      fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST",
-        body: {
-          to: cleanClientPhone,
-          message: clientWhatsAppMsg,
-          adminMessage: adminWhatsAppMsg,
-          templateParams: [
-            firstName.trim(),
-            finalPackName,
-            dateFormatted,
-            time || "",
-            location,
-            people,
-            totalPriceStr
-          ],
-          adminTemplateParams: [
-            fullName,
-            fullPhone,
-            email,
-            finalPackName,
-            dateFormatted,
-            time || "",
-            location,
-            people,
-            totalPriceStr
-          ]
-        }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          template_params: emailParams,
+        }),
+      })
+        .then((r) => r.text().then((t) => console.log("📧 EmailJS Direct Fetch Status:", r.status, t)))
+        .catch((err) => console.error("📧 EmailJS Direct Fetch Error:", err));
+
+      fetchApi("/api/notify/email", {
+        method: "POST",
+        body: { templateParams: emailParams }
       }).catch(() => null);
+
+
+
+
+
 
       setStep(5);
       toast({
-        title: "Reserva Confirmada!",
-        description: "Notificação enviada por WhatsApp.",
+        title: "Reserva Registada!",
+        description: "Notificação enviada por WhatsApp e Email.",
       });
+
     } catch (error) {
       console.error("Booking error:", error);
       setStep(5);

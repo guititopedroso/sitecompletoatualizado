@@ -27,9 +27,18 @@ yarn-error.log*
 *.sln
 *.sw?
 public/hero-video.mp4
+*.ipa
+*.p12
+*.mobileprovision
+certs/certificates/
+public/apps/*.ipa
+server/apps/*.ipa
+
+
 
 # managed
 **.data.json
 **.node-persist**
 **_IGNORE_**
+scratch/
 # end managed
