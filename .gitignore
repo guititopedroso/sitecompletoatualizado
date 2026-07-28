@@ -28,9 +28,12 @@ yarn-error.log*
 *.sw?
 public/hero-video.mp4
 *.ipa
-certs/
+*.p12
+*.mobileprovision
+certs/certificates/
 public/apps/*.ipa
 server/apps/*.ipa
+
 
 
 # managed

@@ -1,0 +1,94 @@
+name: Build and Sign iOS App (OTA IPA)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Setup iOS Signing Certificate
+        env:
+          KEYCHAIN_PASSWORD: "buildpassword123"
+        run: |
+          KEYCHAIN_PATH=$HOME/Library/Keychains/build.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 3600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Create certificate from base64 if present or certs folder
+          if [ -f "certs/boc_p12_b64.txt" ]; then
+            base64 --decode certs/boc_p12_b64.txt > certs/cert.p12
+            base64 --decode certs/boc_prov_b64.txt > certs/profile.mobileprovision
+          elif [ -f "certs/certificates/BOC/BOC.p12" ]; then
+            cp certs/certificates/BOC/BOC.p12 certs/cert.p12
+            cp certs/certificates/BOC/BOC.mobileprovision certs/profile.mobileprovision
+          fi
+
+          if [ -f "certs/cert.p12" ]; then
+            security import certs/cert.p12 -k $KEYCHAIN_PATH -P "WSF" -A -t cert -f pkcs12 -allowAnyAcl
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security list-keychains -s $KEYCHAIN_PATH
+
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            cp certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          fi
+
+      - name: Build Xcode IPA
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath archive.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO
+
+          xcodebuild -exportArchive \
+            -archivePath archive.xcarchive \
+            -exportOptionsPlist "../../scripts/exportOptions.plist" \
+            -exportPath "../../build-output" \
+            CODE_SIGNING_ALLOWED=NO || true
+
+      - name: Package & Sign IPA with zsign / Fastlane
+        run: |
+          mkdir -p public/apps server/apps
+          node scripts/build-ipa.js
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: royalcoast-admin-ipa
+          path: public/apps/royalcoast-admin.ipa
+
+      - name: Release IPA Build
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "RoyalCoast Admin iOS IPA"
+          files: |
+            public/apps/royalcoast-admin.ipa
+            public/apps/manifest.plist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
