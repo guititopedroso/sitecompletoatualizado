@@ -1,3 +1,6 @@
+import { supabase } from './supabase';
+import { uploadToCloudinary } from './cloudinary';
+
 // Custom API layer for Royal Coast to interact with the local Express / MySQL backend.
 const BASE_URL = (import.meta.env.VITE_API_URL as string) || ''; // Allows defining a custom backend URL in production (e.g. https://api.royalcoast.pt)
 
@@ -110,7 +113,35 @@ export const api = {
     update: (id: string, data: any) => fetchApi(`/api/boats/${id}`, { method: 'PUT', body: data }),
     delete: (id: string) => fetchApi(`/api/boats/${id}`, { method: 'DELETE' }),
     updateOrder: (orders: { id: string; order: number }[]) => fetchApi('/api/boats/order/bulk', { method: 'PUT', body: orders as any }),
-    uploadImage: (file: File) => {
+    uploadImage: async (file: File) => {
+      // 1. Try Cloudinary
+      const cUrl = await uploadToCloudinary(file, 'boats');
+      if (cUrl) return { url: cUrl };
+
+      // 2. Try Supabase
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+        const filePath = `boats/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('gallery')
+          .upload(filePath, file, { upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: publicUrlData } = supabase.storage
+            .from('gallery')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            return { url: publicUrlData.publicUrl };
+          }
+        }
+      } catch (e) {
+        console.warn("Supabase upload fallback to local server:", e);
+      }
+
+      // 3. Fallback to server
       const formData = new FormData();
       formData.append('file', file);
       return fetchApi('/api/boats/upload', { method: 'POST', body: formData });
@@ -131,7 +162,43 @@ export const api = {
   // Gallery
   gallery: {
     getAll: () => fetchApi('/api/gallery'),
-    uploadImage: (file: File, alt: string = 'Imagem da galeria') => {
+    uploadImage: async (file: File, alt: string = 'Imagem da galeria') => {
+      // 1. Try Cloudinary
+      const cUrl = await uploadToCloudinary(file, 'gallery');
+      if (cUrl) {
+        return fetchApi('/api/gallery', {
+          method: 'POST',
+          body: { url: cUrl, alt }
+        });
+      }
+
+      // 2. Try Supabase
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+        const filePath = `gallery/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('gallery')
+          .upload(filePath, file, { upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: publicUrlData } = supabase.storage
+            .from('gallery')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            return fetchApi('/api/gallery', {
+              method: 'POST',
+              body: { url: publicUrlData.publicUrl, alt }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Supabase upload fallback to local server:", e);
+      }
+
+      // 3. Fallback to server
       const formData = new FormData();
       formData.append('file', file);
       formData.append('alt', alt);

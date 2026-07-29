@@ -662,9 +662,15 @@ if ($method === 'GET' && $seg === ['gallery']) {
 
 // POST /api/gallery
 if ($method === 'POST' && $seg === ['gallery']) {
-    $url = saveUpload('file');
+    $b = getBody();
+    if (!empty($b['url'])) {
+        $url = $b['url'];
+        $alt = $b['alt'] ?? 'Imagem da galeria';
+    } else {
+        $url = saveUpload('file');
+        $alt = $_POST['alt'] ?? 'Imagem da galeria';
+    }
     $id  = genId('g-');
-    $alt = $_POST['alt'] ?? 'Imagem da galeria';
     getDB()->prepare('INSERT INTO gallery (id,url,alt) VALUES (?,?,?)')->execute([$id,$url,$alt]);
     respond(['id'=>$id,'url'=>$url,'alt'=>$alt,'created_at'=>date('c')]);
 }

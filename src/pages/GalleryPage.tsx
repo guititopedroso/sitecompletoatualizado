@@ -95,6 +95,10 @@ const GalleryPage = () => {
                     alt={img.alt}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading="lazy"
+                    onError={(e) => {
+                      const parent = e.currentTarget.closest('.group');
+                      if (parent) (parent as HTMLElement).style.display = 'none';
+                    }}
                   />
                 </motion.div>
               ))}

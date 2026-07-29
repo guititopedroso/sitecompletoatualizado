@@ -164,10 +164,27 @@ const AdminGallery = () => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="relative aspect-square group rounded-xl overflow-hidden shadow-sm border border-border"
+              className="relative aspect-square group rounded-xl overflow-hidden shadow-sm border border-border bg-muted flex items-center justify-center"
             >
-              <img src={img.url} alt={img.alt} className="w-full h-full object-cover" loading="lazy" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <img
+                src={img.url}
+                alt={img.alt}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  // Fallback visually if image file is missing on server
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector('.img-error-fallback')) {
+                    const fallback = document.createElement('div');
+                    fallback.className = 'img-error-fallback flex flex-col items-center justify-center p-2 text-center text-muted-foreground w-full h-full bg-muted';
+                    fallback.innerHTML = `<span class="text-xs font-semibold text-destructive mb-1">Ficheiro em falta</span><span class="text-[10px] text-muted-foreground">Re-carregue esta foto</span>`;
+                    parent.appendChild(fallback);
+                  }
+                }}
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
                 <Button
                   size="icon"
                   variant="destructive"

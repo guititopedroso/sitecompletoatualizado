@@ -1115,15 +1115,19 @@ app.get('/api/gallery', async (req, res) => {
 });
 
 app.post('/api/gallery', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro fornecido' });
-  const url = `/uploads/${req.file.filename}`;
+  let url = req.body?.url;
+  if (!url && req.file) {
+    url = `/uploads/${req.file.filename}`;
+  }
+  if (!url) return res.status(400).json({ error: 'Nenhum ficheiro ou URL fornecido' });
   const id = 'g-' + Math.random().toString(36).substring(2, 15);
+  const alt = req.body.alt || 'Imagem da galeria';
   try {
     await queryDB(
       'INSERT INTO gallery (id, url, alt) VALUES (?, ?, ?)',
-      [id, url, req.body.alt || 'Imagem da galeria']
+      [id, url, alt]
     );
-    res.json({ id, url, alt: req.body.alt || 'Imagem da galeria', created_at: new Date().toISOString() });
+    res.json({ id, url, alt, created_at: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
