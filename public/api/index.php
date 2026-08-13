@@ -496,6 +496,103 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     ]);
 }
 
+// ==================================================
+// WHATSAPP WEBHOOK ROUTES (Meta Cloud API)
+// ==================================================
+
+// GET /api/webhooks/whatsapp (Verificação do Webhook pela Meta)
+if ($method === 'GET' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks','whatsapp'])) {
+    $verifyToken = getenv('META_WA_VERIFY_TOKEN') ?: 'royalcoast_webhook_secret_2026';
+    $mode      = $_GET['hub_mode'] ?? $_GET['hub.mode'] ?? '';
+    $token     = $_GET['hub_verify_token'] ?? $_GET['hub.verify_token'] ?? '';
+    $challenge = $_GET['hub_challenge'] ?? $_GET['hub.challenge'] ?? '';
+
+    if ($mode === 'subscribe' && $token === $verifyToken) {
+        http_response_code(200);
+        header('Content-Type: text/plain');
+        echo $challenge;
+        exit;
+    }
+    respond(['error' => 'Token de verificação inválido'], 403);
+}
+
+// POST /api/webhooks/whatsapp (Processar respostas aos botões Aceitar/Recusar)
+if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks','whatsapp'])) {
+    $body = getBody();
+    $entry = $body['entry'][0] ?? null;
+    $change = $entry['changes'][0]['value'] ?? null;
+    $message = $change['messages'][0] ?? null;
+
+    if ($message) {
+        $msgType = $message['type'] ?? '';
+        $adminPhone = $message['from'] ?? '';
+        $buttonPayload = '';
+
+        if ($msgType === 'button') {
+            $buttonPayload = $message['button']['payload'] ?? $message['button']['text'] ?? '';
+        } elseif ($msgType === 'interactive') {
+            $buttonPayload = $message['interactive']['button_reply']['id'] ?? $message['interactive']['button_reply']['title'] ?? '';
+        } elseif ($msgType === 'text') {
+            $buttonPayload = $message['text']['body'] ?? '';
+        }
+
+        $cleanPayload = strtolower(trim($buttonPayload));
+
+        if (strpos($cleanPayload, 'accept') !== false || strpos($cleanPayload, 'aceitar') !== false) {
+            preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
+            $bookingId = $matches[0] ?? null;
+
+            if ($bookingId) {
+                getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bookingId]);
+                $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
+                $stmt->execute([$bookingId]);
+                $bk = $stmt->fetch();
+            } else {
+                $stmt = getDB()->query('SELECT * FROM bookings WHERE confirmed = 0 ORDER BY created_at DESC LIMIT 1');
+                $bk = $stmt->fetch();
+                if ($bk) {
+                    getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bk['id']]);
+                }
+            }
+
+            if ($bk && !empty($bk['client_phone'])) {
+                $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
+                $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
+                sendWhatsAppMessage($bk['client_phone'], $msgClient);
+            }
+
+            if (!empty($adminPhone)) {
+                sendWhatsAppMessage($adminPhone, "✅ Reserva confirmada com sucesso e cliente notificado!");
+            }
+        } elseif (strpos($cleanPayload, 'reject') !== false || strpos($cleanPayload, 'recusar') !== false) {
+            preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
+            $bookingId = $matches[0] ?? null;
+
+            if ($bookingId) {
+                getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bookingId]);
+                $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
+                $stmt->execute([$bookingId]);
+                $bk = $stmt->fetch();
+            } else {
+                $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
+                $bk = $stmt->fetch();
+            }
+
+            if ($bk && !empty($bk['client_phone'])) {
+                $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
+                $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor contacte-nos se desejar agendar para outro horário! 🚤 — Royal Coast";
+                sendWhatsAppMessage($bk['client_phone'], $msgClient);
+            }
+
+            if (!empty($adminPhone)) {
+                sendWhatsAppMessage($adminPhone, "❌ Reserva recusada e cliente notificado.");
+            }
+        }
+    }
+
+    respond(['status' => 'success']);
+}
+
 // GET /api/auth/me
 if ($method === 'GET' && $seg === ['auth','me']) {
     $au = requireAuth();

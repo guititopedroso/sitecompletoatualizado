@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Teste Cloudinary - Royal Coast</title>
+  <style>
+    body { font-family: sans-serif; max-width: 500px; margin: 60px auto; padding: 0 20px; }
+    h1 { font-size: 1.4rem; margin-bottom: 20px; }
+    button { background: #0ea5e9; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #0284c7; }
+    #result { margin-top: 20px; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-size: 0.85rem; }
+    .ok { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .err { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    img#preview { max-width: 100%; margin-top: 15px; border-radius: 8px; display: none; }
+    input[type=file] { margin: 10px 0; display: block; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Teste Direto ao Cloudinary</h1>
+  <p>Selecione uma imagem e clique em <strong>Enviar para Cloudinary</strong>.</p>
+
+  <input type="file" id="fileInput" accept="image/*" />
+  <button onclick="testUpload()">Enviar para Cloudinary</button>
+
+  <div id="result" style="display:none"></div>
+  <img id="preview" />
+
+  <script>
+    async function testUpload() {
+      const CLOUD_NAME = 'dw86u43e6';
+      const UPLOAD_PRESET = 'ml_default';
+
+      const fileInput = document.getElementById('fileInput');
+      const resultDiv = document.getElementById('result');
+      const preview = document.getElementById('preview');
+
+      if (!fileInput.files.length) {
+        alert('Por favor selecione uma imagem primeiro!');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      resultDiv.style.display = 'block';
+      resultDiv.className = '';
+      resultDiv.textContent = '⏳ A enviar para Cloudinary...';
+      preview.style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'royalcoast-test');
+
+      try {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.secure_url) {
+          resultDiv.className = 'ok';
+          resultDiv.textContent = '✅ SUCESSO!\n\nURL da imagem:\n' + data.secure_url;
+          preview.src = data.secure_url;
+          preview.style.display = 'block';
+        } else {
+          resultDiv.className = 'err';
+          resultDiv.textContent = '❌ ERRO do Cloudinary:\n\n' + JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        resultDiv.className = 'err';
+        resultDiv.textContent = '❌ Erro de ligação:\n\n' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
