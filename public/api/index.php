@@ -443,7 +443,7 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $clientSent = false;
     $adminSent  = false;
 
-    // 1. Send Template 'reserva_confirmada' to Customer (7 params)
+    // 1. Send Pending Template to Customer (7 params)
     if (!empty($clientPhone)) {
         $customerParams = (!empty($b['templateParams']) && count($b['templateParams']) === 7) ? $b['templateParams'] : [
             $firstName,
@@ -454,7 +454,14 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
             $numPeople,
             $totalPrice
         ];
+        // Tentar enviar 'reserva_confirmada' (que o utilizador alterou para mensagem pendente), ou 'reserva_pendente_cliente' / 'reserva_pendente'
         $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_confirmada', $customerParams);
+        if (!$clientSent) {
+            $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_pendente_cliente', $customerParams);
+        }
+        if (!$clientSent) {
+            $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_pendente', $customerParams);
+        }
         if (!$clientSent && !empty($message)) {
             $clientSent = (bool)sendWhatsAppMessage($clientPhone, $message);
         }
@@ -557,8 +564,24 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
 
             if ($bk && !empty($bk['client_phone'])) {
                 $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
-                $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
-                sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                $customerParams = [
+                    $firstName,
+                    $bk['pack_name'],
+                    $bk['booking_date'],
+                    $bk['booking_time'],
+                    $bk['location'] ?? 'Setúbal',
+                    (string)($bk['num_people'] ?? 1),
+                    (string)($bk['price'] ?? 0) . '€'
+                ];
+                // Tentar enviar Template 'reserva_aceite' ou 'reserva_aprovada' ao cliente
+                $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_aceite', $customerParams);
+                if (!$sentTpl) {
+                    $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_aprovada', $customerParams);
+                }
+                if (!$sentTpl) {
+                    $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
+                    sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                }
             }
 
             if (!empty($adminPhone)) {
@@ -580,8 +603,18 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
 
             if ($bk && !empty($bk['client_phone'])) {
                 $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
-                $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor contacte-nos se desejar agendar para outro horário! 🚤 — Royal Coast";
-                sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                $rejectParams = [
+                    $firstName,
+                    $bk['pack_name'],
+                    $bk['booking_date'],
+                    $bk['booking_time']
+                ];
+                // Tentar enviar Template 'reserva_recusada' ao cliente
+                $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_recusada', $rejectParams);
+                if (!$sentTpl) {
+                    $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor tente agendar para outro dia! 🚤 — Royal Coast";
+                    sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                }
             }
 
             if (!empty($adminPhone)) {
