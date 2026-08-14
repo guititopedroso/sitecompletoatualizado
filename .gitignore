@@ -12,10 +12,13 @@ build
 
 # Environment variables
 .env
+.env*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+server/.env
+server/.env*
 
 # Debug
 npm-debug.log*

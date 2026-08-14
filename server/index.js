@@ -1218,22 +1218,86 @@ const FALLBACK_INSTAGRAM_POSTS = [
   }
 ];
 
+async function getInstagramToken() {
+  if (process.env.INSTAGRAM_ACCESS_TOKEN) {
+    return process.env.INSTAGRAM_ACCESS_TOKEN.trim();
+  }
+  try {
+    const [rows] = await queryDB('SELECT val_data FROM settings WHERE key_name = ?', ['instagram_token']);
+    if (rows.length > 0) {
+      const parsed = typeof rows[0].val_data === 'string' ? JSON.parse(rows[0].val_data) : rows[0].val_data;
+      if (parsed && parsed.token) return parsed.token.trim();
+    }
+  } catch (e) {
+    console.error("Error reading instagram token from DB:", e.message);
+  }
+  return null;
+}
+
 app.get('/api/instagram/posts', async (req, res) => {
   try {
-    const igToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    const igToken = await getInstagramToken();
     if (igToken) {
       const resp = await fetch(`https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&access_token=${igToken}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data && data.data) {
-          return res.json(data.data);
-        }
+      const data = await resp.json();
+      if (resp.ok && data && data.data && data.data.length > 0) {
+        return res.json(data.data.map(item => ({
+          ...item,
+          category: item.caption?.toLowerCase().includes('jetski') ? 'jetski' : item.caption?.toLowerCase().includes('golfinhos') ? 'dolphins' : item.caption?.toLowerCase().includes('por do sol') || item.caption?.toLowerCase().includes('sunset') ? 'sunset' : 'tours'
+        })));
+      } else if (data.error) {
+        console.warn('Meta Graph API token error:', data.error.message);
       }
     }
     return res.json(FALLBACK_INSTAGRAM_POSTS);
   } catch (err) {
     console.error('Error fetching Instagram posts:', err.message);
     res.json(FALLBACK_INSTAGRAM_POSTS);
+  }
+});
+
+app.post('/api/instagram/test-token', authenticateToken, async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ success: false, error: 'Token não fornecido' });
+
+  try {
+    const resp = await fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${token.trim()}`);
+    const data = await resp.json();
+
+    if (resp.ok && data && data.id) {
+      return res.json({
+        success: true,
+        username: data.username || 'royalcoast.pt',
+        id: data.id,
+        account_type: data.account_type || 'BUSINESS',
+        media_count: data.media_count || 0
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: data.error?.message || 'Falha ao validar token com a API do Meta Graph'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/instagram/status', async (req, res) => {
+  try {
+    const token = await getInstagramToken();
+    if (!token) {
+      return res.json({ configured: false });
+    }
+    const resp = await fetch(`https://graph.instagram.com/me?fields=id,username,media_count&access_token=${token}`);
+    const data = await resp.json();
+    if (resp.ok && data.id) {
+      return res.json({ configured: true, valid: true, username: data.username, media_count: data.media_count });
+    } else {
+      return res.json({ configured: true, valid: false, error: data.error?.message });
+    }
+  } catch (err) {
+    res.json({ configured: false, error: err.message });
   }
 });
 
@@ -1452,6 +1516,16 @@ app.delete('/api/expenses/:id', async (req, res) => {
 app.get('/api/settings/:key', async (req, res) => {
   const { key } = req.params;
   try {
+    if (key === 'instagram_token') {
+      const token = await getInstagramToken();
+      if (!token) return res.json({ configured: false, hasToken: false });
+      return res.json({
+        configured: true,
+        hasToken: true,
+        masked: `${token.substring(0, 6)}••••••••••••${token.substring(token.length - 4)}`
+      });
+    }
+
     const [rows] = await queryDB('SELECT val_data FROM settings WHERE key_name = ?', [key]);
     if (rows.length === 0) return res.json({});
     const valData = rows[0].val_data;
@@ -1461,7 +1535,7 @@ app.get('/api/settings/:key', async (req, res) => {
   }
 });
 
-app.post('/api/settings/:key', async (req, res) => {
+app.post('/api/settings/:key', authenticateToken, async (req, res) => {
   const { key } = req.params;
   const data = req.body;
   try {
@@ -1469,7 +1543,7 @@ app.post('/api/settings/:key', async (req, res) => {
       'INSERT INTO settings (key_name, val_data) VALUES (?, ?) ON DUPLICATE KEY UPDATE val_data = ?',
       [key, JSON.stringify(data), JSON.stringify(data)]
     );
-    res.json(data);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
