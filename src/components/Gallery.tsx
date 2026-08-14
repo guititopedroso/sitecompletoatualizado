@@ -120,11 +120,22 @@ const Gallery = () => {
             {selectedPostIndex !== null && posts[selectedPostIndex] && (
               <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl max-h-[90vh] sm:h-[80vh] flex flex-col md:flex-row">
                 <div className="relative flex-1 bg-black flex items-center justify-center min-h-[260px] md:min-h-full">
-                  <img
-                    src={posts[selectedPostIndex].media_url}
-                    alt={posts[selectedPostIndex].caption}
-                    className="max-h-full max-w-full object-contain"
-                  />
+                  {posts[selectedPostIndex].media_type === "VIDEO" ? (
+                    <video
+                      src={posts[selectedPostIndex].media_url}
+                      poster={posts[selectedPostIndex].thumbnail_url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <img
+                      src={posts[selectedPostIndex].media_url}
+                      alt={posts[selectedPostIndex].caption}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  )}
 
                   <button
                     onClick={(e) => {

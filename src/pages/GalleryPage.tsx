@@ -318,11 +318,22 @@ const GalleryPage = () => {
           <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl max-h-[90vh] sm:h-[80vh] flex flex-col md:flex-row">
             {/* Left: Media Preview */}
             <div className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] md:min-h-full group">
-              <img
-                src={filteredPosts[selectedPostIndex].media_url}
-                alt={filteredPosts[selectedPostIndex].caption}
-                className="max-h-full max-w-full object-contain"
-              />
+              {filteredPosts[selectedPostIndex].media_type === "VIDEO" ? (
+                <video
+                  src={filteredPosts[selectedPostIndex].media_url}
+                  poster={filteredPosts[selectedPostIndex].thumbnail_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <img
+                  src={filteredPosts[selectedPostIndex].media_url}
+                  alt={filteredPosts[selectedPostIndex].caption}
+                  className="max-h-full max-w-full object-contain"
+                />
+              )}
 
               {/* Prev / Next controls */}
               <button
