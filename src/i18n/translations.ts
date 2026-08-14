@@ -358,11 +358,11 @@ export const translations: Translations = {
     safety_s4_title: "Seguro Incluído",
     safety_s4_desc: "Todas as nossas experiências incluem seguro de acidentes pessoais e responsabilidade civil.",
 
-    gallery_tag: "Galeria",
-    gallery_title: "Momentos que ficam",
-    gallery_cta: "Ver Todas",
-    gallery_title_full: "Galeria Completa",
-    gallery_desc_full: "Momentos inesquecíveis capturados nas nossas aventuras.",
+    gallery_tag: "Instagram @royalcoast.pt",
+    gallery_title: "Momentos que ficam no mar",
+    gallery_cta: "Ver Galeria no Instagram",
+    gallery_title_full: "Galeria Oficial @royalcoast.pt",
+    gallery_desc_full: "Acompanhe as nossas aventuras em tempo real e veja os melhores momentos no mar de Sesimbra e Arrábida.",
 
     test_tag: "Testemunhos",
     test_title: "O que dizem os aventureiros",

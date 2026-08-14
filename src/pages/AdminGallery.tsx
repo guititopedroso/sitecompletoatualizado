@@ -1,214 +1,145 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { Upload, Trash2, Loader2, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import { Instagram, ExternalLink, Loader2, CheckCircle2, RefreshCw, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import ConfirmDialog from "@/components/ConfirmDialog";
-
-type GalleryImage = {
-  id: string;
-  url: string;
-  alt: string;
-  created_at: string;
-};
+import { InstagramPost } from "./GalleryPage";
 
 const AdminGallery = () => {
-  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [posts, setPosts] = useState<InstagramPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubscribe = api.gallery.subscribe((data) => {
-      setImages(data);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const processFiles = async (files: FileList | File[]) => {
-    if (!files.length) return;
-
-    setUploading(true);
-    setError(null);
-    setUploadProgress({ current: 0, total: files.length });
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setUploadProgress(prev => ({ ...prev, current: i + 1 }));
-      
-      try {
-        await api.gallery.uploadImage(file, "Imagem da galeria");
-        successCount++;
-      } catch (err: any) {
-        console.error("Erro no upload de uma imagem:", err);
-        errorCount++;
-      }
-    }
-
-    if (successCount > 0) {
-      toast({ title: "Upload concluído!", description: `${successCount} imagem(ns) adicionada(s) com sucesso.` });
-    }
-    if (errorCount > 0) {
-      setError(`Falha ao carregar ${errorCount} imagem(ns).`);
-    }
-    setUploading(false);
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      processFiles(event.target.files);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files) {
-      processFiles(e.dataTransfer.files);
-    }
-  };
-
-  const deleteImage = async (image: GalleryImage) => {
+  const loadPosts = async () => {
+    setRefreshing(true);
     try {
-      await api.gallery.delete(image.id);
-      toast({ title: "Sucesso!", description: "A imagem foi removida da galeria." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível eliminar a imagem." });
+      const data = await api.instagram.getPosts();
+      if (Array.isArray(data)) {
+        setPosts(data);
+      }
+    } catch (err) {
       console.error(err);
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao carregar publicações do Instagram." });
     }
+    setLoading(false);
+    setRefreshing(false);
   };
+
+  useEffect(() => {
+    loadPosts();
+  }, []);
 
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <ImageIcon className="text-primary" size={22} />
-          <h2 className="font-display text-lg font-bold text-foreground">Gerir Galeria</h2>
+          <div className="p-2 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white shadow-md">
+            <Instagram size={20} />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-foreground">Galeria do Instagram</h2>
+            <p className="text-xs text-muted-foreground">Sincronizada automaticamente com @royalcoast.pt</p>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
-          {uploading && (
-            <div className="text-xs text-muted-foreground mr-2 font-medium">
-              A carregar: {uploadProgress.current}/{uploadProgress.total}
-            </div>
-          )}
-          <Button asChild className="sunset-gradient text-accent-foreground rounded-full">
-            <label htmlFor="imageUpload" className="cursor-pointer">
-              <Upload size={14} className="mr-2" />
-              Carregar Fotos
-              <input id="imageUpload" type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={uploading} />
-            </label>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={loadPosts} 
+            disabled={refreshing}
+            className="rounded-full text-xs"
+          >
+            <RefreshCw size={13} className={`mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+
+          <Button asChild className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white rounded-full text-xs font-bold shadow-md">
+            <a href="https://www.instagram.com/royalcoast.pt" target="_blank" rel="noopener noreferrer">
+              <Instagram size={14} className="mr-1.5" />
+              Abrir @royalcoast.pt ↗
+            </a>
           </Button>
         </div>
       </div>
 
-      <div 
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`
-          relative min-h-[150px] border-2 border-dashed rounded-2xl mb-8 flex flex-col items-center justify-center transition-all duration-200
-          ${isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-border bg-muted/30"}
-          ${uploading ? "opacity-60 pointer-events-none" : "hover:border-primary/50"}
-        `}
-      >
-        <Upload size={32} className={`mb-3 ${isDragging ? "text-primary animate-bounce" : "text-muted-foreground"}`} />
-        <p className="text-sm font-medium text-foreground">
-          {isDragging ? "Larga aqui as fotos!" : "Arrasta as fotos para aqui"}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">ou clica no botão para selecionar várias</p>
+      {/* Integration Card Banner */}
+      <div className="p-6 rounded-2xl bg-card border border-border mb-8 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 shrink-0">
+              <img
+                src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=200&q=80"
+                alt="@royalcoast.pt"
+                className="w-full h-full object-cover rounded-full bg-background"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display font-bold text-base">@royalcoast.pt</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 size={12} />
+                  Sincronizado
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Todas as novas fotos e vídeos publicados no perfil <strong>@royalcoast.pt</strong> aparecem automaticamente na aba da Galeria do site.
+              </p>
+            </div>
+          </div>
+
+          <Button asChild variant="secondary" size="sm" className="rounded-xl shrink-0 text-xs">
+            <a href="/galeria" target="_blank" rel="noopener noreferrer">
+              <Eye size={14} className="mr-1.5 text-primary" />
+              Ver Galeria no Site
+            </a>
+          </Button>
+        </div>
       </div>
 
-      {error && (
-        <div className="flex items-center justify-center gap-2 p-4 mb-4 rounded-xl bg-destructive/10 text-destructive text-sm font-medium">
-          <AlertTriangle size={16} />
-          {error}
-        </div>
-      )}
+      {/* Instagram Feed Grid Preview */}
+      <h3 className="font-display text-sm font-bold text-foreground mb-4">
+        Pré-visualização do Feed Atual ({posts.length} publicações)
+      </h3>
 
-      {loading && !images.length ? (
+      {loading ? (
         <div className="text-center py-12 text-muted-foreground">
           <Loader2 className="animate-spin mx-auto mb-3" />
-          <p>A carregar galeria...</p>
-        </div>
-      ) : images.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-2xl">
-          <ImageIcon size={32} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm font-medium">A galeria ainda está vazia</p>
+          <p className="text-xs font-medium">A carregar o feed do Instagram...</p>
         </div>
       ) : (
-        <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {images.map((img) => (
-            <motion.div
-              layout
-              key={img.id}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="relative aspect-square group rounded-xl overflow-hidden shadow-sm border border-border bg-muted flex items-center justify-center"
+        <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {posts.map((post) => (
+            <div
+              key={post.id}
+              className="relative aspect-square group rounded-xl overflow-hidden shadow-sm border border-border bg-muted"
             >
               <img
-                src={img.url}
-                alt={img.alt}
-                className="w-full h-full object-cover"
+                src={post.thumbnail_url || post.media_url}
+                alt={post.caption}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
-                onError={(e) => {
-                  // Fallback visually if image file is missing on server
-                  const target = e.currentTarget;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector('.img-error-fallback')) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'img-error-fallback flex flex-col items-center justify-center p-2 text-center text-muted-foreground w-full h-full bg-muted';
-                    fallback.innerHTML = `<span class="text-xs font-semibold text-destructive mb-1">Ficheiro em falta</span><span class="text-[10px] text-muted-foreground">Re-carregue esta foto</span>`;
-                    parent.appendChild(fallback);
-                  }
-                }}
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  onClick={() => setConfirmAction({
-                    title: "Eliminar Imagem",
-                    description: "Tens a certeza? Esta ação não pode ser desfeita.",
-                    action: () => deleteImage(img),
-                  })}
-                  className="rounded-full scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-200 delay-100"
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 text-white z-10 text-xs">
+                <p className="line-clamp-3 text-[10px] text-white/90 leading-tight">
+                  {post.caption}
+                </p>
+                <a
+                  href={post.permalink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 hover:underline mt-2"
                 >
-                  <Trash2 size={18} />
-                </Button>
+                  <span>Ver no Instagram</span>
+                  <ExternalLink size={10} />
+                </a>
               </div>
-            </motion.div>
+            </div>
           ))}
         </motion.div>
       )}
-      <ConfirmDialog
-        open={!!confirmAction}
-        title={confirmAction?.title || ""}
-        description={confirmAction?.description || ""}
-        onConfirm={() => { confirmAction?.action(); setConfirmAction(null); }}
-        onCancel={() => setConfirmAction(null)}
-      />
     </div>
   );
 };

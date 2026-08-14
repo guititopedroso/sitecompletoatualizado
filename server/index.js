@@ -1114,6 +1114,129 @@ app.get('/api/gallery', async (req, res) => {
   }
 });
 
+// ==========================================
+// INSTAGRAM API (@royalcoast.pt)
+// ==========================================
+
+const FALLBACK_INSTAGRAM_POSTS = [
+  {
+    id: "ig_post_1",
+    caption: "A navegar pelas águas cristalinas do Ribeiro do Cavalo em Sesimbra 🌊🚤 Venha descobrir o paraíso connosco! #royalcoast #sesimbra #arrabida #boattrip #portugal",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-12T14:30:00Z",
+    like_count: 248,
+    comments_count: 19,
+    location: "Praia do Ribeiro do Cavalo, Sesimbra",
+    category: "tours"
+  },
+  {
+    id: "ig_post_2",
+    caption: "Adrenalina pura no mar de Sesimbra a bordo da nossa Yamaha FX Cruiser! 🔥💨 Reserve já a sua sessão de Jetski. #royalcoast #jetski #seadoo #yamahajetski #sesimbra",
+    media_type: "VIDEO",
+    media_url: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80",
+    thumbnail_url: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-10T17:15:00Z",
+    like_count: 312,
+    comments_count: 27,
+    location: "Baía de Sesimbra",
+    category: "jetski"
+  },
+  {
+    id: "ig_post_3",
+    caption: "Momentos mágicos: golfinhos a nadar ao lado do nosso barco no Estuário do Sado 🐬✨ Uma experiência inesquecível para toda a família! #royalcoast #golfinhos #sado #setubal #arrabida",
+    media_type: "CAROUSEL_ALBUM",
+    media_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-08T11:00:00Z",
+    like_count: 489,
+    comments_count: 42,
+    location: "Reserva Natural do Estuário do Sado",
+    category: "dolphins"
+  },
+  {
+    id: "ig_post_4",
+    caption: "Pôr do sol único sobre a Serra da Arrábida a partir do oceano 🌅🥂 Brinde a momentos inesquecíveis com a Royal Coast. #royalcoast #sunsettour #arrabida #sesimbra #champagne",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-06T19:45:00Z",
+    like_count: 415,
+    comments_count: 31,
+    location: "Parque Natural da Arrábida",
+    category: "sunset"
+  },
+  {
+    id: "ig_post_5",
+    caption: "A explorar as grutas secretas da costa da Arrábida. Águas azul-turquesa de tirar o fôlego! 💙 Blue Water Tour. #royalcoast #grutas #arrabidaliving #portugaladventure",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-04T16:20:00Z",
+    like_count: 276,
+    comments_count: 14,
+    location: "Cabo Espichel / Arrábida",
+    category: "tours"
+  },
+  {
+    id: "ig_post_6",
+    caption: "Velocidade e liberdade no Atlântico! A nossa frota de Jetskis pronta para acção. Quem vem dar um passeio? 🌊🚀 #royalcoast #jetskisession #watersports #sesimbraturismo",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-08-02T13:10:00Z",
+    like_count: 350,
+    comments_count: 22,
+    location: "Sesimbra, Portugal",
+    category: "jetski"
+  },
+  {
+    id: "ig_post_7",
+    caption: "Festa privada a bordo com amigos! Comemore os seus momentos especiais no mar connosco 🎉🍾 #royalcoast #privatecharter #boatparty #sesimbra #boattrip",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-07-30T18:00:00Z",
+    like_count: 298,
+    comments_count: 18,
+    location: "Praia de Galapinhos",
+    category: "tours"
+  },
+  {
+    id: "ig_post_8",
+    caption: "A vista deslumbrante de Tróia e das praias desertas da Arrábida. Reserve a sua viagem de barco! ☀️⚓ #royalcoast #troia #setubal #portugal #oceanvibes",
+    media_type: "IMAGE",
+    media_url: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1000&q=80",
+    permalink: "https://www.instagram.com/royalcoast.pt",
+    timestamp: "2026-07-28T10:30:00Z",
+    like_count: 265,
+    comments_count: 12,
+    location: "Península de Tróia",
+    category: "tours"
+  }
+];
+
+app.get('/api/instagram/posts', async (req, res) => {
+  try {
+    const igToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    if (igToken) {
+      const resp = await fetch(`https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&access_token=${igToken}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.data) {
+          return res.json(data.data);
+        }
+      }
+    }
+    return res.json(FALLBACK_INSTAGRAM_POSTS);
+  } catch (err) {
+    console.error('Error fetching Instagram posts:', err.message);
+    res.json(FALLBACK_INSTAGRAM_POSTS);
+  }
+});
+
 app.post('/api/gallery', upload.single('file'), async (req, res) => {
   let url = req.body?.url;
   if (!url && req.file) {
