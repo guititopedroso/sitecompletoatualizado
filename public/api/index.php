@@ -894,6 +894,36 @@ if ($method === 'POST' && count($seg) === 2 && $seg[0] === 'instagram' && $seg[1
     }
 }
 
+// GET /api/instagram/profile
+if ($method === 'GET' && count($seg) === 2 && $seg[0] === 'instagram' && $seg[1] === 'profile') {
+    $token = getInstagramTokenPHP();
+    if (!empty($token)) {
+        $url = "https://graph.instagram.com/me?fields=id,username,account_type,media_count,profile_picture_url,biography,followers_count,follows_count&access_token=" . urlencode($token);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $res = curl_exec($ch);
+        curl_close($ch);
+
+        $data = json_decode($res, true);
+        if (!empty($data['username'])) {
+            if (empty($data['profile_picture_url'])) {
+                $data['profile_picture_url'] = '/royalcoast_profile.jpg';
+            }
+            respond($data);
+        }
+    }
+    respond([
+        'username' => 'royalcoast.pt',
+        'biography' => "⚓️ Luxury Boat & Jet Ski\n📍 Setúbal — Tróia\nAdrenalina e exclusividade num só lugar. ⚡️\nReservas e valores no nosso site! 👇",
+        'profile_picture_url' => '/royalcoast_profile.jpg',
+        'followers_count' => 522,
+        'follows_count' => 3,
+        'media_count' => 9
+    ]);
+}
+
 // GET /api/instagram/status
 if ($method === 'GET' && count($seg) === 2 && $seg[0] === 'instagram' && $seg[1] === 'status') {
     $token = getInstagramTokenPHP();

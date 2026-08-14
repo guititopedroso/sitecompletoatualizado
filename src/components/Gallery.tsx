@@ -162,7 +162,7 @@ const Gallery = () => {
                     <div className="flex items-center gap-3 pb-3 mb-3 border-b border-border">
                       <div className="w-9 h-9 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600">
                         <img
-                          src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=150&q=80"
+                          src="/royalcoast_profile.jpg"
                           alt="@royalcoast.pt"
                           className="w-full h-full object-cover rounded-full bg-background"
                         />

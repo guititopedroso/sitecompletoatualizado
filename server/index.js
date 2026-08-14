@@ -1283,6 +1283,31 @@ app.post('/api/instagram/test-token', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/instagram/profile', async (req, res) => {
+  try {
+    const token = await getInstagramToken();
+    if (token) {
+      const resp = await fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count,profile_picture_url,biography,followers_count,follows_count&access_token=${token}`);
+      const data = await resp.json();
+      if (resp.ok && data && data.username) {
+        if (!data.profile_picture_url) data.profile_picture_url = '/royalcoast_profile.jpg';
+        return res.json(data);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching Instagram profile:', err.message);
+  }
+
+  res.json({
+    username: 'royalcoast.pt',
+    biography: "⚓️ Luxury Boat & Jet Ski\n📍 Setúbal — Tróia\nAdrenalina e exclusividade num só lugar. ⚡️\nReservas e valores no nosso site! 👇",
+    profile_picture_url: '/royalcoast_profile.jpg',
+    followers_count: 522,
+    follows_count: 3,
+    media_count: 9
+  });
+});
+
 app.get('/api/instagram/status', async (req, res) => {
   try {
     const token = await getInstagramToken();

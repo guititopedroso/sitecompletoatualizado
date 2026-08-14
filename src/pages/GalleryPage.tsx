@@ -44,25 +44,46 @@ const GalleryPage = () => {
   const navigate = useNavigate();
   const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null);
   const [posts, setPosts] = useState<InstagramPost[]>([]);
+  const [profile, setProfile] = useState<{
+    username?: string;
+    biography?: string;
+    profile_picture_url?: string;
+    followers_count?: number;
+    follows_count?: number;
+    media_count?: number;
+  }>({
+    username: "royalcoast.pt",
+    biography: "⚓️ Luxury Boat & Jet Ski\n📍 Setúbal — Tróia\nAdrenalina e exclusividade num só lugar. ⚡️\nReservas e valores no nosso site! 👇",
+    profile_picture_url: "/royalcoast_profile.jpg",
+    followers_count: 522,
+    follows_count: 3,
+    media_count: 9
+  });
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [displayLimit, setDisplayLimit] = useState(12);
 
   useEffect(() => {
-    const fetchInstagramPosts = async () => {
+    const fetchInstagramData = async () => {
       setLoading(true);
       try {
-        const data = await api.instagram.getPosts();
-        if (data && Array.isArray(data)) {
-          setPosts(data);
+        const [postsData, profileData] = await Promise.all([
+          api.instagram.getPosts(),
+          api.instagram.getProfile()
+        ]);
+        if (postsData && Array.isArray(postsData)) {
+          setPosts(postsData);
+        }
+        if (profileData && profileData.username) {
+          setProfile(profileData);
         }
       } catch (err) {
-        console.error("Error fetching Instagram posts:", err);
+        console.error("Error fetching Instagram data:", err);
       }
       setLoading(false);
     };
 
-    fetchInstagramPosts();
+    fetchInstagramData();
   }, []);
 
   const filteredPosts = posts.filter(post => {
@@ -133,8 +154,11 @@ const GalleryPage = () => {
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 shadow-xl group-hover:scale-105 transition-transform duration-300">
                 <div className="w-full h-full rounded-full p-1 bg-background overflow-hidden">
                   <img
-                    src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=300&q=80"
+                    src={profile.profile_picture_url || "/royalcoast_profile.jpg"}
                     alt={INSTAGRAM_HANDLE}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/royalcoast_profile.jpg";
+                    }}
                     className="w-full h-full object-cover rounded-full"
                   />
                 </div>
@@ -164,24 +188,23 @@ const GalleryPage = () => {
               </div>
 
               {/* Bio */}
-              <p className="text-sm text-foreground/90 max-w-2xl leading-relaxed mb-4">
-                <strong>Royal Coast — Maritime Experiences & Water Sports</strong> 🌊🚤<br />
-                Passeios de barco em Sesimbra, Arrábida e Tróia | Aluguer e sessões de Jetski | Observação de Golfinhos e Sunset Cruises 🐬🌅
-              </p>
+              <div className="text-sm text-foreground/90 max-w-2xl leading-relaxed mb-4 whitespace-pre-line font-medium">
+                {profile.biography || "⚓️ Luxury Boat & Jet Ski\n📍 Setúbal — Tróia\nAdrenalina e exclusividade num só lugar. ⚡️\nReservas e valores no nosso site! 👇"}
+              </div>
 
               {/* Stats */}
               <div className="flex items-center justify-center sm:justify-start gap-6 sm:gap-8 pt-2 border-t border-border/50 text-xs sm:text-sm">
                 <div>
-                  <span className="font-extrabold text-foreground block text-base">{posts.length}+</span>
+                  <span className="font-extrabold text-foreground block text-base">{posts.length || profile.media_count || 9}</span>
                   <span className="text-muted-foreground">Publicações</span>
                 </div>
                 <div>
-                  <span className="font-extrabold text-foreground block text-base">15.4k</span>
+                  <span className="font-extrabold text-foreground block text-base">{profile.followers_count || 522}</span>
                   <span className="text-muted-foreground">Seguidores</span>
                 </div>
                 <div>
-                  <span className="font-extrabold text-foreground block text-base">4.9 ★</span>
-                  <span className="text-muted-foreground">Classificação</span>
+                  <span className="font-extrabold text-foreground block text-base">{profile.follows_count || 3}</span>
+                  <span className="text-muted-foreground">A Seguir</span>
                 </div>
               </div>
             </div>
@@ -364,8 +387,11 @@ const GalleryPage = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600">
                       <img
-                        src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=150&q=80"
+                        src={profile.profile_picture_url || "/royalcoast_profile.jpg"}
                         alt={INSTAGRAM_HANDLE}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "/royalcoast_profile.jpg";
+                        }}
                         className="w-full h-full object-cover rounded-full bg-background"
                       />
                     </div>
