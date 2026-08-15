@@ -164,7 +164,7 @@ const Booking = () => {
   const [extraStartTimes, setExtraStartTimes] = useState<Record<string, string>>({});
   const [selectedExtras, setSelectedExtras] = useState<Record<string, boolean>>({});
   const [numMotas, setNumMotas] = useState(1);
-  const [currentMonth, setCurrentMonth] = useState(set(new Date(), { month: 4, date: 1 }));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const [createdBookingInfo, setCreatedBookingInfo] = useState<{
     adminWaUrl: string;
@@ -261,11 +261,31 @@ const Booking = () => {
 
   const isJetskiClosedActive = useMemo(() => {
     if (!jetskiClosed || !jetskiClosedUntil) return false;
-    const until = new Date(jetskiClosedUntil + "T23:59:59");
-    return until >= new Date();
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return todayStr <= jetskiClosedUntil;
   }, [jetskiClosed, jetskiClosedUntil]);
 
   const pack = dynamicPack || initialPack || allPacks["30-minutos"];
+
+  const isJetskiPack = Boolean(
+    pack.isJetski ||
+    pack.slug?.includes("minutos") ||
+    pack.slug?.includes("hora") ||
+    pack.slug?.includes("grupo") ||
+    pack.name?.toLowerCase().includes("jet ski") ||
+    pack.name?.toLowerCase().includes("mota")
+  );
+
+  const isDateDisabled = (d: Date) => {
+    if (isBefore(d, today)) return true;
+    if (isJetskiPack && isJetskiClosedActive && jetskiClosedUntil) {
+      const dayStr = format(d, 'yyyy-MM-dd');
+      if (dayStr <= jetskiClosedUntil) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const toggleExtra = (name: string) => {
     setSelectedExtras(prev => {
@@ -688,7 +708,7 @@ const Booking = () => {
           >
             {step === 1 && (
               <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {pack.isJetski && isJetskiClosedActive && jetskiClosedUntil && (
+                {isJetskiPack && isJetskiClosedActive && jetskiClosedUntil && (
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }} 
                     animate={{ opacity: 1, y: 0 }}
@@ -696,9 +716,9 @@ const Booking = () => {
                   >
                     <AlertCircle size={20} className="shrink-0 text-amber-600 mt-0.5" />
                     <div className="text-xs space-y-1">
-                      <p className="font-bold uppercase tracking-wider">Reservas de Jet Ski Temporariamente Fechadas</p>
+                      <p className="font-bold uppercase tracking-wider">Reservas de Jet Ski Bloqueadas</p>
                       <p className="leading-relaxed text-muted-foreground">
-                        As reservas de Jet Ski encontram-se encerradas até ao dia <b className="text-foreground">{format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}</b>. Podes selecionar uma data posterior no calendário para agendar!
+                        As reservas de Jet Ski encontram-se encerradas até ao dia <b className="text-foreground">{format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}</b>. Todos os dias até essa data estão bloqueados no calendário. Podes agendar para datas posteriores!
                       </p>
                     </div>
                   </motion.div>
@@ -718,25 +738,22 @@ const Booking = () => {
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
-                    disabled={(d) => {
-                      if (isBefore(d, today)) return true;
-                      if (pack.isJetski && isJetskiClosedActive && jetskiClosedUntil) {
-                        const untilDate = new Date(jetskiClosedUntil + "T23:59:59");
-                        if (d <= untilDate) return true;
-                      }
-                      return false;
+                    onSelect={(newDate) => {
+                      if (newDate && isDateDisabled(newDate)) return;
+                      setDate(newDate);
                     }}
+                    disabled={isDateDisabled}
                     month={currentMonth}
                     onMonthChange={setCurrentMonth}
-                    fromMonth={set(new Date(), { month: 4, date: 1 })}
-                    toMonth={set(new Date(), { month: 8, date: 30 })}
+                    fromMonth={new Date()}
+                    toMonth={set(new Date(), { month: 11, date: 31 })}
                     locale={pt}
                     className="p-0 scale-[0.9] sm:scale-100"
                     classNames={{
                       day_selected: "bg-primary text-white hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/30",
                       day_today: "text-coral font-bold",
                       day: "h-10 w-10 md:h-14 md:w-14 p-0 font-display font-700 text-sm md:text-base aria-selected:opacity-100 hover:bg-muted rounded-xl transition-all",
+                      day_disabled: "opacity-25 cursor-not-allowed hover:bg-transparent pointer-events-none text-muted-foreground/30 line-through",
                       head_row: "flex w-full mt-2 justify-between",
                       head_cell: "text-muted-foreground font-bold text-[10px] uppercase tracking-widest w-10 md:w-14 pb-4 text-center",
                       row: "flex w-full mt-2 justify-between",
