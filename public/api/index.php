@@ -428,7 +428,8 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $message = $b['message'] ?? '';
     $adminMessage = $b['adminMessage'] ?? '';
 
-    $clientPhone = $b['clientPhone'] ?? $to;
+    $adminPhones = ['351927314506', '351930663083'];
+    $cleanClientPhone = formatWhatsAppPhonePHP($b['clientPhone'] ?? $to);
     $clientName  = $b['clientName'] ?? $b['firstName'] ?? 'Cliente';
     $firstName   = $b['firstName'] ?? (explode(' ', $clientName)[0] ?: 'Cliente');
     $clientEmail = $b['clientEmail'] ?? 'Não indicado';
@@ -438,13 +439,13 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
     $location    = $b['location'] ?? 'Setúbal';
     $numPeople   = (string)($b['numPeople'] ?? '1');
     $totalPrice  = $b['totalPriceStr'] ?? '';
-    $adminPhone  = $b['adminPhone'] ?? getenv('ADMIN_PHONE_NUMBER') ?: (defined('ADMIN_PHONE_DEFAULT') ? ADMIN_PHONE_DEFAULT : '351930663083');
 
     $clientSent = false;
     $adminSent  = false;
 
-    // 1. Send Pending Template to Customer (7 params)
-    if (!empty($clientPhone)) {
+    // 1. Enviar mensagem/template do CLIENTE EXCLUSIVAMENTE para o CLIENTE
+    // (O admin NUNCA recebe mensagens de cliente)
+    if (!empty($cleanClientPhone) && !in_array($cleanClientPhone, $adminPhones)) {
         $customerParams = (!empty($b['templateParams']) && count($b['templateParams']) === 7) ? $b['templateParams'] : [
             $firstName,
             $packName,
@@ -454,32 +455,24 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
             $numPeople,
             $totalPrice
         ];
-        // Tentar enviar 'reserva_confirmada' (que o utilizador alterou para mensagem pendente), ou 'reserva_pendente_cliente' / 'reserva_pendente'
-        $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_confirmada', $customerParams);
+        // Tentar enviar 'reserva_confirmada' (ou pendente) para o cliente
+        $clientSent = sendWhatsAppTemplatePHP($cleanClientPhone, 'reserva_confirmada', $customerParams);
         if (!$clientSent) {
-            $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_pendente_cliente', $customerParams);
+            $clientSent = sendWhatsAppTemplatePHP($cleanClientPhone, 'reserva_pendente_cliente', $customerParams);
         }
         if (!$clientSent) {
-            $clientSent = sendWhatsAppTemplatePHP($clientPhone, 'reserva_pendente', $customerParams);
+            $clientSent = sendWhatsAppTemplatePHP($cleanClientPhone, 'reserva_pendente', $customerParams);
         }
         if (!$clientSent && !empty($message)) {
-            $clientSent = (bool)sendWhatsAppMessage($clientPhone, $message);
+            $clientSent = (bool)sendWhatsAppMessage($cleanClientPhone, $message);
         }
     }
 
-    // 2. Send Template 'nova_reserva_admin' to Admins (927314506 and 930663083)
-    $adminPhones = ['351927314506', '351930663083'];
-    if (!empty($adminPhone)) {
-        $cleanReqAdmin = formatWhatsAppPhonePHP($adminPhone);
-        if ($cleanReqAdmin && !in_array($cleanReqAdmin, $adminPhones)) {
-            $adminPhones[] = $cleanReqAdmin;
-        }
-    }
-
+    // 2. Enviar APENAS o Template de ADMIN ('nova_reserva_admin') para os Administradores
     foreach ($adminPhones as $adminNum) {
         $adminParams = [
             $clientName,
-            $clientPhone,
+            $cleanClientPhone,
             $clientEmail,
             $packName,
             $bookingDate,
@@ -490,8 +483,9 @@ if ($method === 'POST' && $seg === ['notify','whatsapp']) {
         ];
         $sent = sendWhatsAppTemplatePHP($adminNum, 'nova_reserva_admin', $adminParams);
         if ($sent) $adminSent = true;
-        if (!$sent && (!empty($adminMessage) || !empty($message))) {
-            $textSent = (bool)sendWhatsAppMessage($adminNum, !empty($adminMessage) ? $adminMessage : $message);
+        // Fallback: Se o template falhar, enviar APENAS o adminMessage (NUNCA a mensagem do cliente!)
+        if (!$sent && !empty($adminMessage)) {
+            $textSent = (bool)sendWhatsAppMessage($adminNum, $adminMessage);
             if ($textSent) $adminSent = true;
         }
     }
@@ -632,7 +626,8 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                         }
                     }
 
-                    if ($bk && !empty($bk['client_phone'])) {
+                    $cleanBkClientPhone = formatWhatsAppPhonePHP($bk['client_phone'] ?? '');
+                    if (!empty($cleanBkClientPhone) && !in_array($cleanBkClientPhone, $adminPhones)) {
                         $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
                         $params7 = [
                             $firstName,
@@ -653,15 +648,15 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                         $sentTpl = false;
                         $candidateTemplates = ['reserva_aceite', 'reserva_confirmada', 'reserva_aprovada', 'reserva_aceite_cliente', 'reserva_confirmada_final'];
                         foreach ($candidateTemplates as $tpl) {
-                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $params7);
+                            $sentTpl = sendWhatsAppTemplatePHP($cleanBkClientPhone, $tpl, $params7);
                             if ($sentTpl) break;
-                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $params4);
+                            $sentTpl = sendWhatsAppTemplatePHP($cleanBkClientPhone, $tpl, $params4);
                             if ($sentTpl) break;
                         }
 
                         if (!$sentTpl) {
                             $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
-                            sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                            sendWhatsAppMessage($cleanBkClientPhone, $msgClient);
                         }
                     }
 
@@ -691,7 +686,8 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                         }
                     }
 
-                    if ($bk && !empty($bk['client_phone'])) {
+                    $cleanBkClientPhone = formatWhatsAppPhonePHP($bk['client_phone'] ?? '');
+                    if (!empty($cleanBkClientPhone) && !in_array($cleanBkClientPhone, $adminPhones)) {
                         $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
                         $rejectParams4 = [
                             $firstName,
@@ -712,15 +708,15 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                         $sentTpl = false;
                         $candidateTemplates = ['reserva_recusada', 'reserva_cancelada', 'reserva_recusa', 'reserva_indisponivel', 'reserva_recusada_cliente'];
                         foreach ($candidateTemplates as $tpl) {
-                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $rejectParams4);
+                            $sentTpl = sendWhatsAppTemplatePHP($cleanBkClientPhone, $tpl, $rejectParams4);
                             if ($sentTpl) break;
-                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $rejectParams7);
+                            $sentTpl = sendWhatsAppTemplatePHP($cleanBkClientPhone, $tpl, $rejectParams7);
                             if ($sentTpl) break;
                         }
 
                         if (!$sentTpl) {
                             $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor tente agendar para outro dia! 🚤 — Royal Coast";
-                            sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                            sendWhatsAppMessage($cleanBkClientPhone, $msgClient);
                         }
                     }
 

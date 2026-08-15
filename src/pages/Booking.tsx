@@ -495,26 +495,6 @@ const Booking = () => {
         priceStr: totalPriceStr
       });
 
-      // Send client WhatsApp notification (admin notification is handled automatically on booking creation)
-      if (cleanClientPhone) {
-        fetchApi("/api/notify/whatsapp", {
-          method: "POST",
-          body: {
-            to: cleanClientPhone,
-            message: clientWhatsAppMsg,
-            templateParams: [
-              firstName.trim(),
-              finalPackName,
-              dateFormatted,
-              time || "",
-              location,
-              people,
-              totalPriceStr
-            ]
-          }
-        }).catch(() => null);
-      }
-
       // Send EmailJS Confirmation Email (Backend + Client)
       const emailParams = {
         to_name: firstName.trim(),
