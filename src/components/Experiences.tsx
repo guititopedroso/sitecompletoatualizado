@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, Users, Star, Camera, Sunset, Fish, MapPin, Waves, Anchor, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Users, Star, Camera, Sunset, Fish, MapPin, Waves, Anchor, Loader2, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import WaveDivider from "./WaveDivider";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
-import BoatCatalog from "./BoatCatalog";
 import SectionWrapper from "./ui/section-wrapper";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import {
@@ -31,6 +33,102 @@ type DynamicTour = {
   extraOptions?: { name: string; price: number; perPerson: boolean; perHour: boolean; details?: string[] }[];
 };
 
+const defaultTours: DynamicTour[] = [
+  {
+    id: "t-1",
+    name: "Passeio Arrábida & Praias Secretas",
+    slug: "passeio-arrabida",
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"],
+    popular: true,
+    capacity: 10,
+    order: 1,
+    theme: "ocean",
+    packs: [
+      { duration: "2h", price: "180€" },
+      { duration: "4h", price: "320€" },
+      { duration: "8h", price: "550€" }
+    ],
+    includes: [
+      "Navegação pela Costa da Arrábida",
+      "Paragem para Banho em Praias Desertas",
+      "Equipamento de Snorkeling Incluído",
+      "Briefing de Segurança & Coletes"
+    ],
+    extraOptions: [
+      { name: "Catering Premium", price: 35, perPerson: true, perHour: false, details: ["Sushi", "Espumante", "Frutas Tropicais"] }
+    ]
+  },
+  {
+    id: "t-2",
+    name: "Observação de Golfinhos no Sado",
+    slug: "observacao-golfinhos",
+    image: "https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1568430460464-526132963082?auto=format&fit=crop&w=800&q=80"],
+    popular: true,
+    capacity: 12,
+    order: 2,
+    theme: "turquoise-dark",
+    packs: [
+      { duration: "2h30", price: "220€" },
+      { duration: "4h", price: "350€" }
+    ],
+    includes: [
+      "Rota pelo Estuário do Sado",
+      "Observação Guiada da Comunidade de Roazes",
+      "Guia Biólogo Especializado",
+      "Coletes & Seguro Incluído"
+    ],
+    extraOptions: []
+  },
+  {
+    id: "t-3",
+    name: "Passeio Sunset & Baía de Setúbal",
+    slug: "sunset-bay",
+    image: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=800&q=80"],
+    popular: false,
+    capacity: 10,
+    order: 3,
+    theme: "coral",
+    packs: [
+      { duration: "2h", price: "200€" },
+      { duration: "3h", price: "280€" }
+    ],
+    includes: [
+      "Navegação ao Pôr do Sol",
+      "Vinho Moscatel ou Espumante de Boas-Vindas",
+      "Música de Ambiência",
+      "Fotografias Recordação"
+    ],
+    extraOptions: [
+      { name: "Pack Fotos Pro", price: 15, perPerson: false, perHour: false, details: ["15 fotos digitais editadas"] }
+    ]
+  },
+  {
+    id: "t-4",
+    name: "Experiência Tróia & Galapinhos",
+    slug: "troia-galapinhos",
+    image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
+    images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"],
+    popular: false,
+    capacity: 10,
+    order: 4,
+    theme: "turquoise-light",
+    packs: [
+      { duration: "4h", price: "340€" },
+      { duration: "8h", price: "600€" }
+    ],
+    includes: [
+      "Travessia Setúbal - Tróia - Galapinhos",
+      "Paragem em praias de água turquesa",
+      "Stand Up Paddle (SUP) incluído",
+      "Snacks & Bebidas de Boas-Vindas"
+    ],
+    extraOptions: []
+  }
+];
+
 const Experiences = ({ referralCode }: { referralCode?: string }) => {
   const [activeTab, setActiveTab] = useState("jetski");
   const [dynamicTours, setDynamicTours] = useState<DynamicTour[]>([]);
@@ -40,6 +138,28 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
 
+  const [jetskiClosed, setJetskiClosed] = useState(false);
+  const [jetskiClosedUntil, setJetskiClosedUntil] = useState("");
+
+  useEffect(() => {
+    const unsub = api.settings.subscribe("general", (data) => {
+      if (data) {
+        const closed = data.jetskiClosed === true;
+        const closedUntil = data.jetskiClosedUntil || "";
+        const isExpired = closedUntil && new Date(closedUntil + "T23:59:59") < new Date();
+        setJetskiClosed(closed && !isExpired);
+        setJetskiClosedUntil(closedUntil);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const isJetskiClosedActive = useMemo(() => {
+    if (!jetskiClosed || !jetskiClosedUntil) return false;
+    const until = new Date(jetskiClosedUntil + "T23:59:59");
+    return until >= new Date();
+  }, [jetskiClosed, jetskiClosedUntil]);
+
   useEffect(() => {
     const unsubscribe = api.tours.subscribe((data) => {
       setDynamicTours(data);
@@ -47,6 +167,8 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
     });
     return () => unsubscribe();
   }, []);
+
+  const displayTours = dynamicTours && dynamicTours.length > 0 ? dynamicTours : defaultTours;
 
   const jetskiPacks = [
     {
@@ -165,6 +287,7 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
             <AnimatePresence mode="wait">
               {activeTab === "jetski" ? (
+
                 <motion.div
                   key="jetski"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -173,6 +296,21 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 >
 
+
+                  {isJetskiClosedActive && jetskiClosedUntil && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-8 p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 text-amber-800 dark:text-amber-300"
+                    >
+                      <div className="flex items-center gap-3">
+                        <AlertCircle size={22} className="shrink-0 text-amber-600" />
+                        <p className="text-xs sm:text-sm font-medium leading-relaxed">
+                          As reservas de Jet Ski encontram-se temporariamente encerradas até ao dia <b className="font-bold text-foreground">{format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}</b>. Podes agendar com antecedência para datas posteriores!
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {jetskiPacks.map((pack, i) => (
@@ -290,11 +428,11 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
                   >
                   {loadingTours ? (
                     <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
-                  ) : dynamicTours.length === 0 ? (
+                  ) : displayTours.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">Nenhum passeio encontrado.</div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {dynamicTours.map((tour, i) => (
+                      {displayTours.map((tour, i) => (
                         <motion.div
                           key={tour.id}
                           layout

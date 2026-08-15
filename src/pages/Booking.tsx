@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge, Info, ChevronRight, X, Minus, Plus, MessageCircle, Send, Share2 } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Clock, Check, Users, Mail, Loader2, Anchor, Gauge, Info, ChevronRight, X, Minus, Plus, MessageCircle, Send, Share2, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import LegalDialog from "@/components/LegalDialog";
 import { useLanguage } from "@/i18n/LanguageContext";
+import emailjs from "@emailjs/browser";
 
 type PackInfo = {
   name: string;
@@ -122,11 +123,14 @@ const Booking = () => {
         setFirstName(parts[0] || "");
         setLastName(parts.length > 1 ? parts.slice(1).join(" ") : "");
       }
-      if (user.email) {
-        setEmail(user.email);
-      }
+      if (user.firstName) setFirstName(user.firstName);
+      if (user.lastName) setLastName(user.lastName);
+      if (user.email) setEmail(user.email);
+      if (user.phoneNumber) setPhone(user.phoneNumber);
+      if (user.phonePrefix) setPhonePrefix(user.phonePrefix);
     }
   }, [user]);
+
 
   const referralCode = searchParams.get("ref") || localStorage.getItem("royal_coast_referral") || null;
   const initialPack = allPacks[packId];
@@ -182,7 +186,14 @@ const Booking = () => {
     let unsubBoats = () => {};
 
     unsubTours = api.tours.subscribe((toursList) => {
-      const tour = toursList.find(t => t.slug === packId);
+      const defaultTours = [
+        { id: "t-1", name: "Passeio Arrábida & Praias Secretas", slug: "passeio-arrabida", packs: [{ duration: "2h", price: "180€" }, { duration: "4h", price: "320€" }, { duration: "8h", price: "550€" }], capacity: 10, theme: "ocean" },
+        { id: "t-2", name: "Observação de Golfinhos no Sado", slug: "observacao-golfinhos", packs: [{ duration: "2h30", price: "220€" }, { duration: "4h", price: "350€" }], capacity: 12, theme: "turquoise-dark" },
+        { id: "t-3", name: "Passeio Sunset & Baía de Setúbal", slug: "sunset-bay", packs: [{ duration: "2h", price: "200€" }, { duration: "3h", price: "280€" }], capacity: 10, theme: "coral" },
+        { id: "t-4", name: "Experiência Tróia & Galapinhos", slug: "troia-galapinhos", packs: [{ duration: "4h", price: "340€" }, { duration: "8h", price: "600€" }], capacity: 10, theme: "turquoise-light" }
+      ];
+      const allTours = (toursList && toursList.length > 0) ? toursList : defaultTours;
+      const tour = allTours.find(t => t.slug === packId) || defaultTours.find(t => t.slug === packId);
       if (tour) {
         const rawPacks = tour.packs || [];
         const tPacks = rawPacks.map((p: any) => ({ duration: p.duration, price: p.price }));
@@ -231,6 +242,28 @@ const Booking = () => {
       unsubBoats();
     };
   }, [packId]);
+
+  const [jetskiClosed, setJetskiClosed] = useState(false);
+  const [jetskiClosedUntil, setJetskiClosedUntil] = useState("");
+
+  useEffect(() => {
+    const unsub = api.settings.subscribe("general", (data) => {
+      if (data) {
+        const closed = data.jetskiClosed === true;
+        const closedUntil = data.jetskiClosedUntil || "";
+        const isExpired = closedUntil && new Date(closedUntil + "T23:59:59") < new Date();
+        setJetskiClosed(closed && !isExpired);
+        setJetskiClosedUntil(closedUntil);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const isJetskiClosedActive = useMemo(() => {
+    if (!jetskiClosed || !jetskiClosedUntil) return false;
+    const until = new Date(jetskiClosedUntil + "T23:59:59");
+    return until >= new Date();
+  }, [jetskiClosed, jetskiClosedUntil]);
 
   const pack = dynamicPack || initialPack || allPacks["30-minutos"];
 
@@ -336,7 +369,11 @@ const Booking = () => {
   const handleConfirm = async () => {
     setSending(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
-    const fullPhone = `${phonePrefix} ${phone.trim()}`;
+    const cleanPhoneInput = phone.trim();
+    const fullPhone = cleanPhoneInput.startsWith("+")
+      ? cleanPhoneInput
+      : `${phonePrefix} ${cleanPhoneInput}`;
+
     const durationStr = pack.isBoat 
       ? ` (${boatDuration})` 
       : pack.isTour && pack.tourPacks 
@@ -394,15 +431,16 @@ const Booking = () => {
       const adminWhatsAppMsg = `🚨 *NOVA RESERVA ROYALCOAST* 🚨\n\n` +
         `👤 *Cliente:* ${fullName}\n` +
         `📱 *Contacto:* ${fullPhone}\n` +
-        `📧 *Email:* ${email}\n` +
-        `🛥️ *Pacote:* ${finalPackName}\n` +
+        `📧 *Email:* ${email || 'N/D'}\n` +
+        `🛥️ *Pacote / Experiência:* ${finalPackName}\n` +
         `📅 *Data:* ${dateFormatted}\n` +
-        `⏰ *Hora:* ${time}\n` +
-        `📍 *Local:* ${location}\n` +
-        `👥 *Pessoas:* ${people}\n` +
+        `⏰ *Hora:* ${time || 'N/D'}\n` +
+        `📍 *Local de Embarque:* ${location}\n` +
+        `👥 *Número de Pessoas:* ${people}\n` +
         `💰 *Valor Total:* ${totalPriceStr}\n` +
         (referralCode ? `🎁 *Recomendado por:* ${referralCode}\n` : '') +
-        `\n📌 *Estado:* Confirmado online pelo cliente.`;
+        `👤 *Origem:* Cliente Online\n` +
+        `📌 *Estado:* Confirmado online pelo cliente.`;
 
       const clientWhatsAppMsg = `🌊 *ROYALCOAST - RESERVA REGISTADA!* 🌊\n\n` +
         `Olá ${firstName.trim()}! 👋\n\n` +
@@ -437,31 +475,104 @@ const Booking = () => {
         priceStr: totalPriceStr
       });
 
-      // Send to server API endpoint for automated WhatsApp Cloud API templates
+      // Send client WhatsApp notification (admin notification is handled automatically on booking creation)
+      if (cleanClientPhone) {
+        fetchApi("/api/notify/whatsapp", {
+          method: "POST",
+          body: {
+            to: cleanClientPhone,
+            message: clientWhatsAppMsg,
+            templateParams: [
+              firstName.trim(),
+              finalPackName,
+              dateFormatted,
+              time || "",
+              location,
+              people,
+              totalPriceStr
+            ]
+          }
+        }).catch(() => null);
+      }
+
+      // Send EmailJS Confirmation Email (Backend + Client)
+      const emailParams = {
+        to_name: firstName.trim(),
+        to_email: email,
+        email: email,
+        client_email: email,
+        reply_to: email,
+        pack_name: finalPackName,
+        booking_date: dateFormatted,
+        booking_time: time || "",
+        num_people: people,
+        phone: fullPhone,
+        location: location,
+        extras: extrasStr.trim() ? extrasStr : "Nenhum",
+        pack_price: totalPriceStr,
+      };
+
+      // Send EmailJS Confirmation Email (Direct Browser REST API)
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_souo4bi";
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_lyoryda";
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "YAyeqW_hAHwLaV3Ho";
+
+      fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          template_params: emailParams,
+        }),
+      })
+        .then((r) => r.text().then((t) => console.log("📧 EmailJS Direct Fetch Status:", r.status, t)))
+        .catch((err) => console.error("📧 EmailJS Direct Fetch Error:", err));
+
+      fetchApi("/api/notify/email", {
+        method: "POST",
+        body: { templateParams: emailParams }
+      }).catch(() => null);
+
       fetchApi("/api/notify/whatsapp", {
         method: "POST",
         body: {
-          clientPhone: fullPhone,
-          clientName: fullName,
+          clientPhone: cleanClientPhone,
+          clientName: `${firstName.trim()} ${lastName.trim()}`,
           firstName: firstName.trim(),
-          clientEmail: email,
+          clientEmail: email.trim(),
           packName: finalPackName,
           bookingDate: dateFormatted,
           bookingTime: time || "",
           location: location,
           numPeople: people,
           totalPriceStr: totalPriceStr,
-          to: cleanClientPhone,
           message: clientWhatsAppMsg,
-          adminMessage: adminWhatsAppMsg
+          adminMessage: adminWhatsAppMsg,
+          templateParams: [
+            firstName.trim(),
+            finalPackName,
+            dateFormatted,
+            time || "",
+            location,
+            people,
+            totalPriceStr
+          ]
         }
       }).catch(() => null);
 
+
+
+
+
+
       setStep(5);
       toast({
-        title: "Reserva Confirmada!",
-        description: "Notificação enviada por WhatsApp.",
+        title: "Reserva Registada!",
+        description: "Notificação enviada por WhatsApp e Email.",
       });
+
     } catch (error) {
       console.error("Booking error:", error);
       setStep(5);
@@ -577,6 +688,22 @@ const Booking = () => {
           >
             {step === 1 && (
               <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {pack.isJetski && isJetskiClosedActive && jetskiClosedUntil && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-800 dark:text-amber-300 w-full max-w-md"
+                  >
+                    <AlertCircle size={20} className="shrink-0 text-amber-600 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <p className="font-bold uppercase tracking-wider">Reservas de Jet Ski Temporariamente Fechadas</p>
+                      <p className="leading-relaxed text-muted-foreground">
+                        As reservas de Jet Ski encontram-se encerradas até ao dia <b className="text-foreground">{format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}</b>. Podes selecionar uma data posterior no calendário para agendar!
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
                 <div className="bg-white rounded-[2rem] shadow-2xl shadow-black/5 p-8 border border-border/40 w-full max-w-md">
                   <div className="flex items-center gap-3 mb-8 border-b border-border/50 pb-6">
                     <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center text-coral">
@@ -592,7 +719,14 @@ const Booking = () => {
                     mode="single"
                     selected={date}
                     onSelect={setDate}
-                    disabled={(d) => isBefore(d, today)}
+                    disabled={(d) => {
+                      if (isBefore(d, today)) return true;
+                      if (pack.isJetski && isJetskiClosedActive && jetskiClosedUntil) {
+                        const untilDate = new Date(jetskiClosedUntil + "T23:59:59");
+                        if (d <= untilDate) return true;
+                      }
+                      return false;
+                    }}
                     month={currentMonth}
                     onMonthChange={setCurrentMonth}
                     fromMonth={set(new Date(), { month: 4, date: 1 })}

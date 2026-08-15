@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, Banknote, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor, User, Home } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, LogOut, Loader2, MapPin, Phone, Mail, Users, Clock, Package, ChevronDown, Camera, UserCircle, Link2, Gift, Trophy, CreditCard, Banknote, CheckCircle2, ImageIcon, DollarSign, Fuel, Wrench, Anchor, User, Home, Gauge, AlertCircle, CalendarX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -87,6 +87,10 @@ const Admin = () => {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceDialog, setMaintenanceDialog] = useState(false);
   const [maintenancePassword, setMaintenancePassword] = useState("");
+  const [jetskiClosed, setJetskiClosed] = useState(false);
+  const [jetskiClosedUntil, setJetskiClosedUntil] = useState("");
+  const [jetskiDialog, setJetskiDialog] = useState(false);
+  const [jetskiCloseDate, setJetskiCloseDate] = useState("");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -132,6 +136,11 @@ const Admin = () => {
     const unsubSettings = api.settings.subscribe("general", (data) => {
       if (data) {
         setMaintenanceMode(data.maintenanceMode === true);
+        const closed = data.jetskiClosed === true;
+        const closedUntil = data.jetskiClosedUntil || "";
+        const isExpired = closedUntil && new Date(closedUntil + "T23:59:59") < new Date();
+        setJetskiClosed(closed && !isExpired);
+        setJetskiClosedUntil(closedUntil);
       }
     });
 
@@ -255,6 +264,41 @@ const Admin = () => {
       setMaintenancePassword("");
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const isJetskiActiveClosed = (() => {
+    if (!jetskiClosed || !jetskiClosedUntil) return false;
+    const until = new Date(jetskiClosedUntil + "T23:59:59");
+    return until >= new Date();
+  })();
+
+  const handleCloseJetski = async () => {
+    if (!jetskiCloseDate) {
+      toast({ title: "Por favor seleciona uma data de reabertura.", variant: "destructive" });
+      return;
+    }
+    try {
+      await api.settings.save("general", {
+        jetskiClosed: true,
+        jetskiClosedUntil: jetskiCloseDate
+      });
+      toast({ title: `Reservas de Jet Ski fechadas até ${format(new Date(jetskiCloseDate + "T00:00:00"), "dd/MM/yyyy")}` });
+      setJetskiDialog(false);
+    } catch (error: any) {
+      toast({ title: "Erro ao fechar reservas", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const reopenJetski = async () => {
+    try {
+      await api.settings.save("general", {
+        jetskiClosed: false,
+        jetskiClosedUntil: ""
+      });
+      toast({ title: "Reservas de Jet Ski reabertas com sucesso!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao reabrir reservas", description: error.message, variant: "destructive" });
     }
   };
 
@@ -613,8 +657,38 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Maintenance Mode Button */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-8">
+      {/* Jet Ski Booking Closure & Maintenance Mode Controls */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-8 space-y-4">
+        {/* Jet Ski Closure Card */}
+        <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${isJetskiActiveClosed ? 'bg-amber-500/10 border-amber-500/30 shadow-sm' : 'bg-card border-border'}`}>
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-full ${isJetskiActiveClosed ? 'bg-amber-500/20 text-amber-500' : 'bg-muted text-muted-foreground'}`}>
+              <Gauge size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display font-bold text-lg text-foreground">Reservas de Jet Ski</h3>
+                <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${isJetskiActiveClosed ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}`}>
+                  {isJetskiActiveClosed ? 'Fechadas' : 'Abertas'}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isJetskiActiveClosed 
+                  ? `As reservas de Jet Ski estão FECHADAS até ${format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}. Reabrem automaticamente após essa data.` 
+                  : 'As reservas de Jet Ski encontram-se abertas ao público no site.'}
+              </p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => isJetskiActiveClosed ? reopenJetski() : setJetskiDialog(true)}
+            variant={isJetskiActiveClosed ? "default" : "destructive"}
+            className={`px-6 font-semibold ${isJetskiActiveClosed ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}
+          >
+            {isJetskiActiveClosed ? 'Reabrir Jet Ski Agora' : 'Fechar Reservas Jet Ski'}
+          </Button>
+        </div>
+
+        {/* Maintenance Mode Button */}
         <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${maintenanceMode ? 'bg-destructive/10 border-destructive/20' : 'bg-card border-border'}`}>
           <div className="flex items-center gap-4">
             <div className={`p-3 rounded-full ${maintenanceMode ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>
@@ -649,6 +723,43 @@ const Admin = () => {
         variant={confirmAction?.variant}
       />
       <Dialog open={expenseDialog.open} onOpenChange={(open) => !open && setExpenseDialog({ ...expenseDialog, open: false })}><DialogContent><DialogHeader><DialogTitle>Adicionar Despesa de {expenseDialog.type === 'gasolina' ? 'Gasolina' : 'Manutenção'}</DialogTitle></DialogHeader><div className="py-4"><label htmlFor="expenseAmount" className="text-sm font-medium">Valor (€)</label><Input id="expenseAmount" type="number" placeholder="0.00" value={expenseDialog.amount || ''} onChange={(e) => setExpenseDialog({ ...expenseDialog, amount: parseFloat(e.target.value) || 0 })} className="mt-1" autoFocus /></div><DialogFooter><Button variant="outline" onClick={() => setExpenseDialog({ open: false, type: null, amount: 0 })}>Cancelar</Button><Button onClick={addExpense}>Guardar Despesa</Button></DialogFooter></DialogContent></Dialog>
+      
+      {/* Jet Ski Closure Dialog */}
+      <Dialog open={jetskiDialog} onOpenChange={setJetskiDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <CalendarX size={20} />
+              Fechar Reservas de Jet Ski
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Escolhe até quando as reservas de Jet Ski devem ficar fechadas. Os clientes não poderão agendar Jet Ski até a essa data e <b>reabrirão automaticamente no dia seguinte</b>.
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Fechadas até ao dia (inclusive):
+              </label>
+              <Input 
+                type="date" 
+                min={format(new Date(), 'yyyy-MM-dd')}
+                value={jetskiCloseDate} 
+                onChange={(e) => setJetskiCloseDate(e.target.value)} 
+                className="w-full"
+                autoFocus 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJetskiDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCloseJetski} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold">
+              Confirmar Fecho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={maintenanceDialog} onOpenChange={setMaintenanceDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
