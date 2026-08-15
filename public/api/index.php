@@ -612,6 +612,7 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                         $stmt->execute([$bookingId]);
                         $bk = $stmt->fetch();
                     } else {
+                        // Encontrar a reserva pendente mais recente
                         $stmt = getDB()->query('SELECT * FROM bookings WHERE confirmed = 0 ORDER BY created_at DESC LIMIT 1');
                         $bk = $stmt ? $stmt->fetch() : null;
                         if (!$bk) {
@@ -665,15 +666,20 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                     $bookingId = $matches[0] ?? null;
 
                     if ($bookingId) {
-                        getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bookingId]);
                         $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
                         $stmt->execute([$bookingId]);
                         $bk = $stmt->fetch();
+                        getDB()->prepare('DELETE FROM bookings WHERE id = ?')->execute([$bookingId]);
                     } else {
-                        $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
+                        // Encontrar a reserva pendente mais recente para notificar o cliente antes de eliminar
+                        $stmt = getDB()->query('SELECT * FROM bookings WHERE confirmed = 0 ORDER BY created_at DESC LIMIT 1');
                         $bk = $stmt ? $stmt->fetch() : null;
+                        if (!$bk) {
+                            $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
+                            $bk = $stmt ? $stmt->fetch() : null;
+                        }
                         if ($bk) {
-                            getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bk['id']]);
+                            getDB()->prepare('DELETE FROM bookings WHERE id = ?')->execute([$bk['id']]);
                         }
                     }
 
@@ -711,7 +717,7 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
                     }
 
                     if (!empty($adminPhone)) {
-                        sendWhatsAppMessage($adminPhone, "❌ Reserva recusada e cliente notificado.");
+                        sendWhatsAppMessage($adminPhone, "❌ Reserva recusada e eliminada. Cliente notificado.");
                     }
                     $processedActions[] = ['action' => 'reject', 'booking_id' => $bk['id'] ?? null];
                 }
