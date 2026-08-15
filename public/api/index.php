@@ -523,107 +523,203 @@ if ($method === 'GET' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks',
     respond(['error' => 'Token de verificação inválido'], 403);
 }
 
+// GET /api/debug/webhook (Ver registos do webhook e testar)
+if ($method === 'GET' && ($path === 'debug/webhook' || $seg === ['debug','webhook'])) {
+    $logFile = UPLOADS_DIR . 'webhook_logs.json';
+    $logs = file_exists($logFile) ? json_decode(file_get_contents($logFile), true) : [];
+    $stmt = getDB()->query('SELECT val_data FROM settings WHERE key_name = "last_webhook_log"');
+    $dbLog = $stmt ? $stmt->fetch() : null;
+    respond([
+        'file_logs' => $logs,
+        'db_last_log' => $dbLog ? json_decode($dbLog['val_data'], true) : null
+    ]);
+}
+
 // POST /api/webhooks/whatsapp (Processar respostas aos botões Aceitar/Recusar)
 if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks','whatsapp'])) {
-    $body = getBody();
-    $entry = $body['entry'][0] ?? null;
-    $change = $entry['changes'][0]['value'] ?? null;
-    $message = $change['messages'][0] ?? null;
+    $rawInput = file_get_contents('php://input');
+    $body = json_decode($rawInput, true) ?: [];
 
-    if ($message) {
-        $msgType = $message['type'] ?? '';
-        $adminPhone = $message['from'] ?? '';
-        $buttonPayload = '';
+    // 1. Guardar log detalhado do Webhook recebido
+    $logEntry = [
+        'timestamp' => date('c'),
+        'headers' => getallheaders(),
+        'raw_body' => $body
+    ];
+    $logFile = UPLOADS_DIR . 'webhook_logs.json';
+    ensureUploads();
+    $existingLogs = file_exists($logFile) ? json_decode(file_get_contents($logFile), true) : [];
+    if (!is_array($existingLogs)) $existingLogs = [];
+    array_unshift($existingLogs, $logEntry);
+    if (count($existingLogs) > 20) $existingLogs = array_slice($existingLogs, 0, 20);
+    @file_put_contents($logFile, json_encode($existingLogs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-        if ($msgType === 'button') {
-            $buttonPayload = $message['button']['payload'] ?? $message['button']['text'] ?? '';
-        } elseif ($msgType === 'interactive') {
-            $buttonPayload = $message['interactive']['button_reply']['id'] ?? $message['interactive']['button_reply']['title'] ?? '';
-        } elseif ($msgType === 'text') {
-            $buttonPayload = $message['text']['body'] ?? '';
-        }
+    try {
+        getDB()->prepare('INSERT INTO settings (key_name, val_data) VALUES ("last_webhook_log", ?) ON DUPLICATE KEY UPDATE val_data = ?')
+            ->execute([json_encode($logEntry, JSON_UNESCAPED_UNICODE), json_encode($logEntry, JSON_UNESCAPED_UNICODE)]);
+    } catch (\Throwable $t) {}
 
-        $cleanPayload = strtolower(trim($buttonPayload));
+    // 2. Extrair mensagens de qualquer nível da estrutura do Webhook da Meta
+    $entries = $body['entry'] ?? [];
+    $processedActions = [];
 
-        if (strpos($cleanPayload, 'accept') !== false || strpos($cleanPayload, 'aceitar') !== false) {
-            preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
-            $bookingId = $matches[0] ?? null;
+    foreach ($entries as $entry) {
+        $changes = $entry['changes'] ?? [];
+        foreach ($changes as $change) {
+            $value = $change['value'] ?? [];
+            $messages = $value['messages'] ?? [];
 
-            if ($bookingId) {
-                getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bookingId]);
-                $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
-                $stmt->execute([$bookingId]);
-                $bk = $stmt->fetch();
-            } else {
-                $stmt = getDB()->query('SELECT * FROM bookings WHERE confirmed = 0 ORDER BY created_at DESC LIMIT 1');
-                $bk = $stmt->fetch();
-                if ($bk) {
-                    getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bk['id']]);
+            foreach ($messages as $message) {
+                $adminPhone = $message['from'] ?? '';
+                $msgType = $message['type'] ?? '';
+                $buttonPayload = '';
+
+                if ($msgType === 'button') {
+                    $buttonPayload = $message['button']['payload'] ?? $message['button']['text'] ?? '';
+                } elseif ($msgType === 'interactive') {
+                    $buttonPayload = $message['interactive']['button_reply']['id'] ?? $message['interactive']['button_reply']['title'] ?? '';
+                } elseif ($msgType === 'text') {
+                    $buttonPayload = $message['text']['body'] ?? '';
                 }
-            }
 
-            if ($bk && !empty($bk['client_phone'])) {
-                $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
-                $customerParams = [
-                    $firstName,
-                    $bk['pack_name'],
-                    $bk['booking_date'],
-                    $bk['booking_time'],
-                    $bk['location'] ?? 'Setúbal',
-                    (string)($bk['num_people'] ?? 1),
-                    (string)($bk['price'] ?? 0) . '€'
-                ];
-                // Tentar enviar Template 'reserva_aceite' ou 'reserva_aprovada' ao cliente
-                $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_aceite', $customerParams);
-                if (!$sentTpl) {
-                    $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_aprovada', $customerParams);
+                $cleanPayload = mb_strtolower(trim($buttonPayload), 'UTF-8');
+
+                $isAccept = (
+                    strpos($cleanPayload, 'accept') !== false ||
+                    strpos($cleanPayload, 'aceitar') !== false ||
+                    strpos($cleanPayload, 'aceite') !== false ||
+                    strpos($cleanPayload, 'confirmar') !== false ||
+                    strpos($cleanPayload, 'sim') !== false
+                );
+
+                $isReject = (
+                    strpos($cleanPayload, 'reject') !== false ||
+                    strpos($cleanPayload, 'recusar') !== false ||
+                    strpos($cleanPayload, 'recusa') !== false ||
+                    strpos($cleanPayload, 'cancelar') !== false ||
+                    strpos($cleanPayload, 'rejeitar') !== false ||
+                    strpos($cleanPayload, 'não') !== false ||
+                    strpos($cleanPayload, 'nao') !== false
+                );
+
+                if ($isAccept) {
+                    preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
+                    $bookingId = $matches[0] ?? null;
+
+                    if ($bookingId) {
+                        getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bookingId]);
+                        $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
+                        $stmt->execute([$bookingId]);
+                        $bk = $stmt->fetch();
+                    } else {
+                        $stmt = getDB()->query('SELECT * FROM bookings WHERE confirmed = 0 ORDER BY created_at DESC LIMIT 1');
+                        $bk = $stmt ? $stmt->fetch() : null;
+                        if (!$bk) {
+                            $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
+                            $bk = $stmt ? $stmt->fetch() : null;
+                        }
+                        if ($bk) {
+                            getDB()->prepare('UPDATE bookings SET confirmed = 1 WHERE id = ?')->execute([$bk['id']]);
+                        }
+                    }
+
+                    if ($bk && !empty($bk['client_phone'])) {
+                        $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
+                        $params7 = [
+                            $firstName,
+                            $bk['pack_name'],
+                            $bk['booking_date'],
+                            $bk['booking_time'],
+                            $bk['location'] ?? 'Setúbal',
+                            (string)($bk['num_people'] ?? 1),
+                            (string)($bk['price'] ?? 0) . '€'
+                        ];
+                        $params4 = [
+                            $firstName,
+                            $bk['pack_name'],
+                            $bk['booking_date'],
+                            $bk['booking_time']
+                        ];
+
+                        $sentTpl = false;
+                        $candidateTemplates = ['reserva_aceite', 'reserva_confirmada', 'reserva_aprovada', 'reserva_aceite_cliente', 'reserva_confirmada_final'];
+                        foreach ($candidateTemplates as $tpl) {
+                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $params7);
+                            if ($sentTpl) break;
+                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $params4);
+                            if ($sentTpl) break;
+                        }
+
+                        if (!$sentTpl) {
+                            $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
+                            sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                        }
+                    }
+
+                    if (!empty($adminPhone)) {
+                        sendWhatsAppMessage($adminPhone, "✅ Reserva confirmada com sucesso e cliente notificado!");
+                    }
+                    $processedActions[] = ['action' => 'accept', 'booking_id' => $bk['id'] ?? null];
+                } elseif ($isReject) {
+                    preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
+                    $bookingId = $matches[0] ?? null;
+
+                    if ($bookingId) {
+                        getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bookingId]);
+                        $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
+                        $stmt->execute([$bookingId]);
+                        $bk = $stmt->fetch();
+                    } else {
+                        $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
+                        $bk = $stmt ? $stmt->fetch() : null;
+                        if ($bk) {
+                            getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bk['id']]);
+                        }
+                    }
+
+                    if ($bk && !empty($bk['client_phone'])) {
+                        $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
+                        $rejectParams4 = [
+                            $firstName,
+                            $bk['pack_name'],
+                            $bk['booking_date'],
+                            $bk['booking_time']
+                        ];
+                        $rejectParams7 = [
+                            $firstName,
+                            $bk['pack_name'],
+                            $bk['booking_date'],
+                            $bk['booking_time'],
+                            $bk['location'] ?? 'Setúbal',
+                            (string)($bk['num_people'] ?? 1),
+                            (string)($bk['price'] ?? 0) . '€'
+                        ];
+
+                        $sentTpl = false;
+                        $candidateTemplates = ['reserva_recusada', 'reserva_cancelada', 'reserva_recusa', 'reserva_indisponivel', 'reserva_recusada_cliente'];
+                        foreach ($candidateTemplates as $tpl) {
+                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $rejectParams4);
+                            if ($sentTpl) break;
+                            $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], $tpl, $rejectParams7);
+                            if ($sentTpl) break;
+                        }
+
+                        if (!$sentTpl) {
+                            $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor tente agendar para outro dia! 🚤 — Royal Coast";
+                            sendWhatsAppMessage($bk['client_phone'], $msgClient);
+                        }
+                    }
+
+                    if (!empty($adminPhone)) {
+                        sendWhatsAppMessage($adminPhone, "❌ Reserva recusada e cliente notificado.");
+                    }
+                    $processedActions[] = ['action' => 'reject', 'booking_id' => $bk['id'] ?? null];
                 }
-                if (!$sentTpl) {
-                    $msgClient = "🎉 *Reserva Confirmada!*\n\nOlá {$firstName}, a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* foi **CONFIRMADA** com sucesso pela administração!\n\nAguardamos por si na Royal Coast. 🚤";
-                    sendWhatsAppMessage($bk['client_phone'], $msgClient);
-                }
-            }
-
-            if (!empty($adminPhone)) {
-                sendWhatsAppMessage($adminPhone, "✅ Reserva confirmada com sucesso e cliente notificado!");
-            }
-        } elseif (strpos($cleanPayload, 'reject') !== false || strpos($cleanPayload, 'recusar') !== false) {
-            preg_match('/bk_[a-zA-Z0-9]+/', $buttonPayload, $matches);
-            $bookingId = $matches[0] ?? null;
-
-            if ($bookingId) {
-                getDB()->prepare('UPDATE bookings SET confirmed = 0 WHERE id = ?')->execute([$bookingId]);
-                $stmt = getDB()->prepare('SELECT * FROM bookings WHERE id = ?');
-                $stmt->execute([$bookingId]);
-                $bk = $stmt->fetch();
-            } else {
-                $stmt = getDB()->query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 1');
-                $bk = $stmt->fetch();
-            }
-
-            if ($bk && !empty($bk['client_phone'])) {
-                $firstName = explode(' ', trim($bk['client_name']))[0] ?: 'Cliente';
-                $rejectParams = [
-                    $firstName,
-                    $bk['pack_name'],
-                    $bk['booking_date'],
-                    $bk['booking_time']
-                ];
-                // Tentar enviar Template 'reserva_recusada' ao cliente
-                $sentTpl = sendWhatsAppTemplatePHP($bk['client_phone'], 'reserva_recusada', $rejectParams);
-                if (!$sentTpl) {
-                    $msgClient = "❌ *Reserva Indisponível*\n\nOlá {$firstName}, lamentamos mas a sua reserva para *{$bk['pack_name']}* no dia *{$bk['booking_date']}* às *{$bk['booking_time']}* não pôde ser aceite por indisponibilidade de horário/embarcação.\n\nPor favor tente agendar para outro dia! 🚤 — Royal Coast";
-                    sendWhatsAppMessage($bk['client_phone'], $msgClient);
-                }
-            }
-
-            if (!empty($adminPhone)) {
-                sendWhatsAppMessage($adminPhone, "❌ Reserva recusada e cliente notificado.");
             }
         }
     }
 
-    respond(['status' => 'success']);
+    respond(['status' => 'success', 'processed' => $processedActions]);
 }
 
 // GET /api/auth/me
