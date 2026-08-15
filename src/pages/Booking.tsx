@@ -592,6 +592,42 @@ const Booking = () => {
     );
   }
 
+  if (pack.isJetski && isJetskiClosedActive && jetskiClosedUntil) {
+    return (
+      <div className="min-h-screen bg-[#FDFDFD] flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 max-w-lg w-full text-center shadow-2xl border border-border/50 relative overflow-hidden animate-in fade-in zoom-in-95 duration-400">
+          <div className="w-20 h-20 rounded-3xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <AlertCircle size={42} strokeWidth={2.5} />
+          </div>
+          <h2 className="font-display font-900 text-2xl sm:text-3xl text-foreground mb-3 tracking-tight">
+            Reservas de Jet Ski Indisponíveis
+          </h2>
+          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-6">
+            As reservas online para experiências de Jet Ski encontram-se temporariamente encerradas até ao dia <b className="text-foreground">{format(new Date(jetskiClosedUntil + "T00:00:00"), "d 'de' MMMM 'de' yyyy", { locale: pt })}</b>.
+          </p>
+          <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 mb-8 text-xs text-amber-800 dark:text-amber-300 font-medium">
+            ⚡ As reservas reabrirão automaticamente após esta data.
+          </div>
+          <div className="flex flex-col gap-3">
+            <Button 
+              onClick={() => navigate("/")} 
+              className="w-full py-6 rounded-2xl font-display font-bold text-sm ocean-gradient text-white shadow-ocean shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              Ver Passeios de Barco Disponíveis
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/")} 
+              className="w-full py-5 rounded-2xl font-display text-xs text-muted-foreground"
+            >
+              Voltar à Página Inicial
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FDFDFD]">
       {/* Header Section */}
