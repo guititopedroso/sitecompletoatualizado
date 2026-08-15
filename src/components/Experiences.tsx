@@ -398,26 +398,27 @@ const Experiences = ({ referralCode }: { referralCode?: string }) => {
 
 
 
+                          {isJetskiClosedActive && jetskiClosedUntil && (
+                            <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                                Disponível a partir de {format(new Date(new Date(jetskiClosedUntil + "T00:00:00").getTime() + 86400000), "d 'de' MMMM", { locale: pt })}
+                              </span>
+                            </div>
+                          )}
+
                           <Button 
-                            disabled={isJetskiClosedActive}
                             onClick={() => {
-                              if (isJetskiClosedActive) return;
                               navigate(`/reservar?pack=${pack.slug}${referralCode ? `&ref=${referralCode}` : ""}`);
                             }}
                             className={cn(
-                              "w-full rounded-2xl py-5 font-display font-900 uppercase tracking-wide text-[10px] xl:text-xs shadow-xl transition-all text-white px-2",
-                              isJetskiClosedActive 
-                                ? "bg-muted-foreground/30 text-muted-foreground cursor-not-allowed opacity-70 shadow-none hover:bg-muted-foreground/30"
-                                : cn(
-                                    "active:scale-95 group-hover:shadow-2xl",
-                                    pack.theme === "turquoise-light" && "bg-turquoise-light hover:bg-turquoise-light/90 hover:shadow-turquoise-light/30",
-                                    pack.theme === "coral" && "sunset-gradient hover:shadow-coral/30",
-                                    pack.theme === "ocean" && "ocean-gradient hover:shadow-ocean/30",
-                                    pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30"
-                                  )
+                              "w-full rounded-2xl py-5 font-display font-900 uppercase tracking-wide text-[10px] xl:text-xs shadow-xl transition-all active:scale-95 group-hover:shadow-2xl text-white px-2",
+                              pack.theme === "turquoise-light" && "bg-turquoise-light hover:bg-turquoise-light/90 hover:shadow-turquoise-light/30",
+                              pack.theme === "coral" && "sunset-gradient hover:shadow-coral/30",
+                              pack.theme === "ocean" && "ocean-gradient hover:shadow-ocean/30",
+                              pack.theme === "turquoise-dark" && "turquoise-gradient hover:shadow-turquoise/30"
                             )}
                           >
-                            {isJetskiClosedActive ? "Reservas Fechadas" : t("exp_book_now")}
+                            {t("exp_book_now")}
                           </Button>
                         </div>
                       </motion.div>
