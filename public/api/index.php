@@ -570,7 +570,15 @@ if ($method === 'POST' && ($path === 'webhooks/whatsapp' || $seg === ['webhooks'
             $messages = $value['messages'] ?? [];
 
             foreach ($messages as $message) {
-                $adminPhone = $message['from'] ?? '';
+                $fromPhone = formatWhatsAppPhonePHP($message['from'] ?? '');
+                $adminPhones = ['351927314506', '351930663083'];
+
+                // SEGURANÇA ESTRITA: Apenas os 2 números de admin autorizados podem aceitar ou recusar reservas
+                if (!in_array($fromPhone, $adminPhones)) {
+                    continue;
+                }
+
+                $adminPhone = $fromPhone;
                 $msgType = $message['type'] ?? '';
                 $buttonPayload = '';
 
